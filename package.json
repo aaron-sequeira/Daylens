@@ -1,0 +1,10 @@
+{
+  "name": "worksight",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "pnpm --filter @worksight/agent dev",
+    "build": "pnpm --filter @worksight/agent build",
+    "test": "pnpm --filter @worksight/agent test"
+  }
+}

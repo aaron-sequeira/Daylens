@@ -1,0 +1,41 @@
+{
+  "name": "@worksight/agent",
+  "version": "0.0.0",
+  "main": "out/main/index.js",
+  "scripts": {
+    "predev": "electron-builder install-app-deps",
+    "dev": "electron-vite dev",
+    "prebuild": "electron-builder install-app-deps",
+    "build": "electron-vite build && electron-builder",
+    "pretest": "pnpm rebuild better-sqlite3",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "active-win": "^8.2.1",
+    "uiohook-napi": "^1.5.4",
+    "@anthropic-ai/sdk": "^0.39.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "electron": "^33.3.1",
+    "electron-vite": "^2.3.0",
+    "electron-builder": "^25.1.8",
+    "@electron/rebuild": "^3.7.1",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8",
+    "typescript": "^5.7.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react": "^19.0.4",
+    "@types/react-dom": "^19.0.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@vitejs/plugin-react": "^4.3.4",
+    "recharts": "^2.15.0",
+    "tailwindcss": "^3.4.17",
+    "postcss": "^8.5.1",
+    "autoprefixer": "^10.4.20"
+  }
+}
