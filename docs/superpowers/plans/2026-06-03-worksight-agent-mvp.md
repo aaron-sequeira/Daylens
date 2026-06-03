@@ -740,7 +740,7 @@ describe('settings', () => {
     store.setApiKey('sk-test');
     expect(store.get().hasApiKey).toBe(true);
     expect(store.getApiKey()).toBe('sk-test');
-    expect((store.get() as Record<string, unknown>).anthropicApiKey).toBeUndefined();
+    expect((store.get() as unknown as Record<string, unknown>).anthropicApiKey).toBeUndefined();
   });
 });
 ```
