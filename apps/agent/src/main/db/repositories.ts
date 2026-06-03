@@ -21,6 +21,7 @@ export interface Repositories {
   insertActivitySample(i: ActivitySampleInput): void;
   getFocusSessions(date: ISODate): FocusSessionRow[];
   getActivitySamples(date: ISODate): ActivitySampleRow[];
+  getAppEvents(date: ISODate): { id: number; appName: string; type: 'opened' | 'closed'; at: number }[];
   getAvailableDays(): ISODate[];
   upsertDailySummary(c: DailySummaryCache): void;
   getDailySummary(date: ISODate): DailySummaryCache | null;
@@ -67,6 +68,11 @@ export function createRepositories(db: Database.Database): Repositories {
                 mouse_distance_px AS mouseDistancePx, clicks, scrolls, key_events AS keyEvents, active, app_name AS appName, date
          FROM activity_samples WHERE date = ? ORDER BY bucket_start`
       ).all(date) as ActivitySampleRow[];
+    },
+    getAppEvents(date) {
+      return db.prepare(
+        `SELECT id, app_name AS appName, type, at FROM app_events WHERE date = ? ORDER BY at`
+      ).all(date) as { id: number; appName: string; type: 'opened' | 'closed'; at: number }[];
     },
     getAvailableDays() {
       const rows = db.prepare(

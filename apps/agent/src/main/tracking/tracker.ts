@@ -1,0 +1,109 @@
+import type { AppSettings } from '../../shared/types';
+import type { Repositories } from '../db/repositories';
+import type { ForegroundSource, InputSource, Clock } from './types';
+import { isActiveBucket } from './idle';
+import { createPidWatcher, isPidAlive } from './processLifecycle';
+
+export interface TrackerDeps {
+  foreground: ForegroundSource;
+  input: InputSource;
+  clock: Clock;
+  repo: Repositories;
+  getSettings: () => AppSettings;
+  getSystemIdleSec: () => number;
+  isPidAlive?: (pid: number) => boolean;
+  onUpdate?: () => void;
+}
+
+export interface Tracker {
+  start(): void;
+  stop(): void;
+  tick(): Promise<void>;
+  flushBucket(): void;
+  status(): { paused: boolean; currentApp: string | null; sessionStartedAt: number | null };
+}
+
+const dateOf = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
+
+export function createTracker(deps: TrackerDeps): Tracker {
+  const aliveFn = deps.isPidAlive ?? isPidAlive;
+  const watcher = createPidWatcher(aliveFn);
+  let current: { id: number; appName: string; pid: number | null; title: string | null; startedAt: number } | null = null;
+  let lastBucketEnd = deps.clock.now();
+  let pollTimer: NodeJS.Timeout | null = null;
+  let bucketTimer: NodeJS.Timeout | null = null;
+  const openedPids = new Set<number>();
+
+  const changed = (fgApp: string, fgPid: number, fgTitle: string | null): boolean =>
+    !current || current.appName !== fgApp || current.pid !== fgPid || current.title !== fgTitle;
+
+  const finalizeCurrent = (at: number): void => {
+    if (current) { deps.repo.finalizeFocusSession(current.id, at); current = null; }
+  };
+
+  // Returns true if this pid has already produced an 'opened' event; otherwise records it as seen.
+  function alreadyOpened(pid: number): boolean {
+    if (openedPids.has(pid)) return true;
+    openedPids.add(pid);
+    return false;
+  }
+
+  async function tick(): Promise<void> {
+    const now = deps.clock.now();
+    const fg = await deps.foreground.get();
+
+    for (const dead of watcher.collectDead()) {
+      deps.repo.insertAppEvent({ appName: dead.appName, appPath: null, pid: dead.pid, type: 'closed', at: now, date: dateOf(now) });
+    }
+    if (!fg) return;
+
+    if (changed(fg.appName, fg.pid, fg.title)) {
+      finalizeCurrent(now);
+      const settings = deps.getSettings();
+      const title = settings.captureWindowTitles ? fg.title : null;
+      if (!alreadyOpened(fg.pid)) {
+        deps.repo.insertAppEvent({ appName: fg.appName, appPath: fg.appPath, pid: fg.pid, type: 'opened', at: now, date: dateOf(now) });
+      }
+      watcher.track(fg.pid, fg.appName);
+      const id = deps.repo.startFocusSession({ appName: fg.appName, appPath: fg.appPath, windowTitle: title, pid: fg.pid, startedAt: now, date: dateOf(now) });
+      current = { id, appName: fg.appName, pid: fg.pid, title, startedAt: now };
+      deps.onUpdate?.();
+    }
+  }
+
+  function flushBucket(): void {
+    const now = deps.clock.now();
+    const counts = deps.input.drain();
+    const settings = deps.getSettings();
+    const active: 0 | 1 = isActiveBucket(counts, deps.getSystemIdleSec(), settings.idleThresholdSec) ? 1 : 0;
+    deps.repo.insertActivitySample({
+      bucketStart: lastBucketEnd, bucketEnd: now,
+      mouseMoves: counts.mouseMoves, mouseDistancePx: counts.mouseDistancePx, clicks: counts.clicks,
+      scrolls: counts.scrolls, keyEvents: counts.keyEvents, active, appName: current?.appName ?? null, date: dateOf(now)
+    });
+    lastBucketEnd = now;
+    deps.onUpdate?.();
+  }
+
+  return {
+    start() {
+      deps.input.start();
+      const s = deps.getSettings();
+      lastBucketEnd = deps.clock.now();
+      pollTimer = setInterval(() => { void tick(); }, s.pollIntervalMs);
+      bucketTimer = setInterval(() => flushBucket(), s.bucketSizeSec * 1000);
+    },
+    stop() {
+      if (pollTimer) clearInterval(pollTimer);
+      if (bucketTimer) clearInterval(bucketTimer);
+      pollTimer = bucketTimer = null;
+      finalizeCurrent(deps.clock.now());
+      deps.input.stop();
+    },
+    tick,
+    flushBucket,
+    status() {
+      return { paused: deps.getSettings().trackingPaused, currentApp: current?.appName ?? null, sessionStartedAt: current?.startedAt ?? null };
+    }
+  };
+}
