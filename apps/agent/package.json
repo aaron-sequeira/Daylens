@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "main": "out/main/index.js",
   "scripts": {
-    "predev": "electron-builder install-app-deps",
+    "predev": "node scripts/rebuild-native.cjs",
     "dev": "electron-vite dev",
-    "prebuild": "electron-builder install-app-deps",
-    "build": "electron-vite build && electron-builder",
+    "prebuild": "node scripts/rebuild-native.cjs",
+    "build": "electron-vite build && electron-builder --config.npmRebuild=false",
     "pretest": "pnpm rebuild better-sqlite3",
     "test": "vitest run",
     "test:watch": "vitest",

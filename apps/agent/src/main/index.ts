@@ -10,6 +10,9 @@ import { UiohookInputSource } from './tracking/inputActivity';
 import { registerIpc } from './ipc/handlers';
 import { CH } from './ipc/channels';
 
+// Filesystem-safe app name so userData (the SQLite location) is not under a scoped "@worksight/agent" path.
+app.setName('WorkSight Agent');
+
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
