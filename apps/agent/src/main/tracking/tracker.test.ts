@@ -4,6 +4,7 @@ import { SCHEMA_SQL } from '../db/schema';
 import { createRepositories, Repositories } from '../db/repositories';
 import { createTracker, Tracker } from './tracker';
 import type { ForegroundInfo, InputCounts } from '../../shared/types';
+import { localDate } from '../../shared/date';
 
 let repo: Repositories;
 let nowMs: number;
@@ -37,7 +38,7 @@ beforeEach(() => {
 
 describe('tracker', () => {
   it('opens a session and an opened event on first foreground app', async () => {
-    const day = new Date(nowMs).toISOString().slice(0, 10);
+    const day = localDate(nowMs);
     foreground = { appName: 'Code', appPath: '/c', title: 'a.ts', pid: 10 };
     await tracker.tick();
     expect(repo.getFocusSessions(day)).toHaveLength(1);
@@ -45,7 +46,7 @@ describe('tracker', () => {
   });
 
   it('finalizes the previous session with a duration when the app changes', async () => {
-    const day = new Date(nowMs).toISOString().slice(0, 10);
+    const day = localDate(nowMs);
     foreground = { appName: 'Code', appPath: '/c', title: 'a.ts', pid: 10 };
     await tracker.tick();
     nowMs += 5000;
@@ -58,7 +59,7 @@ describe('tracker', () => {
   });
 
   it('emits a closed event when a tracked pid dies', async () => {
-    const day = new Date(nowMs).toISOString().slice(0, 10);
+    const day = localDate(nowMs);
     foreground = { appName: 'Code', appPath: '/c', title: 'a.ts', pid: 10 };
     await tracker.tick();
     alivePids.delete(10);
@@ -70,7 +71,7 @@ describe('tracker', () => {
   });
 
   it('writes an active sample when input occurred and inactive when idle', () => {
-    const day = new Date(nowMs).toISOString().slice(0, 10);
+    const day = localDate(nowMs);
     foreground = { appName: 'Code', appPath: '/c', title: 'a.ts', pid: 10 };
     drained = { ...blank(), clicks: 3 };
     tracker.flushBucket();
@@ -84,5 +85,34 @@ describe('tracker', () => {
     tracker.flushBucket();
     samples = repo.getActivitySamples(day);
     expect(samples[1].active).toBe(0);
+  });
+
+  it('emits a fresh opened event when a pid is reused after closing', async () => {
+    const day = localDate(nowMs);
+    foreground = { appName: 'Code', appPath: '/c', title: 'a.ts', pid: 10 };
+    await tracker.tick();
+    alivePids.delete(10);
+    nowMs += 1000;
+    foreground = { appName: 'Chrome', appPath: '/ch', title: 'tab', pid: 20 };
+    await tracker.tick();
+    alivePids.add(10); // OS reuses pid 10 for a different app
+    nowMs += 1000;
+    foreground = { appName: 'Slack', appPath: '/s', title: 'general', pid: 10 };
+    await tracker.tick();
+    const opened = repo.getAppEvents(day).filter(e => e.type === 'opened');
+    expect(opened.some(e => e.appName === 'Slack')).toBe(true);
+  });
+
+  it('finalizes the open session and flushes a final bucket on stop', async () => {
+    const day = localDate(nowMs);
+    foreground = { appName: 'Code', appPath: '/c', title: 'a.ts', pid: 10 };
+    await tracker.tick();
+    nowMs += 30000;
+    drained = { ...blank(), keyEvents: 5 };
+    tracker.stop();
+    const rows = repo.getFocusSessions(day);
+    expect(rows[0].endedAt).toBe(nowMs);
+    expect(rows[0].durationSec).toBe(30);
+    expect(repo.getActivitySamples(day)).toHaveLength(1);
   });
 });

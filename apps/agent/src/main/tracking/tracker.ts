@@ -3,6 +3,7 @@ import type { Repositories } from '../db/repositories';
 import type { ForegroundSource, InputSource, Clock } from './types';
 import { isActiveBucket } from './idle';
 import { createPidWatcher, isPidAlive } from './processLifecycle';
+import { localDate } from '../../shared/date';
 
 export interface TrackerDeps {
   foreground: ForegroundSource;
@@ -23,12 +24,12 @@ export interface Tracker {
   status(): { paused: boolean; currentApp: string | null; sessionStartedAt: number | null };
 }
 
-const dateOf = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
+const dateOf = (ms: number): string => localDate(ms);
 
 export function createTracker(deps: TrackerDeps): Tracker {
   const aliveFn = deps.isPidAlive ?? isPidAlive;
   const watcher = createPidWatcher(aliveFn);
-  let current: { id: number; appName: string; pid: number | null; title: string | null; startedAt: number } | null = null;
+  let current: { id: number; appName: string; pid: number; title: string | null; startedAt: number } | null = null;
   let lastBucketEnd = deps.clock.now();
   let pollTimer: NodeJS.Timeout | null = null;
   let bucketTimer: NodeJS.Timeout | null = null;
@@ -54,6 +55,7 @@ export function createTracker(deps: TrackerDeps): Tracker {
 
     for (const dead of watcher.collectDead()) {
       deps.repo.insertAppEvent({ appName: dead.appName, appPath: null, pid: dead.pid, type: 'closed', at: now, date: dateOf(now) });
+      openedPids.delete(dead.pid); // allow a fresh 'opened' if the OS later reuses this pid
     }
     if (!fg) return;
 
@@ -76,6 +78,7 @@ export function createTracker(deps: TrackerDeps): Tracker {
     const counts = deps.input.drain();
     const settings = deps.getSettings();
     const active: 0 | 1 = isActiveBucket(counts, deps.getSystemIdleSec(), settings.idleThresholdSec) ? 1 : 0;
+    // MVP: the whole bucket is attributed to the app focused at flush time (bucket-granularity).
     deps.repo.insertActivitySample({
       bucketStart: lastBucketEnd, bucketEnd: now,
       mouseMoves: counts.mouseMoves, mouseDistancePx: counts.mouseDistancePx, clicks: counts.clicks,
@@ -97,6 +100,7 @@ export function createTracker(deps: TrackerDeps): Tracker {
       if (pollTimer) clearInterval(pollTimer);
       if (bucketTimer) clearInterval(bucketTimer);
       pollTimer = bucketTimer = null;
+      if (deps.clock.now() > lastBucketEnd) flushBucket(); // capture the in-progress bucket so the last interval isn't lost
       finalizeCurrent(deps.clock.now());
       deps.input.stop();
     },
