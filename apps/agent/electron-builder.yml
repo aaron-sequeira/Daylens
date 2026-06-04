@@ -13,8 +13,19 @@ directories:
 files:
   - out/**/*
   - package.json
-asarUnpack:
-  - "**/*.node"
+# asar is DISABLED on purpose. active-win has a native .node, so electron-builder unpacks
+# it to app.asar.unpacked — but its runtime JS dependency (@mapbox/node-pre-gyp, used to
+# locate that .node) stays inside app.asar and is unreachable from the unpacked copy
+# (require walks the unpacked tree, never crossing back into the archive) -> MODULE_NOT_FOUND
+# at call time -> foreground lookups silently return null -> nothing is tracked. Shipping
+# unarchived keeps the whole dependency tree on disk with normal resolution.
+asar: false
+# Runtime tray icon. buildResources (resources/) is build-time only and is NOT copied
+# into the app, so ship tray.png explicitly to process.resourcesPath; index.ts loads it
+# from there when packaged. (icon.png is only the installer/exe icon, set via win.icon.)
+extraResources:
+  - from: resources/tray.png
+    to: tray.png
 win:
   target: nsis
   icon: resources/icon.png

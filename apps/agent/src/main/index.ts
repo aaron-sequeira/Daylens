@@ -51,21 +51,29 @@ app.whenReady().then(() => {
 
   createWindow();
 
-  tray = new Tray(join(__dirname, '../../resources/tray.png'));
-  const refreshTrayMenu = (): void => {
-    const paused = settings.get().trackingPaused;
-    tray?.setContextMenu(Menu.buildFromTemplate([
-      { label: 'Open WorkSight', click: () => { if (!win) createWindow(); win?.show(); } },
-      { label: paused ? 'Resume tracking' : 'Pause tracking', click: () => { paused ? tracker.start() : tracker.stop(); settings.set({ trackingPaused: !paused }); refreshTrayMenu(); pushUpdate(); } },
-      { type: 'separator' },
-      { label: 'Quit', click: () => { (app as unknown as { isQuitting?: boolean }).isQuitting = true; app.quit(); } }
-    ]));
-  };
-  refreshTrayMenu();
-  tray.setToolTip('WorkSight Agent');
-
+  // Start tracking BEFORE building the tray: a tray/icon failure must never prevent tracking.
   const s = settings.get();
   if (s.consentGranted && !s.trackingPaused) tracker.start();
+
+  try {
+    // In the packaged app the icon ships via extraResources at process.resourcesPath;
+    // unpackaged/dev it sits next to out/ in the source resources folder.
+    const trayIcon = app.isPackaged ? join(process.resourcesPath, 'tray.png') : join(__dirname, '../../resources/tray.png');
+    tray = new Tray(trayIcon);
+    const refreshTrayMenu = (): void => {
+      const paused = settings.get().trackingPaused;
+      tray?.setContextMenu(Menu.buildFromTemplate([
+        { label: 'Open WorkSight', click: () => { if (!win) createWindow(); win?.show(); } },
+        { label: paused ? 'Resume tracking' : 'Pause tracking', click: () => { paused ? tracker.start() : tracker.stop(); settings.set({ trackingPaused: !paused }); refreshTrayMenu(); pushUpdate(); } },
+        { type: 'separator' },
+        { label: 'Quit', click: () => { (app as unknown as { isQuitting?: boolean }).isQuitting = true; app.quit(); } }
+      ]));
+    };
+    refreshTrayMenu();
+    tray.setToolTip('WorkSight Agent');
+  } catch (e) {
+    console.error('[main] tray setup failed (continuing, tracking unaffected):', e);
+  }
 
   app.on('before-quit', () => { (app as unknown as { isQuitting?: boolean }).isQuitting = true; tracker.stop(); });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
