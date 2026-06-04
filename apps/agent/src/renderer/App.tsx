@@ -4,6 +4,7 @@ import { api } from './lib/ipc';
 import { ConsentGate } from './components/ConsentGate';
 import { TodayView } from './components/TodayView';
 import { SettingsView } from './components/SettingsView';
+import { TrackingStatusBadge } from './components/TrackingStatusBadge';
 
 export default function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -26,6 +27,7 @@ export default function App() {
           <button onClick={() => setTab('today')} className={`rounded px-3 py-1 text-sm ${tab === 'today' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Today</button>
           <button onClick={() => setTab('settings')} className={`rounded px-3 py-1 text-sm ${tab === 'settings' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Settings</button>
         </nav>
+        <div className="ml-auto"><TrackingStatusBadge /></div>
       </header>
       <main className="p-6">
         {tab === 'today' ? <TodayView /> : <SettingsView settings={settings} onChange={refreshSettings} />}
