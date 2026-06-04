@@ -90,6 +90,7 @@ export function createTracker(deps: TrackerDeps): Tracker {
 
   return {
     start() {
+      if (pollTimer) return; // idempotent: don't stack a second set of timers (resume-while-running would leak the old ones)
       deps.input.start();
       const s = deps.getSettings();
       lastBucketEnd = deps.clock.now();

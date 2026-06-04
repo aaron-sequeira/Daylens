@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { SCHEMA_SQL } from '../db/schema';
 import { createRepositories, Repositories } from '../db/repositories';
@@ -114,5 +114,18 @@ describe('tracker', () => {
     expect(rows[0].endedAt).toBe(nowMs);
     expect(rows[0].durationSec).toBe(30);
     expect(repo.getActivitySamples(day)).toHaveLength(1);
+  });
+
+  it('start() is idempotent: a second start does not stack timers, and stop() clears them all', () => {
+    vi.useFakeTimers();
+    try {
+      tracker.start();
+      tracker.start(); // resume-while-running must be a no-op, not a second poll+bucket pair
+      expect(vi.getTimerCount()).toBe(2); // exactly poll + bucket (would be 4 if start() leaked)
+      tracker.stop();
+      expect(vi.getTimerCount()).toBe(0); // no orphaned interval survives stop()
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
