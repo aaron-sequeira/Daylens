@@ -1,0 +1,30 @@
+appId: ai.worksight.agent
+productName: WorkSight Agent
+# pnpm hoists `electron` to the root node_modules, so electron-builder can't auto-detect
+# the version from apps/agent. Pin it to the installed version (keep in sync with the
+# `electron` devDependency / lockfile if you upgrade).
+electronVersion: 33.4.11
+directories:
+  output: release
+  buildResources: resources
+# Native deps live in the hoisted root node_modules (pnpm node-linker=hoisted); the
+# `prebuild` step puts them on Electron's ABI, and `build` passes --config.npmRebuild=false
+# so electron-builder bundles the prebuilt binaries instead of recompiling.
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - "**/*.node"
+win:
+  target: nsis
+  icon: resources/icon.png
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target: dmg
+  category: public.app-category.productivity
+linux:
+  target: AppImage
+  category: Utility

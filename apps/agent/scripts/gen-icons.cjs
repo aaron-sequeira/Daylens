@@ -1,5 +1,7 @@
-// Generates valid 32x32 RGBA PNG placeholder icons (solid WorkSight blue) for the
-// tray and app icon. Deterministic, no external deps. Replace with branded art later.
+// Generates valid RGBA PNG icons (no external deps): a small tray.png (32px) and a
+// 256px icon.png for the installer (electron-builder requires win icons >= 256x256).
+// Motif: WorkSight-blue field with a white "target" ring + center dot (tracking).
+// Deterministic. Replace with branded art later.
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
@@ -22,32 +24,41 @@ function chunk(type, data) {
   return Buffer.concat([len, t, data, crc]);
 }
 
-const W = 32, H = 32;
-const raw = Buffer.alloc(H * (1 + W * 4));
-for (let y = 0; y < H; y++) {
-  raw[y * (1 + W * 4)] = 0; // filter byte 0 (None)
-  for (let x = 0; x < W; x++) {
-    const o = y * (1 + W * 4) + 1 + x * 4;
-    raw[o] = 37; raw[o + 1] = 99; raw[o + 2] = 235; raw[o + 3] = 255; // #2563eb opaque
-  }
+// Background #2563eb, white target ring + center dot.
+function px(size, x, y) {
+  const c = (size - 1) / 2;
+  const n = Math.hypot(x - c, y - c) / (size / 2); // 0 at center, ~1 at edge
+  const white = (n > 0.55 && n < 0.72) || n < 0.22;
+  return white ? [255, 255, 255, 255] : [37, 99, 235, 255];
 }
 
-const ihdr = Buffer.alloc(13);
-ihdr.writeUInt32BE(W, 0);
-ihdr.writeUInt32BE(H, 4);
-ihdr[8] = 8;  // bit depth
-ihdr[9] = 6;  // color type RGBA
-// ihdr[10..12] = 0 (compression, filter, interlace)
-
-const png = Buffer.concat([
-  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-  chunk('IHDR', ihdr),
-  chunk('IDAT', zlib.deflateSync(raw)),
-  chunk('IEND', Buffer.alloc(0))
-]);
+function makePng(size) {
+  const raw = Buffer.alloc(size * (1 + size * 4));
+  for (let y = 0; y < size; y++) {
+    raw[y * (1 + size * 4)] = 0; // filter byte 0 (None)
+    for (let x = 0; x < size; x++) {
+      const o = y * (1 + size * 4) + 1 + x * 4;
+      const [r, g, b, a] = px(size, x, y);
+      raw[o] = r; raw[o + 1] = g; raw[o + 2] = b; raw[o + 3] = a;
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // color type RGBA
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0))
+  ]);
+}
 
 const dir = path.join(__dirname, '..', 'resources');
 fs.mkdirSync(dir, { recursive: true });
-fs.writeFileSync(path.join(dir, 'tray.png'), png);
-fs.writeFileSync(path.join(dir, 'icon.png'), png);
-console.log('wrote tray.png and icon.png (' + png.length + ' bytes each)');
+const tray = makePng(32);
+const icon = makePng(256);
+fs.writeFileSync(path.join(dir, 'tray.png'), tray);
+fs.writeFileSync(path.join(dir, 'icon.png'), icon);
+console.log(`wrote tray.png (32px, ${tray.length} bytes) and icon.png (256px, ${icon.length} bytes)`);

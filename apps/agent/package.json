@@ -1,6 +1,8 @@
 {
   "name": "@worksight/agent",
   "version": "0.0.0",
+  "description": "WorkSight Agent — local-only desktop activity tracker with daily summaries",
+  "author": "WorkSight",
   "main": "out/main/index.js",
   "scripts": {
     "predev": "node scripts/rebuild-native.cjs",
