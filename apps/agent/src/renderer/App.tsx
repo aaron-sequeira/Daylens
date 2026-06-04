@@ -5,10 +5,13 @@ import { ConsentGate } from './components/ConsentGate';
 import { TodayView } from './components/TodayView';
 import { SettingsView } from './components/SettingsView';
 import { TrackingStatusBadge } from './components/TrackingStatusBadge';
+import { ComingSoon } from './components/ComingSoon';
+
+type Tab = 'today' | 'apps' | 'tasks' | 'messages' | 'settings';
 
 export default function App() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [tab, setTab] = useState<'today' | 'settings'>('today');
+  const [tab, setTab] = useState<Tab>('today');
 
   const refreshSettings = useCallback(async () => setSettings(await api.settings.get()), []);
   useEffect(() => { void refreshSettings(); }, [refreshSettings]);
@@ -25,12 +28,19 @@ export default function App() {
         <span className="font-semibold">WorkSight</span>
         <nav className="flex gap-2">
           <button onClick={() => setTab('today')} className={`rounded px-3 py-1 text-sm ${tab === 'today' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Today</button>
+          <button onClick={() => setTab('apps')} className={`rounded px-3 py-1 text-sm ${tab === 'apps' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Apps Connected</button>
+          <button onClick={() => setTab('tasks')} className={`rounded px-3 py-1 text-sm ${tab === 'tasks' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>My Tasks</button>
+          <button onClick={() => setTab('messages')} className={`rounded px-3 py-1 text-sm ${tab === 'messages' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Messages</button>
           <button onClick={() => setTab('settings')} className={`rounded px-3 py-1 text-sm ${tab === 'settings' ? 'bg-gray-900 text-white' : 'text-gray-600'}`}>Settings</button>
         </nav>
         <div className="ml-auto"><TrackingStatusBadge /></div>
       </header>
       <main className="p-6">
-        {tab === 'today' ? <TodayView /> : <SettingsView settings={settings} onChange={refreshSettings} />}
+        {tab === 'today' && <TodayView />}
+        {tab === 'apps' && <ComingSoon title="Apps Connected" />}
+        {tab === 'tasks' && <ComingSoon title="My Tasks" />}
+        {tab === 'messages' && <ComingSoon title="Messages" />}
+        {tab === 'settings' && <SettingsView settings={settings} onChange={refreshSettings} />}
       </main>
     </div>
   );
