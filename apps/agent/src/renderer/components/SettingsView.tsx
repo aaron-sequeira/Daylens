@@ -67,9 +67,6 @@ export function SettingsView({ settings, onChange }: { settings: AppSettings; on
         {settings.hasApiKey
           ? <div className="text-xs text-green-700">A {meta.label} key is saved.</div>
           : meta.keyUrl ? <div className="text-xs text-gray-500">Get a {meta.label} key at {meta.keyUrl.replace('https://', '')}</div> : null}
-
-        {settings.aiProvider !== 'anthropic' &&
-          <div className="text-xs text-amber-700">Summaries for {meta.label} aren’t wired up yet — your key is saved; Claude generates today.</div>}
       </div>
 
       <button onClick={async () => { if (confirm('Delete all tracked data?')) { await api.data.clearAll(); await onChange(); } }}

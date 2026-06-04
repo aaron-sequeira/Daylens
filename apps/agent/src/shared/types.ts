@@ -59,7 +59,7 @@ export interface DaySummary {
 }
 
 export interface AiSummaryResult { text: string; model: string; generatedAt: number; }
-export interface AiSummaryError { error: 'no_key' | 'failed' | 'provider_not_wired'; message?: string; }
+export interface AiSummaryError { error: 'no_key' | 'failed'; message?: string; }
 
 export type AiProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'custom';
 

@@ -28,7 +28,7 @@ export function registerIpc(deps: IpcDeps): void {
     const s: AppSettings = deps.settings.get();
     if (!s.aiEnabled) return { error: 'no_key' };
     const summary = computeDaySummary(date, deps.repo.getFocusSessions(date), deps.repo.getActivitySamples(date));
-    const result = await generateAiSummary(summary, { apiKey: deps.settings.getApiKey(), model: s.aiModel, provider: s.aiProvider });
+    const result = await generateAiSummary(summary, { apiKey: deps.settings.getApiKey(), model: s.aiModel, provider: s.aiProvider, baseUrl: s.aiBaseUrl });
     if ('text' in result) {
       deps.repo.upsertDailySummary({
         date, totalTrackedSec: summary.totalTrackedSec, activeSec: summary.activeSec, idleSec: summary.idleSec,

@@ -1,7 +1,7 @@
 # WorkSight Agent — Multi-Provider API Key (selector + secure storage)
 
 **Date:** 2026-06-04
-**Status:** Approved (design) — scope: selector + key storage only; real non-Claude calls deferred.
+**Status:** Implemented — all providers now generate (Claude via native SDK; OpenAI / OpenRouter / Gemini / Custom via one OpenAI-compatible `fetch`). The original pass was selector + storage only; the real calls (below) were added as the follow-up.
 
 ## Goal
 
@@ -44,14 +44,15 @@ provider remembers its own. The raw key never leaves the main process (renderer 
 
 ## Generation behaviour (`ai.ts` + `handlers.ts`)
 
-`AiDeps` gains `provider: AiProvider`. `generateAiSummary`:
-1. no key → `{ error: 'no_key' }` (unchanged)
-2. `provider !== 'anthropic'` → `{ error: 'provider_not_wired' }` — **no network call**
-3. `provider === 'anthropic'` → existing Anthropic path
+`AiDeps` gains `provider: AiProvider` + `baseUrl?` + injectable `fetchFn`. `generateAiSummary`:
+1. no key → `{ error: 'no_key' }`
+2. `provider === 'anthropic'` → native Anthropic SDK path
+3. otherwise → OpenAI-compatible `POST {base}/chat/completions` with `Authorization: Bearer <key>`,
+   where `base` is `api.openai.com/v1` / `openrouter.ai/api/v1` / Gemini's `…/v1beta/openai`,
+   or the user's Base URL for `custom`. Non-OK responses return `{ error: 'failed', message: 'HTTP …' }`.
 
-`AiSummaryError.error` union gains `'provider_not_wired'`. The IPC handler passes
-`provider: settings.aiProvider`. `AiSummaryCard` renders `provider_not_wired` as
-"AI summaries for {provider} aren't available yet — showing the stats below."
+The IPC handler passes `provider` + `baseUrl` from settings. `AiSummaryCard` shows the
+`message` on failure so HTTP/model errors are visible.
 
 ## UI (`SettingsView.tsx`)
 
@@ -67,7 +68,8 @@ linking the provider's key page. Changing the provider patches `aiProvider` + se
 - `ai.test.ts`: `provider:'openai'` + key → `{ error: 'provider_not_wired' }` with no client
   call; `anthropic` + key still calls the injected client; no key → `no_key`.
 
-## Out of scope (this pass)
+## Follow-up — DONE
 
-Real OpenAI/Gemini/OpenRouter/Custom request code (the `openai` SDK + routing). Clean
-follow-up once a provider is chosen.
+Real OpenAI/Gemini/OpenRouter/Custom request code is now implemented via a dependency-free
+OpenAI-compatible `fetch` (no `openai` SDK needed). Tested with injected `fetchFn`
+(routing/URL/auth/parse + HTTP-error + custom-without-base-URL).

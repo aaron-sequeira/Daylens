@@ -14,9 +14,11 @@ export function AiSummaryCard({ date }: { date: string }) {
     else {
       setText(null);
       setNote(
-        r.error === 'no_key' ? 'AI summary is off. Enable it and add an API key in Settings.'
-          : r.error === 'provider_not_wired' ? 'AI summaries for the selected provider aren’t available yet — showing the stats above.'
-            : 'Could not generate the summary. Try again.'
+        r.error === 'no_key'
+          ? 'AI summary is off. Enable it and add an API key in Settings.'
+          : r.message
+            ? `Could not generate the summary — ${r.message}`
+            : 'Could not generate the summary. Check the provider, model, and key in Settings.'
       );
     }
   }

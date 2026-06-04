@@ -29,13 +29,29 @@ describe('ai summary', () => {
     expect(r).toEqual(expect.objectContaining({ text: 'You spent 4.2 hours in Code.', model: 'claude-haiku-4-5' }));
   });
 
-  it('returns provider_not_wired for a non-anthropic provider without calling a client', async () => {
-    let called = false;
+  it('generates via an OpenAI-compatible provider (OpenRouter) using fetch', async () => {
+    let url = ''; let auth = ''; let bodyModel = '';
+    const fakeFetch = (async (u: string, init: { headers: Record<string, string>; body: string }) => {
+      url = u; auth = init.headers['Authorization']; bodyModel = JSON.parse(init.body).model;
+      return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'You spent 4.2 hours in Code.' } }] }) };
+    }) as unknown as typeof fetch;
     const r = await generateAiSummary(summary, {
-      apiKey: 'sk-openai', model: 'gpt-4o-mini', provider: 'openai',
-      createClient: () => { called = true; return {} as never; }
+      apiKey: 'sk-or', model: 'openai/gpt-oss-120b:free', provider: 'openrouter', fetchFn: fakeFetch
     });
-    expect(r).toEqual({ error: 'provider_not_wired' });
-    expect(called).toBe(false);
+    expect(url).toContain('openrouter.ai/api/v1/chat/completions');
+    expect(auth).toBe('Bearer sk-or');
+    expect(bodyModel).toBe('openai/gpt-oss-120b:free');
+    expect(r).toEqual(expect.objectContaining({ text: 'You spent 4.2 hours in Code.', model: 'openai/gpt-oss-120b:free' }));
+  });
+
+  it('surfaces an http error from an OpenAI-compatible provider', async () => {
+    const fakeFetch = (async () => ({ ok: false, status: 401, text: async () => 'bad key' })) as unknown as typeof fetch;
+    const r = await generateAiSummary(summary, { apiKey: 'sk-x', model: 'm', provider: 'openai', fetchFn: fakeFetch });
+    expect(r).toEqual(expect.objectContaining({ error: 'failed' }));
+  });
+
+  it('fails clearly when a custom provider has no base url', async () => {
+    const r = await generateAiSummary(summary, { apiKey: 'sk-x', model: 'm', provider: 'custom' });
+    expect(r).toEqual(expect.objectContaining({ error: 'failed' }));
   });
 });
