@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { DaySummary, AiSummaryResult, AiSummaryError } from '../../shared/types';
+import type { DaySummary, AiSummaryResult, AiSummaryError, AiProvider } from '../../shared/types';
 
 const round1 = (sec: number): number => Math.round(sec / 360) / 10; // hours, 1 dp
 
@@ -21,11 +21,14 @@ export function buildSummaryPrompt(summary: DaySummary): { system: string; user:
 export interface AiDeps {
   apiKey: string | null;
   model: string;
+  provider?: AiProvider; // defaults to 'anthropic'; other providers are captured but not yet wired
   createClient?: (apiKey: string) => Anthropic;
 }
 
 export async function generateAiSummary(summary: DaySummary, deps: AiDeps): Promise<AiSummaryResult | AiSummaryError> {
   if (!deps.apiKey) return { error: 'no_key' };
+  // Only Claude generates today; selecting another provider stores its key but is not yet wired.
+  if ((deps.provider ?? 'anthropic') !== 'anthropic') return { error: 'provider_not_wired' };
   const client = (deps.createClient ?? ((k) => new Anthropic({ apiKey: k })))(deps.apiKey);
   const { system, user } = buildSummaryPrompt(summary);
   try {

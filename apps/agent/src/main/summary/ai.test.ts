@@ -28,4 +28,14 @@ describe('ai summary', () => {
     });
     expect(r).toEqual(expect.objectContaining({ text: 'You spent 4.2 hours in Code.', model: 'claude-haiku-4-5' }));
   });
+
+  it('returns provider_not_wired for a non-anthropic provider without calling a client', async () => {
+    let called = false;
+    const r = await generateAiSummary(summary, {
+      apiKey: 'sk-openai', model: 'gpt-4o-mini', provider: 'openai',
+      createClient: () => { called = true; return {} as never; }
+    });
+    expect(r).toEqual({ error: 'provider_not_wired' });
+    expect(called).toBe(false);
+  });
 });

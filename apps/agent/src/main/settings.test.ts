@@ -34,4 +34,23 @@ describe('settings', () => {
     expect(store.getApiKey()).toBe('sk-test');
     expect((store.get() as unknown as Record<string, unknown>).anthropicApiKey).toBeUndefined();
   });
+
+  it('defaults aiProvider to anthropic with an empty base url', () => {
+    expect(store.get().aiProvider).toBe('anthropic');
+    expect(store.get().aiBaseUrl).toBe('');
+  });
+
+  it('stores api keys per provider and remembers each independently', () => {
+    store.set({ aiProvider: 'openai' });
+    store.setApiKey('sk-openai');
+    expect(store.get().hasApiKey).toBe(true);
+    expect(store.getApiKey()).toBe('sk-openai');
+
+    store.set({ aiProvider: 'gemini' });
+    expect(store.get().hasApiKey).toBe(false); // gemini has no key yet
+    expect(store.getApiKey()).toBeNull();
+
+    store.set({ aiProvider: 'openai' });
+    expect(store.getApiKey()).toBe('sk-openai'); // openai's key is still there
+  });
 });

@@ -11,7 +11,14 @@ export function AiSummaryCard({ date }: { date: string }) {
     const r = await api.summary.generateAi(date);
     setLoading(false);
     if ('text' in r) { setText(r.text); }
-    else { setText(null); setNote(r.error === 'no_key' ? 'AI summary is off. Enable it and add an Anthropic API key in Settings.' : 'Could not generate the summary. Try again.'); }
+    else {
+      setText(null);
+      setNote(
+        r.error === 'no_key' ? 'AI summary is off. Enable it and add an API key in Settings.'
+          : r.error === 'provider_not_wired' ? 'AI summaries for the selected provider aren’t available yet — showing the stats above.'
+            : 'Could not generate the summary. Try again.'
+      );
+    }
   }
 
   return (

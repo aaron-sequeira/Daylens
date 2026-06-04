@@ -14,14 +14,17 @@ const DEFAULTS: Omit<AppSettings, 'hasApiKey'> = {
   idleThresholdSec: 60,
   captureWindowTitles: true,
   aiEnabled: false,
+  aiProvider: 'anthropic',
   aiModel: 'claude-haiku-4-5',
+  aiBaseUrl: '',
   pollIntervalMs: 2000,
   bucketSizeSec: 60,
   trackingPaused: false,
   consentGranted: false
 };
 
-const API_KEY = 'anthropic_api_key_enc';
+// API keys are stored per provider so each provider remembers its own key independently.
+const keyName = (provider: string): string => `ai_key_${provider}_enc`;
 
 export function createSettingsStore(db: Database.Database, enc: Encryptor): SettingsStore {
   const readRaw = (key: string): string | null => {
@@ -31,6 +34,8 @@ export function createSettingsStore(db: Database.Database, enc: Encryptor): Sett
   const writeRaw = (key: string, value: string): void => {
     db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?').run(key, value, value);
   };
+
+  const currentProvider = (): string => readRaw('aiProvider') ?? DEFAULTS.aiProvider;
 
   return {
     get() {
@@ -42,16 +47,16 @@ export function createSettingsStore(db: Database.Database, enc: Encryptor): Sett
         (out as Record<string, unknown>)[key] =
           typeof def === 'number' ? Number(raw) : typeof def === 'boolean' ? raw === 'true' : raw;
       }
-      return { ...out, hasApiKey: readRaw(API_KEY) !== null };
+      return { ...out, hasApiKey: readRaw(keyName(currentProvider())) !== null };
     },
     set(patch) {
       for (const [k, v] of Object.entries(patch)) writeRaw(k, String(v));
     },
     setApiKey(key) {
-      writeRaw(API_KEY, enc.encrypt(key).toString('base64'));
+      writeRaw(keyName(currentProvider()), enc.encrypt(key).toString('base64'));
     },
     getApiKey() {
-      const raw = readRaw(API_KEY);
+      const raw = readRaw(keyName(currentProvider()));
       return raw === null ? null : enc.decrypt(Buffer.from(raw, 'base64'));
     }
   };

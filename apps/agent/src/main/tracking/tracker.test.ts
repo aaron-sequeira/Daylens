@@ -30,7 +30,7 @@ beforeEach(() => {
     input: { start() {}, stop() {}, drain: () => drained },
     clock: { now: () => nowMs },
     repo,
-    getSettings: () => ({ idleThresholdSec: 60, captureWindowTitles: true, aiEnabled: false, aiModel: 'm', pollIntervalMs: 2000, bucketSizeSec: 60, trackingPaused: false, consentGranted: true, hasApiKey: false }),
+    getSettings: () => ({ idleThresholdSec: 60, captureWindowTitles: true, aiEnabled: false, aiProvider: 'anthropic', aiModel: 'm', aiBaseUrl: '', pollIntervalMs: 2000, bucketSizeSec: 60, trackingPaused: false, consentGranted: true, hasApiKey: false }),
     getSystemIdleSec: () => systemIdleSec,
     isPidAlive: (pid) => alivePids.has(pid)
   });

@@ -59,18 +59,22 @@ export interface DaySummary {
 }
 
 export interface AiSummaryResult { text: string; model: string; generatedAt: number; }
-export interface AiSummaryError { error: 'no_key' | 'failed'; message?: string; }
+export interface AiSummaryError { error: 'no_key' | 'failed' | 'provider_not_wired'; message?: string; }
+
+export type AiProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'custom';
 
 export interface AppSettings {
   idleThresholdSec: number;
   captureWindowTitles: boolean;
   aiEnabled: boolean;
+  aiProvider: AiProvider;
   aiModel: string;
+  aiBaseUrl: string; // only used for the 'custom' provider
   pollIntervalMs: number;
   bucketSizeSec: number;
   trackingPaused: boolean;
   consentGranted: boolean;
-  hasApiKey: boolean; // renderer never receives the raw key
+  hasApiKey: boolean; // true if the CURRENT provider has a key saved; renderer never receives the raw key
 }
 
 export interface TrackingStatus { paused: boolean; currentApp: string | null; sessionStartedAt: number | null; }
