@@ -9,5 +9,10 @@ export const CH = {
   settingsSet: 'settings:set',
   settingsSetApiKey: 'settings:setApiKey',
   dataClearAll: 'data:clearAll',
-  eventsUpdate: 'events:update'
+  eventsUpdate: 'events:update',
+  cloudGetStatus: 'cloud:getStatus',
+  cloudSignIn: 'cloud:signIn',
+  cloudSignOut: 'cloud:signOut',
+  cloudSetEnabled: 'cloud:setEnabled',
+  cloudSyncNow: 'cloud:syncNow',
 } as const;

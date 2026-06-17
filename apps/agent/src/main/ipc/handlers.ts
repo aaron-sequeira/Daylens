@@ -7,11 +7,12 @@ import type { Tracker } from '../tracking/tracker';
 import { computeDaySummary } from '../summary/rollup';
 import { generateAiSummary } from '../summary/ai';
 import type { AppSettings } from '../../shared/types';
+import type { CloudController } from '../cloud/controller';
 
 const dayArg = z.object({ date: z.string() });
 const settingsPatch = z.record(z.union([z.string(), z.number(), z.boolean()]));
 
-export interface IpcDeps { repo: Repositories; settings: SettingsStore; tracker: Tracker; onTrackingChange: () => void; }
+export interface IpcDeps { repo: Repositories; settings: SettingsStore; tracker: Tracker; onTrackingChange: () => void; cloud: CloudController; }
 
 export function registerIpc(deps: IpcDeps): void {
   ipcMain.handle(CH.trackingGetStatus, () => deps.tracker.status());
@@ -42,4 +43,13 @@ export function registerIpc(deps: IpcDeps): void {
   ipcMain.handle(CH.settingsSet, (_e, raw) => { deps.settings.set(settingsPatch.parse(raw) as never); return deps.settings.get(); });
   ipcMain.handle(CH.settingsSetApiKey, (_e, raw) => { deps.settings.setApiKey(z.string().parse(raw)); return deps.settings.get(); });
   ipcMain.handle(CH.dataClearAll, () => { deps.repo.clearAll(); });
+
+  ipcMain.handle(CH.cloudGetStatus, () => deps.cloud.getStatus());
+  ipcMain.handle(CH.cloudSignIn, (_e, raw) => {
+    const { email, password } = z.object({ email: z.string(), password: z.string() }).parse(raw);
+    return deps.cloud.signIn(email, password);
+  });
+  ipcMain.handle(CH.cloudSignOut, () => { deps.cloud.signOut(); });
+  ipcMain.handle(CH.cloudSetEnabled, (_e, raw) => { deps.cloud.setEnabled(z.boolean().parse(raw)); });
+  ipcMain.handle(CH.cloudSyncNow, () => deps.cloud.syncNow());
 }

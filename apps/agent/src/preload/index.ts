@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { CH } from '../main/ipc/channels';
-import type { AppSettings, DaySummary, TrackingStatus, AiSummaryResult, AiSummaryError } from '../shared/types';
+import type { AppSettings, DaySummary, TrackingStatus, AiSummaryResult, AiSummaryError, CloudSyncStatus } from '../shared/types';
 
 const api = {
   tracking: {
@@ -19,6 +19,13 @@ const api = {
     setApiKey: (key: string): Promise<AppSettings> => ipcRenderer.invoke(CH.settingsSetApiKey, key)
   },
   data: { clearAll: (): Promise<void> => ipcRenderer.invoke(CH.dataClearAll) },
+  cloud: {
+    getStatus: (): Promise<CloudSyncStatus> => ipcRenderer.invoke(CH.cloudGetStatus),
+    signIn: (email: string, password: string): Promise<{ ok: true } | { error: string }> => ipcRenderer.invoke(CH.cloudSignIn, { email, password }),
+    signOut: (): Promise<void> => ipcRenderer.invoke(CH.cloudSignOut),
+    setEnabled: (enabled: boolean): Promise<void> => ipcRenderer.invoke(CH.cloudSetEnabled, enabled),
+    syncNow: (): Promise<{ syncedDays: number } | { error: string }> => ipcRenderer.invoke(CH.cloudSyncNow)
+  },
   onUpdate: (cb: () => void): (() => void) => {
     const listener = (): void => cb();
     ipcRenderer.on(CH.eventsUpdate, listener);
