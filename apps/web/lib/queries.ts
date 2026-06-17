@@ -34,6 +34,12 @@ export async function getTeamMembers(viewer: ViewerProfile): Promise<{ id: strin
   return (data ?? []).filter((p) => p.role === 'member').map((p) => ({ id: p.id, full_name: p.full_name }));
 }
 
+export async function getMember(id: string): Promise<{ id: string; full_name: string } | null> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase.from('profiles').select('id, full_name').eq('id', id).maybeSingle();
+  return data ?? null;
+}
+
 export async function getActivityForUsers(userIds: string[], dates: string[]): Promise<DailyActivity[]> {
   if (userIds.length === 0 || dates.length === 0) return [];
   const supabase = await createServerSupabase();
