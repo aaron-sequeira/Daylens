@@ -6,5 +6,7 @@ export default defineConfig({
     testTimeout: 20000,
     // Node 20 has no native WebSocket; polyfill before any Supabase client is created.
     setupFiles: ['tests/supabase/setup.ts'],
+    // Run test files sequentially so shared-DB side-effects don't race.
+    fileParallelism: false,
   },
 });

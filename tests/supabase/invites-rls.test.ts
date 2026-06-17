@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -35,13 +35,21 @@ describe('preview_invite', () => {
   it('does not let anon read the invitations table directly', async () => {
     const c = createClient(URL, ANON, { auth: { persistSession: false } });
     const { data } = await c.from('invitations').select('token');
-    expect(data ?? []).toEqual([]);
+    expect(data).toEqual([]);
   });
 });
 
 describe('redeem_invite', () => {
   let newUserClient: SupabaseClient;
   let newUserId: string;
+  let revokedUserId: string;
+  afterAll(async () => {
+    // delete auth users (cascades to profiles rows via FK on delete cascade)
+    if (newUserId) await admin().auth.admin.deleteUser(newUserId);
+    if (revokedUserId) await admin().auth.admin.deleteUser(revokedUserId);
+    // delete invitation rows created by this suite
+    await admin().from('invitations').delete().in('token', ['tok-valid', 'tok-revoked', 'tok-redeem', 'tok-rv2']);
+  });
   beforeAll(async () => {
     await makeInvite('Acme Inc', 'Growth', 'member', 'tok-redeem');
     const email = `invitee_${Date.now()}@acme.test`;
@@ -73,7 +81,8 @@ describe('redeem_invite', () => {
     await makeInvite('Acme Inc', 'Growth', 'member', 'tok-rv2', { revoked: true });
     const email = `invitee2_${Date.now()}@acme.test`;
     const c = createClient(URL, ANON, { auth: { persistSession: false } });
-    await c.auth.signUp({ email, password: PW });
+    const { data: revokedSignUp } = await c.auth.signUp({ email, password: PW });
+    revokedUserId = revokedSignUp.user!.id;
     const { data: status } = await c.rpc('redeem_invite', { p_token: 'tok-rv2' });
     expect(status).toBe('revoked');
   });
