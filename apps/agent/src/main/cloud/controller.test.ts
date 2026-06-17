@@ -44,4 +44,18 @@ describe('cloud controller', () => {
     await c.maybeAutoSync();
     expect(upserts).toBe(0);
   });
+
+  it('maybeAutoSync syncs when enabled and connected', async () => {
+    let upserts = 0;
+    const c = createCloudController({ session: fakeSession({ userId: 'u1', email: 'a@x.test' }), settings: fakeSettings({ cloudSyncEnabled: true }), repo, upsert: async () => { upserts++; return { ok: true }; }, now: () => 1 });
+    await c.maybeAutoSync();
+    expect(upserts).toBe(1);
+  });
+
+  it('maybeAutoSync does not sync when enabled but disconnected (no account)', async () => {
+    let upserts = 0;
+    const c = createCloudController({ session: fakeSession(null), settings: fakeSettings({ cloudSyncEnabled: true }), repo, upsert: async () => { upserts++; return { ok: true }; }, now: () => 1 });
+    await c.maybeAutoSync();
+    expect(upserts).toBe(0);
+  });
 });

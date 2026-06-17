@@ -25,6 +25,7 @@ describe('recentDates', () => {
     const r = recentDates(3, Date.parse('2026-06-17T12:00:00'));
     expect(r).toHaveLength(3);
     expect(r[2]).toBe('2026-06-17');
+    expect(r[0]).toBe('2026-06-15');
   });
 });
 

@@ -54,6 +54,7 @@ export function CloudSyncCard() {
           <div className="text-xs text-gray-500">
             {status.lastSyncedAt ? `Last synced ${new Date(status.lastSyncedAt).toLocaleString()}` : 'Not synced yet'}
           </div>
+          {status.lastError && <div className="text-xs text-red-600">Last error: {status.lastError}</div>}
         </div>
       )}
       {error && <div className="text-xs text-red-600">{error}</div>}

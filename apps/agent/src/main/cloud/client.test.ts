@@ -36,6 +36,7 @@ describe('refreshSession', () => {
     const r = await refreshSession(f, cfg, 'RT');
     expect(r).toEqual({ session: { accessToken: 'AT2', refreshToken: 'RT2', expiresAt: 2000, userId: 'u1', email: 'a@x.test' } });
     expect(calls[0].url).toBe('http://cloud.test/auth/v1/token?grant_type=refresh_token');
+    expect((calls[0].init.headers as Record<string,string>)['apikey']).toBe('ANON');
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ refresh_token: 'RT' });
   });
 });

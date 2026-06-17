@@ -17,7 +17,11 @@ export function mapDaySummaryToRow(userId: string, s: DaySummary): DailyActivity
 
 export function recentDates(windowDays: number, nowMs: number): ISODate[] {
   const out: ISODate[] = [];
-  for (let i = windowDays - 1; i >= 0; i--) out.push(localDate(nowMs - i * 86_400_000));
+  const base = new Date(nowMs); base.setHours(0, 0, 0, 0);
+  for (let i = windowDays - 1; i >= 0; i--) {
+    const d = new Date(base); d.setDate(base.getDate() - i);
+    out.push(localDate(d.getTime()));
+  }
   return out;
 }
 

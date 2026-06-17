@@ -35,7 +35,8 @@ describe('daily_activity self-write RLS', () => {
 
   it('updates (not duplicates) on re-upsert of the same day', async () => {
     const row = { user_id: memberId, date: '2099-01-01', total_tracked_sec: 7200, active_sec: 3600, idle_sec: 3600, by_app: [] };
-    await member.from('daily_activity').upsert(row, { onConflict: 'user_id,date' });
+    const { error } = await member.from('daily_activity').upsert(row, { onConflict: 'user_id,date' });
+    expect(error).toBeNull();
     const { data } = await member.from('daily_activity').select('total_tracked_sec').eq('date', '2099-01-01');
     expect(data).toEqual([{ total_tracked_sec: 7200 }]);
   });

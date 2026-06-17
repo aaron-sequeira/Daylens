@@ -94,7 +94,16 @@ app.whenReady().then(() => {
 
   const cloudTimer = setInterval(() => { void cloud.maybeAutoSync(); }, 15 * 60 * 1000);
   app.on('before-quit', () => { (app as unknown as { isQuitting?: boolean }).isQuitting = true; tracker.stop(); });
-  app.on('before-quit', () => { clearInterval(cloudTimer); void cloud.maybeAutoSync(); });
+  let cloudQuitFlushed = false;
+  app.on('before-quit', (e) => {
+    clearInterval(cloudTimer);
+    if (cloudQuitFlushed) return;
+    const s = settings.get();
+    if (!s.cloudSyncEnabled || !cloud.getStatus().connected) return; // nothing to flush; let quit proceed
+    e.preventDefault();
+    cloudQuitFlushed = true;
+    Promise.race([cloud.maybeAutoSync(), new Promise((r) => setTimeout(r, 4000))]).finally(() => app.quit());
+  });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 

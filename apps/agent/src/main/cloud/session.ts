@@ -23,12 +23,10 @@ const REFRESH_SKEW_SEC = 60;
 
 export function createSessionManager(deps: SessionDeps): SessionManager {
   const real: ClientLike = { signInWithPassword: restSignIn, refreshSession: restRefresh };
-  const client = deps.client ?? real;
   const callSignIn = (email: string, password: string) =>
     (deps.client ? deps.client.signInWithPassword(email, password) : real.signInWithPassword(deps.fetchFn, deps.config, email, password));
   const callRefresh = (rt: string) =>
     (deps.client ? deps.client.refreshSession(rt) : real.refreshSession(deps.fetchFn, deps.config, rt));
-  void client;
 
   return {
     async signIn(email, password) {
