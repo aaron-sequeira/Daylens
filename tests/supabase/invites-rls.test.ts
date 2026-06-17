@@ -43,12 +43,16 @@ describe('redeem_invite', () => {
   let newUserClient: SupabaseClient;
   let newUserId: string;
   let revokedUserId: string;
+  let expiredUserId: string;
+  let exhaustedUserId: string;
   afterAll(async () => {
     // delete auth users (cascades to profiles rows via FK on delete cascade)
     if (newUserId) await admin().auth.admin.deleteUser(newUserId);
     if (revokedUserId) await admin().auth.admin.deleteUser(revokedUserId);
+    if (expiredUserId) await admin().auth.admin.deleteUser(expiredUserId);
+    if (exhaustedUserId) await admin().auth.admin.deleteUser(exhaustedUserId);
     // delete invitation rows created by this suite
-    await admin().from('invitations').delete().in('token', ['tok-valid', 'tok-revoked', 'tok-redeem', 'tok-rv2']);
+    await admin().from('invitations').delete().in('token', ['tok-valid', 'tok-revoked', 'tok-redeem', 'tok-rv2', 'tok-expired', 'tok-exhausted']);
   });
   beforeAll(async () => {
     await makeInvite('Acme Inc', 'Growth', 'member', 'tok-redeem');
@@ -86,15 +90,50 @@ describe('redeem_invite', () => {
     const { data: status } = await c.rpc('redeem_invite', { p_token: 'tok-rv2' });
     expect(status).toBe('revoked');
   });
+  it('returns expired for a past-expires_at invite and creates no profile', async () => {
+    await makeInvite('Acme Inc', 'Growth', 'member', 'tok-expired', { expires_at: '2000-01-01T00:00:00Z' });
+    const email = `expired_${Date.now()}@acme.test`;
+    const c = createClient(URL, ANON, { auth: { persistSession: false } });
+    const { data: signUpData } = await c.auth.signUp({ email, password: PW });
+    expiredUserId = signUpData.user!.id;
+    const { data: status } = await c.rpc('redeem_invite', { p_token: 'tok-expired' });
+    expect(status).toBe('expired');
+    const { data: prof } = await admin().from('profiles').select('id').eq('id', expiredUserId).maybeSingle();
+    expect(prof).toBeNull();
+  });
+  it('returns exhausted for a max_uses:0 invite and creates no profile', async () => {
+    await makeInvite('Acme Inc', 'Growth', 'member', 'tok-exhausted', { max_uses: 0 });
+    const email = `exhausted_${Date.now()}@acme.test`;
+    const c = createClient(URL, ANON, { auth: { persistSession: false } });
+    const { data: signUpData } = await c.auth.signUp({ email, password: PW });
+    exhaustedUserId = signUpData.user!.id;
+    const { data: status } = await c.rpc('redeem_invite', { p_token: 'tok-exhausted' });
+    expect(status).toBe('exhausted');
+    const { data: prof } = await admin().from('profiles').select('id').eq('id', exhaustedUserId).maybeSingle();
+    expect(prof).toBeNull();
+  });
 });
 
 describe('admin-write isolation', () => {
+  let otherOrgId: string;
+  let crossOrgToken: string;
+
+  afterAll(async () => {
+    if (otherOrgId) {
+      await admin().from('organizations').delete().eq('id', otherOrgId);
+    }
+    if (crossOrgToken) {
+      await admin().from('invitations').delete().eq('token', crossOrgToken);
+    }
+  });
+
   it('an admin can create a team + invitation in their own org', async () => {
     const adminC = await signIn('admin@acme.test');
     const { data: org } = await adminC.from('organizations').select('id').single();
-    const { error: teamErr } = await adminC.from('teams').insert({ org_id: org!.id, name: `T_${Date.now()}` });
+    const tname = `T_${Date.now()}`;
+    const { error: teamErr } = await adminC.from('teams').insert({ org_id: org!.id, name: tname });
     expect(teamErr).toBeNull();
-    const { data: team } = await adminC.from('teams').select('id').limit(1).single();
+    const { data: team } = await adminC.from('teams').select('id').eq('name', tname).single();
     const { error: invErr } = await adminC.from('invitations').insert({ org_id: org!.id, team_id: team!.id, role: 'member', token: `at_${Date.now()}` });
     expect(invErr).toBeNull();
   });
@@ -111,5 +150,29 @@ describe('admin-write isolation', () => {
     expect(error).toBeNull();
     // reactivate so the suite is re-runnable
     await adminC.from('profiles').update({ active: true }).eq('id', m!.id);
+  });
+  it('RLS rejects insert with team_id from a foreign org (cross-org team check)', async () => {
+    // Create a second org + team using the service-role client
+    const db = admin();
+    const { data: otherOrg, error: orgErr } = await db.from('organizations').insert({ name: 'Other Inc' }).select('id').single();
+    if (orgErr) throw orgErr;
+    otherOrgId = otherOrg!.id;
+    const { data: otherTeam, error: teamErr } = await db.from('teams').insert({ org_id: otherOrgId, name: 'Other Team' }).select('id').single();
+    if (teamErr) throw teamErr;
+
+    // Sign in as Acme admin and try to insert an invitation with acme org_id but other org's team_id
+    const adminC = await signIn('admin@acme.test');
+    const { data: acmeOrg } = await adminC.from('organizations').select('id').single();
+    crossOrgToken = `cross_${Date.now()}`;
+    const { error } = await adminC.from('invitations').insert({
+      org_id: acmeOrg!.id,
+      team_id: otherTeam!.id,
+      role: 'member',
+      token: crossOrgToken,
+    });
+    // RLS WITH CHECK must reject this
+    expect(error).not.toBeNull();
+    // token was rejected so nothing to clean up via token
+    crossOrgToken = '';
   });
 });

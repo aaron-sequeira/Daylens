@@ -18,7 +18,7 @@ export default async function JoinPage({ params, searchParams }: { params: Promi
         <input name="full_name" placeholder="Full name" required className="w-full rounded border px-3 py-2 text-sm" />
         <input name="email" type="email" placeholder="Work email" required className="w-full rounded border px-3 py-2 text-sm" />
         <input name="password" type="password" placeholder="Choose a password" required minLength={6} className="w-full rounded border px-3 py-2 text-sm" />
-        <button className="w-full rounded bg-gray-900 px-3 py-2 text-sm text-white">Create account & join</button>
+        <button type="submit" className="w-full rounded bg-gray-900 px-3 py-2 text-sm text-white">Create account & join</button>
       </form>
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
     </div>

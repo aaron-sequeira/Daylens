@@ -20,21 +20,21 @@ export default async function MembersPage() {
                     <option value="">—</option>
                     {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
-                  <button className="rounded border px-2 py-0.5 text-xs text-gray-600">Save</button>
+                  <button type="submit" className="rounded border px-2 py-0.5 text-xs text-gray-600">Save</button>
                 </form>
               </td>
               <td className="p-2">
                 <form action={updateMemberAction} className="flex items-center gap-1">
                   <input type="hidden" name="id" value={m.id} />
                   <select name="role" defaultValue={m.role} className="rounded border px-1 py-0.5 text-xs"><option value="member">member</option><option value="manager">manager</option><option value="admin">admin</option></select>
-                  <button className="rounded border px-2 py-0.5 text-xs text-gray-600">Save</button>
+                  <button type="submit" className="rounded border px-2 py-0.5 text-xs text-gray-600">Save</button>
                 </form>
               </td>
               <td className="p-2">
-                <form action={updateMemberAction}>
+                <form action={updateMemberAction} className="flex items-center gap-1">
                   <input type="hidden" name="id" value={m.id} />
                   <input type="hidden" name="active" value={m.active ? 'false' : 'true'} />
-                  <button className={`rounded px-2 py-0.5 text-xs ${m.active ? 'text-red-600' : 'text-green-700'}`}>{m.active ? 'Deactivate' : 'Reactivate'}</button>
+                  <button type="submit" className={`rounded px-2 py-0.5 text-xs ${m.active ? 'text-red-600' : 'text-green-700'}`}>{m.active ? 'Deactivate' : 'Reactivate'}</button>
                 </form>
               </td>
             </tr>

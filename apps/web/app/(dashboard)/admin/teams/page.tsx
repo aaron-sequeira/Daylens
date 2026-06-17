@@ -8,7 +8,7 @@ export default async function TeamsPage() {
       <h2 className="text-base font-semibold">Teams</h2>
       <form action={createTeamAction} className="flex gap-2">
         <input name="name" placeholder="New team name" required className="rounded border px-2 py-1 text-sm" />
-        <button className="rounded bg-gray-900 px-3 py-1 text-sm text-white">Create team</button>
+        <button type="submit" className="rounded bg-gray-900 px-3 py-1 text-sm text-white">Create team</button>
       </form>
       <ul className="divide-y rounded border bg-white">
         {teams.map((t) => (
@@ -16,7 +16,7 @@ export default async function TeamsPage() {
             <form action={renameTeamAction} className="flex items-center gap-2">
               <input type="hidden" name="id" value={t.id} />
               <input name="name" defaultValue={t.name} className="rounded border px-2 py-1 text-sm" />
-              <button className="rounded border px-2 py-1 text-xs text-gray-600">Rename</button>
+              <button type="submit" className="rounded border px-2 py-1 text-xs text-gray-600">Rename</button>
             </form>
           </li>
         ))}

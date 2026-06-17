@@ -40,10 +40,12 @@ async function ensureUser(email, fullName, password) {
 
 const orgId = await ensureOrg(orgName);
 const adminId = await ensureUser(adminEmail, adminName, adminPassword);
-const { data: prof } = await db.from('profiles').select('id').eq('id', adminId).maybeSingle();
+const { data: prof } = await db.from('profiles').select('id, org_id').eq('id', adminId).maybeSingle();
 if (!prof) {
   const { error } = await db.from('profiles').insert({ id: adminId, org_id: orgId, team_id: null, full_name: adminName, email: adminEmail, role: 'admin', active: true });
   if (error) throw error;
+} else if (prof.org_id !== orgId) {
+  console.warn(`WARNING: admin ${adminEmail} already belongs to a different org; org_id NOT changed`);
 }
 console.log(`Org "${orgName}" ready. Admin: ${adminEmail}`);
 if (!arg('admin-password')) console.log(`Generated admin password: ${adminPassword}`);
