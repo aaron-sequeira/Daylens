@@ -30,7 +30,8 @@ async function ensureOrg(name) {
   if (error) throw error; return data.id;
 }
 async function ensureUser(email, fullName, password) {
-  const { data: list } = await db.auth.admin.listUsers();
+  const { data: list, error: listErr } = await db.auth.admin.listUsers({ perPage: 1000 });
+  if (listErr) throw listErr;
   const found = list.users.find((u) => u.email === email);
   if (found) return found.id;
   const { data, error } = await db.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: fullName } });
