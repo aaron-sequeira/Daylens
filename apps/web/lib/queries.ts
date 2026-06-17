@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { createServerSupabase } from './supabaseServer';
+import type { DailyActivity } from './types';
 
 export interface ViewerProfile {
   id: string; full_name: string; email: string;
@@ -25,3 +26,27 @@ export const getViewerProfile = cache(async (): Promise<ViewerProfile | null> =>
     teamName: (p.teams as unknown as { name: string } | null)?.name ?? null
   };
 });
+
+export async function getTeamMembers(viewer: ViewerProfile): Promise<{ id: string; full_name: string }[]> {
+  const supabase = await createServerSupabase();
+  // RLS already restricts what we can see; exclude the viewer for the roster.
+  const { data } = await supabase.from('profiles').select('id, full_name, role').neq('id', viewer.id);
+  return (data ?? []).filter((p) => p.role === 'member').map((p) => ({ id: p.id, full_name: p.full_name }));
+}
+
+export async function getActivityForUsers(userIds: string[], dates: string[]): Promise<DailyActivity[]> {
+  if (userIds.length === 0 || dates.length === 0) return [];
+  const supabase = await createServerSupabase();
+  const { data } = await supabase
+    .from('daily_activity')
+    .select('user_id, date, total_tracked_sec, active_sec, idle_sec, by_app')
+    .in('user_id', userIds)
+    .gte('date', dates[0])
+    .lte('date', dates[dates.length - 1]);
+  return (data ?? []).map((r) => ({
+    userId: r.user_id, date: r.date,
+    totalTrackedSec: r.total_tracked_sec, activeSec: r.active_sec, idleSec: r.idle_sec,
+    byApp: (r.by_app as { app_name: string; total_sec: number; sessions: number; active_pct: number }[])
+      .map((a) => ({ appName: a.app_name, totalSec: a.total_sec, sessions: a.sessions, activePct: a.active_pct }))
+  }));
+}
