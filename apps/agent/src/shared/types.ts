@@ -74,7 +74,34 @@ export interface AppSettings {
   bucketSizeSec: number;
   trackingPaused: boolean;
   consentGranted: boolean;
+  cloudSyncEnabled: boolean;
+  cloudSyncWindowDays: number;
   hasApiKey: boolean; // true if the CURRENT provider has a key saved; renderer never receives the raw key
+}
+
+export interface DailyActivityRow {
+  user_id: string;
+  date: ISODate;
+  total_tracked_sec: number;
+  active_sec: number;
+  idle_sec: number;
+  by_app: { app_name: string; total_sec: number; sessions: number; active_pct: number }[];
+}
+
+export interface CloudSession {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number; // epoch SECONDS (GoTrue expires_at)
+  userId: string;
+  email: string;
+}
+
+export interface CloudSyncStatus {
+  connected: boolean;
+  email: string | null;
+  enabled: boolean;
+  lastSyncedAt: number | null; // epoch ms
+  lastError: string | null;
 }
 
 export interface TrackingStatus { paused: boolean; currentApp: string | null; sessionStartedAt: number | null; }

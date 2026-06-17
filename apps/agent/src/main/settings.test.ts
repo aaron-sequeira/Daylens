@@ -53,4 +53,19 @@ describe('settings', () => {
     store.set({ aiProvider: 'openai' });
     expect(store.getApiKey()).toBe('sk-openai'); // openai's key is still there
   });
+
+  it('defaults cloud sync off with a 7-day window', () => {
+    const s = store.get();
+    expect(s.cloudSyncEnabled).toBe(false);
+    expect(s.cloudSyncWindowDays).toBe(7);
+  });
+
+  it('stores and clears the encrypted cloud session', () => {
+    expect(store.getCloudSession()).toBeNull();
+    const session = { accessToken: 'a', refreshToken: 'r', expiresAt: 123, userId: 'u1', email: 'u@x.test' };
+    store.setCloudSession(session);
+    expect(store.getCloudSession()).toEqual(session);
+    store.setCloudSession(null);
+    expect(store.getCloudSession()).toBeNull();
+  });
 });

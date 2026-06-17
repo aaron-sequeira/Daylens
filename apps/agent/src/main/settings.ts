@@ -8,6 +8,8 @@ export interface SettingsStore {
   set(patch: Partial<Omit<AppSettings, 'hasApiKey'>>): void;
   setApiKey(key: string): void;
   getApiKey(): string | null;
+  getCloudSession(): import('../shared/types').CloudSession | null;
+  setCloudSession(s: import('../shared/types').CloudSession | null): void;
 }
 
 const DEFAULTS: Omit<AppSettings, 'hasApiKey'> = {
@@ -20,11 +22,15 @@ const DEFAULTS: Omit<AppSettings, 'hasApiKey'> = {
   pollIntervalMs: 2000,
   bucketSizeSec: 60,
   trackingPaused: false,
-  consentGranted: false
+  consentGranted: false,
+  cloudSyncEnabled: false,
+  cloudSyncWindowDays: 7
 };
 
 // API keys are stored per provider so each provider remembers its own key independently.
 const keyName = (provider: string): string => `ai_key_${provider}_enc`;
+
+const CLOUD_SESSION_KEY = 'cloud_session_enc';
 
 export function createSettingsStore(db: Database.Database, enc: Encryptor): SettingsStore {
   const readRaw = (key: string): string | null => {
@@ -58,6 +64,16 @@ export function createSettingsStore(db: Database.Database, enc: Encryptor): Sett
     getApiKey() {
       const raw = readRaw(keyName(currentProvider()));
       return raw === null ? null : enc.decrypt(Buffer.from(raw, 'base64'));
-    }
+    },
+    getCloudSession() {
+      const raw = readRaw(CLOUD_SESSION_KEY);
+      if (raw === null) return null;
+      try { return JSON.parse(enc.decrypt(Buffer.from(raw, 'base64'))); }
+      catch { return null; }
+    },
+    setCloudSession(s) {
+      if (s === null) { db.prepare('DELETE FROM settings WHERE key = ?').run(CLOUD_SESSION_KEY); return; }
+      writeRaw(CLOUD_SESSION_KEY, enc.encrypt(JSON.stringify(s)).toString('base64'));
+    },
   };
 }
