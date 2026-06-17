@@ -43,6 +43,10 @@ describe('selfTrend', () => {
   it('down beyond epsilon', () => {
     expect(selfTrend(60, 70)).toEqual({ delta: -10, direction: 'down' });
   });
+  it('treats exactly epsilon (2) as flat and just over (3) as a move', () => {
+    expect(selfTrend(72, 70)).toEqual({ delta: 2, direction: 'flat' });
+    expect(selfTrend(73, 70)).toEqual({ delta: 3, direction: 'up' });
+  });
 });
 
 describe('memberPeriodStats', () => {
