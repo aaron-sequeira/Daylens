@@ -14,3 +14,10 @@
 
 The runtime uses only the anon key + your session; RLS does the rest. The
 service-role key is used only by the seed script.
+
+## Provisioning a pilot company (operator)
+Create an org + its first admin (service-role; run once per company):
+```
+pnpm --filter @worksight/web exec node scripts/create-org.mjs --org "Acme Inc" --admin-email admin@acme.test
+```
+The admin then logs in, opens **Admin**, creates teams, and generates invite links (`/join/<token>`) to share with employees.
