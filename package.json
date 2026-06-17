@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter @worksight/agent dev",
     "build": "pnpm --filter @worksight/agent build",
-    "test": "pnpm --filter @worksight/agent test"
+    "test": "pnpm --filter @worksight/agent test",
+    "test:rls": "vitest run --config vitest.config.ts"
   }
 }
