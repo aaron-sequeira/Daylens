@@ -55,24 +55,12 @@ function makeDays(userId, days) {
   return rows;
 }
 
-async function ensureUser(email, fullName) {
-  // idempotent: find existing auth user by email, else create
-  const { data: list } = await db.auth.admin.listUsers();
-  const existing = list.users.find((u) => u.email === email);
-  if (existing) return existing.id;
-  const { data, error } = await db.auth.admin.createUser({
-    email, password: PASSWORD, email_confirm: true, user_metadata: { full_name: fullName }
-  });
-  if (error) throw error;
-  return data.user.id;
-}
-
 async function main() {
   // wipe app data (not auth) for idempotency
-  await db.from('daily_activity').delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
-  await db.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await db.from('teams').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  await db.from('organizations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+  { const { error } = await db.from('daily_activity').delete().neq('user_id', '00000000-0000-0000-0000-000000000000'); if (error) throw error; }
+  { const { error } = await db.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000'); if (error) throw error; }
+  { const { error } = await db.from('teams').delete().neq('id', '00000000-0000-0000-0000-000000000000'); if (error) throw error; }
+  { const { error } = await db.from('organizations').delete().neq('id', '00000000-0000-0000-0000-000000000000'); if (error) throw error; }
 
   const { data: org } = await db.from('organizations').insert({ name: 'Acme Inc' }).select().single();
   const { data: teams } = await db.from('teams')
@@ -90,14 +78,27 @@ async function main() {
     people.push({ email: `member${i}.growth@acme.test`, full_name: `Growth Member ${i}`, role: 'member', team_id: growth.id });
   }
 
+  // hoist listUsers() out of the per-user loop (O(N²) → O(1))
+  const { data: listData } = await db.auth.admin.listUsers();
+  const authUserMap = new Map(listData.users.map((u) => [u.email, u.id]));
+
   for (const p of people) {
-    const id = await ensureUser(p.email, p.full_name);
-    await db.from('profiles').insert({
+    // idempotent: reuse existing auth user by email, else create and cache
+    let id = authUserMap.get(p.email);
+    if (!id) {
+      const { data, error } = await db.auth.admin.createUser({
+        email: p.email, password: PASSWORD, email_confirm: true, user_metadata: { full_name: p.full_name }
+      });
+      if (error) throw error;
+      id = data.user.id;
+      authUserMap.set(p.email, id);
+    }
+    { const { error } = await db.from('profiles').insert({
       id, org_id: org.id, team_id: p.team_id, full_name: p.full_name, email: p.email, role: p.role
-    });
+    }); if (error) throw error; }
     if (p.role !== 'admin') {
       const rows = makeDays(id, 30);
-      if (rows.length) await db.from('daily_activity').insert(rows);
+      if (rows.length) { const { error } = await db.from('daily_activity').insert(rows); if (error) throw error; }
     }
     console.log('seeded', p.email);
   }
