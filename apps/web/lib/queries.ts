@@ -30,7 +30,7 @@ export const getViewerProfile = cache(async (): Promise<ViewerProfile | null> =>
 export async function getTeamMembers(viewer: ViewerProfile): Promise<{ id: string; full_name: string }[]> {
   const supabase = await createServerSupabase();
   // RLS already restricts what we can see; exclude the viewer for the roster.
-  const { data } = await supabase.from('profiles').select('id, full_name, role').neq('id', viewer.id);
+  const { data } = await supabase.from('profiles').select('id, full_name, role').eq('active', true).neq('id', viewer.id);
   return (data ?? []).filter((p) => p.role === 'member').map((p) => ({ id: p.id, full_name: p.full_name }));
 }
 
