@@ -9,6 +9,10 @@ import { ActiveWinForegroundSource } from './tracking/activeWindow';
 import { UiohookInputSource } from './tracking/inputActivity';
 import { registerIpc } from './ipc/handlers';
 import { CH } from './ipc/channels';
+import { getCloudConfig } from './cloud/config';
+import { upsertDailyActivity } from './cloud/client';
+import { createSessionManager } from './cloud/session';
+import { createCloudController } from './cloud/controller';
 
 // Filesystem-safe app name so userData (the SQLite location) is not under a scoped "@worksight/agent" path.
 app.setName('WorkSight Agent');
@@ -36,6 +40,19 @@ app.whenReady().then(() => {
   };
   const settings = createSettingsStore(db, enc);
 
+  const cloudConfig = getCloudConfig();
+  const sessionManager = createSessionManager({
+    fetchFn: fetch, config: cloudConfig,
+    store: { get: () => settings.getCloudSession(), set: (s) => settings.setCloudSession(s) },
+    now: () => Date.now()
+  });
+  const cloud = createCloudController({
+    session: sessionManager, settings,
+    repo: { getFocusSessions: (d) => repo.getFocusSessions(d), getActivitySamples: (d) => repo.getActivitySamples(d) },
+    upsert: (token, rows) => upsertDailyActivity(fetch, cloudConfig, token, rows),
+    now: () => Date.now()
+  });
+
   const pushUpdate = (): void => win?.webContents.send(CH.eventsUpdate);
   const tracker = createTracker({
     foreground: new ActiveWinForegroundSource(),
@@ -47,7 +64,7 @@ app.whenReady().then(() => {
     onUpdate: pushUpdate
   });
 
-  registerIpc({ repo, settings, tracker, onTrackingChange: pushUpdate });
+  registerIpc({ repo, settings, tracker, cloud, onTrackingChange: pushUpdate });
 
   createWindow();
 
@@ -75,7 +92,9 @@ app.whenReady().then(() => {
     console.error('[main] tray setup failed (continuing, tracking unaffected):', e);
   }
 
+  const cloudTimer = setInterval(() => { void cloud.maybeAutoSync(); }, 15 * 60 * 1000);
   app.on('before-quit', () => { (app as unknown as { isQuitting?: boolean }).isQuitting = true; tracker.stop(); });
+  app.on('before-quit', () => { clearInterval(cloudTimer); void cloud.maybeAutoSync(); });
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { AppSettings, AiProvider } from '../../shared/types';
 import { api } from '../lib/ipc';
 import { PROVIDERS, providerMeta } from '../lib/providers';
+import { CloudSyncCard } from './CloudSyncCard';
 
 export function SettingsView({ settings, onChange }: { settings: AppSettings; onChange: () => Promise<void> }) {
   const [apiKey, setApiKey] = useState('');
@@ -68,6 +69,8 @@ export function SettingsView({ settings, onChange }: { settings: AppSettings; on
           ? <div className="text-xs text-green-700">A {meta.label} key is saved.</div>
           : meta.keyUrl ? <div className="text-xs text-gray-500">Get a {meta.label} key at {meta.keyUrl.replace('https://', '')}</div> : null}
       </div>
+
+      <CloudSyncCard />
 
       <button onClick={async () => { if (confirm('Delete all tracked data?')) { await api.data.clearAll(); await onChange(); } }}
         className="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-700">Clear all data</button>
