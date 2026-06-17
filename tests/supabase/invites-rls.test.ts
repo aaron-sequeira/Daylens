@@ -87,3 +87,29 @@ describe('redeem_invite', () => {
     expect(status).toBe('revoked');
   });
 });
+
+describe('admin-write isolation', () => {
+  it('an admin can create a team + invitation in their own org', async () => {
+    const adminC = await signIn('admin@acme.test');
+    const { data: org } = await adminC.from('organizations').select('id').single();
+    const { error: teamErr } = await adminC.from('teams').insert({ org_id: org!.id, name: `T_${Date.now()}` });
+    expect(teamErr).toBeNull();
+    const { data: team } = await adminC.from('teams').select('id').limit(1).single();
+    const { error: invErr } = await adminC.from('invitations').insert({ org_id: org!.id, team_id: team!.id, role: 'member', token: `at_${Date.now()}` });
+    expect(invErr).toBeNull();
+  });
+  it('a manager CANNOT create a team', async () => {
+    const mgr = await signIn('manager.platform@acme.test');
+    const { data: org } = await mgr.from('organizations').select('id').single();
+    const { error } = await mgr.from('teams').insert({ org_id: org!.id, name: 'nope' });
+    expect(error).not.toBeNull();
+  });
+  it('an admin can deactivate a member (UPDATE profiles.active)', async () => {
+    const adminC = await signIn('admin@acme.test');
+    const { data: m } = await adminC.from('profiles').select('id').eq('email', 'member4.growth@acme.test').single();
+    const { error } = await adminC.from('profiles').update({ active: false }).eq('id', m!.id);
+    expect(error).toBeNull();
+    // reactivate so the suite is re-runnable
+    await adminC.from('profiles').update({ active: true }).eq('id', m!.id);
+  });
+});
