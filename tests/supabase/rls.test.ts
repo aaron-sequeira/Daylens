@@ -29,8 +29,7 @@ describe('RLS isolation', () => {
 
   it('member sees only their own daily_activity', async () => {
     const { data } = await member.from('daily_activity').select('user_id');
-    const others = (data ?? []).filter((r) => r.user_id !== undefined);
-    const ids = new Set(others.map((r) => r.user_id));
+    const ids = new Set((data ?? []).map((r) => r.user_id));
     expect(ids.size).toBe(1);
   });
 
@@ -38,6 +37,7 @@ describe('RLS isolation', () => {
     const { data } = await manager.from('profiles').select('email, team_id');
     const emails = (data ?? []).map((r) => r.email).sort();
     // 4 platform members + the manager themselves; no growth members
+    expect(emails).toHaveLength(5);
     expect(emails.every((e) => e.includes('platform') || e === 'manager.platform@acme.test')).toBe(true);
     expect(emails.some((e) => e.includes('growth'))).toBe(false);
   });
