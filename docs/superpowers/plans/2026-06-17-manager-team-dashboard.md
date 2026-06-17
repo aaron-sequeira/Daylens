@@ -53,7 +53,7 @@ apps/web/
     (dashboard)/page.tsx           # team overview
     (dashboard)/members/[id]/page.tsx  # member detail
   components/
-    StatCard.tsx · TrendArrow.tsx · PeriodSelector.tsx · DaySelector.tsx
+    StatCard.tsx · TrendArrow.tsx · PeriodSelector.tsx
     RosterTable.tsx · TrendChart.tsx · ActiveIdleDonut.tsx · TimePerAppChart.tsx · AppTable.tsx
 tests/
   supabase/rls.test.ts             # RLS isolation (vitest, runs at repo root against local supabase)
@@ -1151,7 +1151,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ### Task 8: Shared UI components
 
 **Files:**
-- Create: `apps/web/components/StatCard.tsx`, `TrendArrow.tsx`, `PeriodSelector.tsx`, `DaySelector.tsx`, `RosterTable.tsx`, `TrendChart.tsx`, `ActiveIdleDonut.tsx`, `TimePerAppChart.tsx`, `AppTable.tsx`
+- Create: `apps/web/components/StatCard.tsx`, `TrendArrow.tsx`, `PeriodSelector.tsx`, `RosterTable.tsx`, `TrendChart.tsx`, `ActiveIdleDonut.tsx`, `TimePerAppChart.tsx`, `AppTable.tsx`
 
 **Interfaces:**
 - Consumes: `MemberPeriodStats`, `Trend`, `AppUsage` from `lib/types.ts`.
@@ -1159,7 +1159,6 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
   - `StatCard({ label, value, sub? })`
   - `TrendArrow({ trend })`
   - `PeriodSelector({ period })` (links to `?period=`)
-  - `DaySelector({ days, selected })` (links to `?day=`)
   - `RosterTable({ rows })` where `rows: MemberPeriodStats[]`
   - `TrendChart({ data })` where `data: { date: string; activeHours: number; score?: number }[]`
   - `ActiveIdleDonut({ activeSec, idleSec })`
@@ -1208,20 +1207,7 @@ export function PeriodSelector({ period }: { period: number }) {
 }
 ```
 
-`apps/web/components/DaySelector.tsx`:
-```tsx
-import Link from 'next/link';
-export function DaySelector({ days, selected, period }: { days: string[]; selected: string; period: number }) {
-  return (
-    <select defaultValue={selected} className="rounded border px-2 py-1 text-sm"
-      // server components can't use onChange; render as links instead for no-JS:
-      disabled>
-      {days.map((d) => <option key={d} value={d}>{d}</option>)}
-    </select>
-  );
-}
-```
-> The interactive day switch is rendered as links in the page (Task 10) to keep these as Server Components; this `select` is a static display of the chosen day. (If a client-side selector is preferred later, convert to a `'use client'` component — out of scope now.)
+> Note: the member-detail day switcher (Task 10) is rendered as inline `<Link>` chips directly in the page (Server Components can't use `onChange`), so no separate day-selector component is needed here.
 
 - [ ] **Step 2: Create the chart + table components (client components for Recharts)**
 
