@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { createServerSupabase } from './supabaseServer';
 
 export interface ViewerProfile {
@@ -7,7 +8,7 @@ export interface ViewerProfile {
   orgName: string; teamName: string | null;
 }
 
-export async function getViewerProfile(): Promise<ViewerProfile | null> {
+export const getViewerProfile = cache(async (): Promise<ViewerProfile | null> => {
   const supabase = await createServerSupabase();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return null;
@@ -23,4 +24,4 @@ export async function getViewerProfile(): Promise<ViewerProfile | null> {
     orgName: (p.organizations as unknown as { name: string } | null)?.name ?? '',
     teamName: (p.teams as unknown as { name: string } | null)?.name ?? null
   };
-}
+});
