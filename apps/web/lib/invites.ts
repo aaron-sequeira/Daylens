@@ -28,8 +28,10 @@ export async function listTeams(): Promise<{ id: string; name: string }[]> {
 export async function createTeam(name: string): Promise<void> {
   const s = await createServerSupabase();
   const { data: me } = await s.auth.getUser();
-  const { data: prof } = await s.from('profiles').select('org_id').eq('id', me.user!.id).single();
-  await s.from('teams').insert({ org_id: prof!.org_id, name });
+  if (!me.user) throw new Error('Unauthenticated');
+  const { data: prof } = await s.from('profiles').select('org_id').eq('id', me.user.id).single();
+  if (!prof) throw new Error('Profile not found');
+  await s.from('teams').insert({ org_id: prof.org_id, name });
 }
 export async function renameTeam(id: string, name: string): Promise<void> {
   const s = await createServerSupabase();
@@ -41,18 +43,20 @@ export async function listInvites(): Promise<InviteRow[]> {
   const { data } = await s.from('invitations')
     .select('id, team_id, role, token, uses, max_uses, expires_at, revoked, teams(name)')
     .eq('revoked', false).order('created_at', { ascending: false });
-  return (data ?? []).map((r: any) => ({
+  return (data ?? []).map((r: { id: string; team_id: string; role: string; token: string; uses: number; max_uses: number | null; expires_at: string | null; revoked: boolean; teams: Array<{ name: string }> }) => ({
     id: r.id, team_id: r.team_id, role: r.role, token: r.token, uses: r.uses, max_uses: r.max_uses, expires_at: r.expires_at,
-    team_name: (r.teams as { name: string } | null)?.name ?? ''
+    team_name: r.teams?.[0]?.name ?? ''
   }));
 }
 export async function createInvite(input: { teamId: string; role: string; maxUses: number | null; expiresAt: string | null }): Promise<void> {
   const s = await createServerSupabase();
   const { data: me } = await s.auth.getUser();
-  const { data: prof } = await s.from('profiles').select('org_id').eq('id', me.user!.id).single();
+  if (!me.user) throw new Error('Unauthenticated');
+  const { data: prof } = await s.from('profiles').select('org_id').eq('id', me.user.id).single();
+  if (!prof) throw new Error('Profile not found');
   await s.from('invitations').insert({
-    org_id: prof!.org_id, team_id: input.teamId, role: input.role, token: generateInviteToken(),
-    max_uses: input.maxUses, expires_at: input.expiresAt, created_by: me.user!.id
+    org_id: prof.org_id, team_id: input.teamId, role: input.role, token: generateInviteToken(),
+    max_uses: input.maxUses, expires_at: input.expiresAt, created_by: me.user.id
   });
 }
 export async function revokeInvite(id: string): Promise<void> {
