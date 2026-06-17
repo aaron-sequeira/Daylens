@@ -11,3 +11,6 @@ node_modules/
 
 # TypeScript incremental info
 *.tsbuildinfo
+
+# Next.js generated type file (auto-created at build/dev time)
+next-env.d.ts

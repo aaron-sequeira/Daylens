@@ -10,7 +10,8 @@ import { RosterTable } from '@/components/RosterTable';
 export default async function Overview({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const viewer = await getViewerProfile();
   if (!viewer) redirect('/login');
-  const period = [7, 14, 30].includes(Number((await searchParams).period)) ? Number((await searchParams).period) : 14;
+  const { period: rawPeriod } = await searchParams;
+  const period = [7, 14, 30].includes(Number(rawPeriod)) ? Number(rawPeriod) : 14;
 
   const dates = dateRange(period);
   const prior = priorRange(period);

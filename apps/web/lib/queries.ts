@@ -52,7 +52,7 @@ export async function getActivityForUsers(userIds: string[], dates: string[]): P
   return (data ?? []).map((r) => ({
     userId: r.user_id, date: r.date,
     totalTrackedSec: r.total_tracked_sec, activeSec: r.active_sec, idleSec: r.idle_sec,
-    byApp: (r.by_app as { app_name: string; total_sec: number; sessions: number; active_pct: number }[])
+    byApp: ((r.by_app as { app_name: string; total_sec: number; sessions: number; active_pct: number }[]) ?? [])
       .map((a) => ({ appName: a.app_name, totalSec: a.total_sec, sessions: a.sessions, activePct: a.active_pct }))
   }));
 }

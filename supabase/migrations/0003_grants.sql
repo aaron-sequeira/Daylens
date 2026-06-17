@@ -7,3 +7,6 @@ grant all on all sequences in schema public to service_role;
 -- Grant anon and authenticated read-only (DML is handled by RLS policies).
 grant usage on schema public to anon, authenticated;
 grant select on all tables in schema public to anon, authenticated;
+
+-- Ensure tables added by future migrations are also granted (RLS still filters rows).
+alter default privileges in schema public grant select on tables to anon, authenticated;
