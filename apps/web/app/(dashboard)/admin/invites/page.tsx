@@ -36,7 +36,7 @@ export default async function InvitesPage() {
           <li key={i.id} className="flex items-center gap-3 rounded-2xl border border-subtle bg-surface p-3">
             <span className="text-xs text-muted">{i.team_name} · {i.role} · {i.uses}{i.max_uses ? `/${i.max_uses}` : ''} uses{i.expires_at ? ` · exp ${i.expires_at.slice(0,10)}` : ''}</span>
             <CopyField value={`${origin}/join/${i.token}`} />
-            <form action={revokeInviteAction}><input type="hidden" name="id" value={i.id} /><Button variant="danger" size="sm">Revoke</Button></form>
+            <form action={revokeInviteAction}><input type="hidden" name="id" value={i.id} /><Button variant="danger" size="sm" icon="✕">Revoke</Button></form>
           </li>
         ))}
       </ul>

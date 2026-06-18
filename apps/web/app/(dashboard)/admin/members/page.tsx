@@ -37,14 +37,14 @@ export default async function MembersPage() {
                     <option value="">—</option>
                     {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
-                  <Button variant="secondary" size="sm">Save</Button>
+                  <Button variant="secondary" size="sm" icon="✓">Save</Button>
                 </form>
               </Td>
               <Td>
                 <form action={updateMemberAction} className="flex items-center gap-1">
                   <input type="hidden" name="id" value={m.id} />
                   <select name="role" defaultValue={m.role} className="rounded-lg border border-subtle bg-surface-2 px-1 py-0.5 text-xs text-fg"><option value="member">member</option><option value="manager">manager</option><option value="admin">admin</option></select>
-                  <Button variant="secondary" size="sm">Save</Button>
+                  <Button variant="secondary" size="sm" icon="✓">Save</Button>
                 </form>
               </Td>
               <Td>
@@ -53,7 +53,7 @@ export default async function MembersPage() {
                   <form action={updateMemberAction} className="flex items-center gap-1">
                     <input type="hidden" name="id" value={m.id} />
                     <input type="hidden" name="active" value={m.active ? 'false' : 'true'} />
-                    <Button variant={m.active ? 'danger' : 'secondary'} size="sm">{m.active ? 'Deactivate' : 'Reactivate'}</Button>
+                    <Button variant={m.active ? 'danger' : 'secondary'} size="sm" icon={m.active ? '⊘' : '✓'}>{m.active ? 'Deactivate' : 'Reactivate'}</Button>
                   </form>
                 </div>
               </Td>

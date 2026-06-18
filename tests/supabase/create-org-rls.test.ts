@@ -39,10 +39,10 @@ describe('create_organization', () => {
   });
 
   it('rejects a second org for a user who already has a profile', async () => {
-    const { c } = await freshUser();
+    const { c, id } = await freshUser();
     const { data: s1 } = await c.rpc('create_organization', { p_org_name: 'First Co', p_full_name: 'X' });
     expect(s1).toBe('ok');
-    const { data: org } = await admin().from('profiles').select('org_id').eq('id', createdUsers[createdUsers.length - 1]).single();
+    const { data: org } = await admin().from('profiles').select('org_id').eq('id', id).single();
     createdOrgs.push(org!.org_id);
     const { data: s2 } = await c.rpc('create_organization', { p_org_name: 'Second Co', p_full_name: 'X' });
     expect(s2).toBe('already_member');

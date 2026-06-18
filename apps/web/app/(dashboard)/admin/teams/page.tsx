@@ -21,7 +21,7 @@ export default async function TeamsPage() {
               <form action={renameTeamAction} className="flex items-center gap-2">
                 <input type="hidden" name="id" value={t.id} />
                 <input name="name" defaultValue={t.name} className="rounded-lg border border-subtle bg-surface-2 px-2 py-1 text-sm text-fg" />
-                <Button variant="secondary" size="sm">Rename</Button>
+                <Button variant="secondary" size="sm" icon="✏">Rename</Button>
               </form>
             </li>
           ))}
