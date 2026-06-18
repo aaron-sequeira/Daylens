@@ -2,8 +2,8 @@ import { redirect } from 'next/navigation';
 import { getViewerProfile, getTeamMembers, getActivityForUsers } from '@/lib/queries';
 import { dateRange, priorRange } from '@/lib/period';
 import { memberPeriodStats, teamAggregate } from '@/lib/aggregate';
-import { StatCard } from '@/components/StatCard';
-import { PeriodSelector } from '@/components/PeriodSelector';
+import { StatCard } from '@/components/ui/StatCard';
+import { Segmented } from '@/components/ui/Segmented';
 import { TrendChart } from '@/components/TrendChart';
 import { RosterTable } from '@/components/RosterTable';
 
@@ -28,15 +28,15 @@ export default async function Overview({ searchParams }: { searchParams: Promise
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Team overview</h1>
-        <PeriodSelector period={period} />
+      <div className="flex items-center gap-3">
+        <h1 className="text-lg font-bold text-fg">Team overview</h1>
+        <Segmented options={[{label:'7d',value:7},{label:'14d',value:14},{label:'30d',value:30}]} value={period} />
       </div>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Team active hrs" value={team.totalActiveHours.toFixed(1)} sub={`last ${period} days`} />
-        <StatCard label="Avg active %" value={`${Math.round(team.avgActivePct)}%`} />
-        <StatCard label="Members tracked" value={String(team.membersTracked)} />
-        <StatCard label="Top app" value={team.topApp ?? '—'} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard label="Team active hrs" value={team.totalActiveHours.toFixed(1)} icon="⏱" />
+        <StatCard label="Avg active %" value={`${Math.round(team.avgActivePct)}%`} icon="✓" chipClass="bg-emerald-500/15 text-emerald-500" />
+        <StatCard label="Members tracked" value={String(team.membersTracked)} icon="👥" chipClass="bg-fuchsia-500/15 text-fuchsia-500" />
+        <StatCard label="Top app" value={team.topApp ?? '—'} icon="★" chipClass="bg-amber-500/15 text-amber-500" />
       </div>
       <TrendChart data={team.series} />
       <RosterTable rows={rows} />

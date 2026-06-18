@@ -1,25 +1,24 @@
 import Link from 'next/link';
 import type { MemberPeriodStats } from '@/lib/types';
-import { TrendArrow } from './TrendArrow';
+import { Table, Th, Tr, Td } from '@/components/ui/Table';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
+
 export function RosterTable({ rows }: { rows: MemberPeriodStats[] }) {
   return (
-    <table className="w-full rounded-xl border bg-white text-sm">
-      <thead><tr className="border-b text-left text-xs uppercase text-gray-500">
-        <th className="p-2">Member</th><th className="p-2">Avg active hrs</th><th className="p-2">Active %</th>
-        <th className="p-2">Score</th><th className="p-2">Trend</th><th className="p-2">Days</th>
-      </tr></thead>
+    <Table>
+      <thead><Tr><Th>Member</Th><Th>Avg active hrs</Th><Th>Active %</Th><Th>Score</Th><Th>Trend</Th></Tr></thead>
       <tbody>
         {rows.map((r) => (
-          <tr key={r.userId} className="border-b last:border-0 hover:bg-gray-50">
-            <td className="p-2"><Link href={`/members/${r.userId}`} className="text-gray-900 underline-offset-2 hover:underline">{r.fullName}</Link></td>
-            <td className="p-2">{r.avgActiveHours.toFixed(1)}</td>
-            <td className="p-2">{Math.round(r.avgActivePct)}%</td>
-            <td className="p-2 font-medium">{r.activityScore}</td>
-            <td className="p-2"><TrendArrow trend={r.trend} /></td>
-            <td className="p-2">{r.daysWithData}</td>
-          </tr>
+          <Tr key={r.userId} className="hover:bg-surface-2">
+            <Td><Link href={`/members/${r.userId}`} className="flex items-center gap-2 hover:underline"><Avatar name={r.fullName} size={26} />{r.fullName}</Link></Td>
+            <Td>{r.avgActiveHours.toFixed(1)}</Td>
+            <Td>{Math.round(r.avgActivePct)}%</Td>
+            <Td className="font-bold">{r.activityScore}</Td>
+            <Td><Badge tone={r.trend.direction === 'up' ? 'success' : r.trend.direction === 'down' ? 'danger' : 'neutral'}>{r.trend.direction === 'up' ? '▲' : r.trend.direction === 'down' ? '▼' : '—'} {r.trend.delta >= 0 ? '+' : ''}{r.trend.delta}</Badge></Td>
+          </Tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }

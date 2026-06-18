@@ -1,20 +1,19 @@
 import type { AppUsage } from '@/lib/types';
+import { Table, Th, Tr, Td } from '@/components/ui/Table';
 export function AppTable({ apps }: { apps: AppUsage[] }) {
   return (
-    <table className="w-full rounded-xl border bg-white text-sm">
-      <thead><tr className="border-b text-left text-xs uppercase text-gray-500">
-        <th className="p-2">App</th><th className="p-2">Time</th><th className="p-2">Sessions</th><th className="p-2">Active %</th>
-      </tr></thead>
+    <Table>
+      <thead><Tr><Th>App</Th><Th>Time</Th><Th>Sessions</Th><Th>Active %</Th></Tr></thead>
       <tbody>
         {apps.map((a) => (
-          <tr key={a.appName} className="border-b last:border-0">
-            <td className="p-2">{a.appName}</td>
-            <td className="p-2">{Math.round(a.totalSec / 60)} min</td>
-            <td className="p-2">{a.sessions}</td>
-            <td className="p-2">{a.activePct}%</td>
-          </tr>
+          <Tr key={a.appName}>
+            <Td>{a.appName}</Td>
+            <Td>{Math.round(a.totalSec / 60)} min</Td>
+            <Td>{a.sessions}</Td>
+            <Td>{a.activePct}%</Td>
+          </Tr>
         ))}
       </tbody>
-    </table>
+    </Table>
   );
 }
