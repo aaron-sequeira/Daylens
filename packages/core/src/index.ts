@@ -8,3 +8,5 @@ export { createTracker } from './tracking/tracker';
 export type { Tracker, TrackerDeps } from './tracking/tracker';
 export { isActiveBucket } from './tracking/idle';
 export { computeDaySummary } from './summary/rollup';
+export { createKvStore } from './settings/kv';
+export type { KvStore, KvValue } from './settings/kv';
