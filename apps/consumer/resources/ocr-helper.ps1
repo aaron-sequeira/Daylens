@@ -26,6 +26,9 @@ Emit @{ ready = $true }
 while ($null -ne ($line = [Console]::In.ReadLine())) {
   $sp = $line.IndexOf(' ')
   $id = if ($sp -gt 0) { $line.Substring(0, $sp) } else { $line }
+  $stream = $null
+  $writer = $null
+  $bitmap = $null
   try {
     if ($sp -le 0) { throw 'malformed request' }
     $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -40,9 +43,12 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
     $bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
     $result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
     $text = ($result.Lines | ForEach-Object { $_.Text }) -join "`n"
-    $bitmap.Dispose(); $stream.Dispose()
     Emit @{ id = $id; text = $text; ms = $sw.ElapsedMilliseconds }
   } catch {
     Emit @{ id = $id; error = "$($_.Exception.Message)" }
+  } finally {
+    if ($null -ne $bitmap) { $bitmap.Dispose() }
+    if ($null -ne $writer) { $writer.Dispose() }
+    if ($null -ne $stream) { $stream.Dispose() }
   }
 }
