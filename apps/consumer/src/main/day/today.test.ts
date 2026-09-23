@@ -78,6 +78,18 @@ describe('buildTodayView', () => {
     expect(v.week[0].byCategory.entertainment).toBe(3600);
     expect(v.week[6].date).toBe(DATE);
   });
+
+  it('does not count a crash-leftover open session on a past day as open (only the globally-latest session can be)', () => {
+    const days = emptyWeek();
+    days[0] = { date: '2026-09-17', sessions: [session('Spotify', T(10, 0, 17), null, '2026-09-17')], samples: [] };
+    const v = buildTodayView([...days, { date: DATE, sessions: [], samples: [] }], settings, T(18));
+    expect(v.week[0].seconds).toBe(0);
+  });
+
+  it('does not count screen time before the first sample of the day (rest before first sample is invisible to restPeriods)', () => {
+    const v = view({ sessions: [session('Visual Studio Code', T(23, 50, 22), T(9), '2026-09-22')], samples: run(T(8), 60, 1) });
+    expect(v.screenSec).toBe(3600);
+  });
 });
 
 describe('loadTodayView', () => {

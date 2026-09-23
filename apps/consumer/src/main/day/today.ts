@@ -26,15 +26,21 @@ interface Piece extends Interval { appName: string; category: Category; }
 const sec = (ms: number): number => Math.round(ms / 1000);
 const zeroByCategory = (): Record<Category, number> => Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<Category, number>;
 
-/** On-screen pieces of the day: sessions clipped to the day, minus lock screen and away periods. */
-function dayPieces(day: DayInput, now: number): Piece[] {
+/** On-screen pieces of the day: sessions clipped to the day, minus lock screen and away periods.
+ * `currentId` is the id of the single globally-latest session (across the shown day only) — only
+ * that session may be open-and-counted-to-now; any other open session is a crash leftover (0). */
+function dayPieces(day: DayInput, currentId: number | null, now: number): Piece[] {
   const bounds = dayBounds(day.date);
-  const away = atLeast(restPeriods(day.samples), AWAY_MS);
+  const rest = restPeriods(day.samples);
+  // Rest before the day's first sample is invisible to restPeriods (it only sees gaps between
+  // samples) — add it explicitly so a session open overnight doesn't count that dead stretch.
+  const lead = day.samples.length ? { start: bounds.start, end: Math.min(...day.samples.map((s) => s.bucketStart)) } : null;
+  const away = atLeast(lead && lead.end > lead.start ? [...rest, lead] : rest, AWAY_MS);
   const sorted = [...day.sessions].sort((a, b) => a.startedAt - b.startedAt);
   const pieces: Piece[] = [];
-  sorted.forEach((s, i) => {
+  sorted.forEach((s) => {
     if (NOT_SCREEN.test(s.appName.trim())) return;
-    const iv = clip(sessionInterval(s, i === sorted.length - 1, now), bounds.start, bounds.end);
+    const iv = clip(sessionInterval(s, s.id === currentId, now), bounds.start, bounds.end);
     if (!iv) return;
     const category = categoryForApp(s.appName);
     for (const p of subtract(iv, away)) pieces.push({ ...p, appName: s.appName, category });
@@ -71,9 +77,9 @@ function timelineOf(pieces: Piece[]): TimelineSegment[] {
   return out;
 }
 
-function barOf(day: DayInput, now: number): DayBar {
+function barOf(day: DayInput, currentId: number | null, now: number): DayBar {
   const byCategory = zeroByCategory();
-  const pieces = dayPieces(day, now);
+  const pieces = dayPieces(day, currentId, now);
   for (const p of pieces) byCategory[p.category] += p.end - p.start;
   for (const c of CATEGORIES) byCategory[c] = sec(byCategory[c]);
   return { date: day.date, seconds: sec(totalMs(pieces)), byCategory };
@@ -81,7 +87,12 @@ function barOf(day: DayInput, now: number): DayBar {
 
 export function buildTodayView(days: DayInput[], settings: ViewSettings, now: number): TodayView {
   const today = days[days.length - 1];
-  const pieces = dayPieces(today, now);
+  // Only the single globally-latest session (today's) can be open-and-counted-to-now; an open
+  // session on an earlier day is a crash leftover and counts as 0 (see dayPieces).
+  const currentId = today.sessions.length
+    ? today.sessions.reduce((a, b) => (b.startedAt > a.startedAt ? b : a)).id
+    : null;
+  const pieces = dayPieces(today, currentId, now);
   const screenSec = sec(totalMs(pieces));
   const activeSec = sec(today.samples.filter((s) => s.active === 1).reduce((a, s) => a + (s.bucketEnd - s.bucketStart), 0));
   return {
@@ -90,7 +101,7 @@ export function buildTodayView(days: DayInput[], settings: ViewSettings, now: nu
     cards: cardsOf(pieces),
     timeline: timelineOf(pieces),
     health: computeHealth({ samples: today.samples, screenSec, ...settings }),
-    week: days.map((d) => barOf(d, now))
+    week: days.map((d) => barOf(d, currentId, now))
   };
 }
 
