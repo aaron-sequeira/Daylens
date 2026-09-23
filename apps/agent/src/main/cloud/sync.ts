@@ -1,6 +1,6 @@
 import type { DaySummary, DailyActivityRow, ISODate, FocusSessionRow, ActivitySampleRow } from '../../shared/types';
-import { computeDaySummary } from '../summary/rollup';
-import { localDate } from '../../shared/date';
+import { computeDaySummary } from '@worksight/core';
+import { localDate } from '@worksight/core/date';
 
 const nn = (n: number): number => Math.max(0, Math.round(n));
 

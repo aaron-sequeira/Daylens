@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeDaySummary } from './rollup';
-import type { FocusSessionRow, ActivitySampleRow } from '../../shared/types';
+import type { FocusSessionRow, ActivitySampleRow } from '../types';
 
 const fs = (o: Partial<FocusSessionRow>): FocusSessionRow => ({
   id: 1, appName: 'Code', appPath: null, windowTitle: null, pid: 1,

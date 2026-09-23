@@ -1,4 +1,4 @@
-import type { ForegroundInfo, InputCounts } from '../../shared/types';
+import type { ForegroundInfo, InputCounts } from '../types';
 
 export interface ForegroundSource { get(): Promise<ForegroundInfo | null>; }
 export interface InputSource { start(): void; stop(): void; drain(): InputCounts; }

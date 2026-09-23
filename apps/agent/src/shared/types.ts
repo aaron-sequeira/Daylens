@@ -1,78 +1,20 @@
-export type ISODate = string; // YYYY-MM-DD (local)
+import type { ISODate, TrackerSettings } from '@worksight/core/types';
 
-export interface ForegroundInfo {
-  appName: string;
-  appPath: string | null;
-  title: string | null;
-  pid: number;
-}
-
-export interface InputCounts {
-  mouseMoves: number;
-  mouseDistancePx: number;
-  clicks: number;
-  scrolls: number;
-  keyEvents: number;
-}
-
-export interface FocusSessionRow {
-  id: number;
-  appName: string;
-  appPath: string | null;
-  windowTitle: string | null;
-  pid: number | null;
-  startedAt: number;
-  endedAt: number | null;
-  durationSec: number | null;
-  date: ISODate;
-}
-
-export interface ActivitySampleRow {
-  id: number;
-  bucketStart: number;
-  bucketEnd: number;
-  mouseMoves: number;
-  mouseDistancePx: number;
-  clicks: number;
-  scrolls: number;
-  keyEvents: number;
-  active: 0 | 1;
-  appName: string | null;
-  date: ISODate;
-}
-
-export interface AppUsage {
-  appName: string;
-  totalSec: number;
-  sessions: number;
-  firstOpenAt: number | null;
-  lastCloseAt: number | null;
-  activePct: number; // 0..100
-}
-
-export interface DaySummary {
-  date: ISODate;
-  totalTrackedSec: number;
-  activeSec: number;
-  idleSec: number;
-  apps: AppUsage[];
-}
+// Tracking/storage types live in @worksight/core; re-exported so agent imports stay unchanged.
+export type {
+  ISODate, Rect, ForegroundInfo, InputCounts, FocusSessionRow, ActivitySampleRow, AppUsage, DaySummary, TrackingStatus, TrackerSettings
+} from '@worksight/core/types';
 
 export interface AiSummaryResult { text: string; model: string; generatedAt: number; }
 export interface AiSummaryError { error: 'no_key' | 'failed'; message?: string; }
 
 export type AiProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter' | 'custom';
 
-export interface AppSettings {
-  idleThresholdSec: number;
-  captureWindowTitles: boolean;
+export interface AppSettings extends TrackerSettings {
   aiEnabled: boolean;
   aiProvider: AiProvider;
   aiModel: string;
   aiBaseUrl: string; // only used for the 'custom' provider
-  pollIntervalMs: number;
-  bucketSizeSec: number;
-  trackingPaused: boolean;
   consentGranted: boolean;
   cloudSyncEnabled: boolean;
   cloudSyncWindowDays: number;
@@ -103,5 +45,3 @@ export interface CloudSyncStatus {
   lastSyncedAt: number | null; // epoch ms
   lastError: string | null;
 }
-
-export interface TrackingStatus { paused: boolean; currentApp: string | null; sessionStartedAt: number | null; }

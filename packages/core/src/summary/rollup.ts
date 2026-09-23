@@ -1,4 +1,4 @@
-import type { FocusSessionRow, ActivitySampleRow, DaySummary, AppUsage, ISODate } from '../../shared/types';
+import type { FocusSessionRow, ActivitySampleRow, DaySummary, AppUsage, ISODate } from '../types';
 
 const bucketSec = (s: ActivitySampleRow): number => Math.max(0, Math.round((s.bucketEnd - s.bucketStart) / 1000));
 

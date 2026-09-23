@@ -3,8 +3,8 @@ import Database from 'better-sqlite3';
 import { SCHEMA_SQL } from '../db/schema';
 import { createRepositories, Repositories } from '../db/repositories';
 import { createTracker, Tracker } from './tracker';
-import type { ForegroundInfo, InputCounts } from '../../shared/types';
-import { localDate } from '../../shared/date';
+import type { ForegroundInfo, InputCounts } from '../types';
+import { localDate } from '../date';
 
 let repo: Repositories;
 let nowMs: number;
@@ -30,7 +30,7 @@ beforeEach(() => {
     input: { start() {}, stop() {}, drain: () => drained },
     clock: { now: () => nowMs },
     repo,
-    getSettings: () => ({ idleThresholdSec: 60, captureWindowTitles: true, aiEnabled: false, aiProvider: 'anthropic', aiModel: 'm', aiBaseUrl: '', pollIntervalMs: 2000, bucketSizeSec: 60, trackingPaused: false, consentGranted: true, cloudSyncEnabled: false, cloudSyncWindowDays: 7, hasApiKey: false }),
+    getSettings: () => ({ idleThresholdSec: 60, captureWindowTitles: true, pollIntervalMs: 2000, bucketSizeSec: 60, trackingPaused: false }),
     getSystemIdleSec: () => systemIdleSec,
     isPidAlive: (pid) => alivePids.has(pid)
   });

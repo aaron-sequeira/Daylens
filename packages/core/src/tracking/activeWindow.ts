@@ -1,7 +1,7 @@
-import type { ForegroundInfo } from '../../shared/types';
+import type { ForegroundInfo } from '../types';
 import type { ForegroundSource } from './types';
 
-type ActiveWinFn = () => Promise<{ title?: string; owner: { name: string; path?: string; processId: number } } | undefined>;
+type ActiveWinFn = () => Promise<{ title?: string; bounds?: { x: number; y: number; width: number; height: number }; owner: { name: string; path?: string; processId: number } } | undefined>;
 let activeWin: ActiveWinFn | null = null;
 
 async function load(): Promise<ActiveWinFn> {
@@ -16,7 +16,7 @@ export class ActiveWinForegroundSource implements ForegroundSource {
       const fn = await load();
       const r = await fn();
       if (!r) return null;
-      return { appName: r.owner.name, appPath: r.owner.path ?? null, title: r.title ?? null, pid: r.owner.processId };
+      return { appName: r.owner.name, appPath: r.owner.path ?? null, title: r.title ?? null, pid: r.owner.processId, bounds: r.bounds ?? null };
     } catch (e) {
       // Surface the first failure: a swallowed error here (e.g. a missing packaged dependency)
       // means foreground lookups always return null and nothing is ever tracked.

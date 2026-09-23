@@ -1,16 +1,16 @@
-import type { AppSettings } from '../../shared/types';
+import type { TrackerSettings } from '../types';
 import type { Repositories } from '../db/repositories';
 import type { ForegroundSource, InputSource, Clock } from './types';
 import { isActiveBucket } from './idle';
 import { createPidWatcher, isPidAlive } from './processLifecycle';
-import { localDate } from '../../shared/date';
+import { localDate } from '../date';
 
 export interface TrackerDeps {
   foreground: ForegroundSource;
   input: InputSource;
   clock: Clock;
   repo: Repositories;
-  getSettings: () => AppSettings;
+  getSettings: () => TrackerSettings;
   getSystemIdleSec: () => number;
   isPidAlive?: (pid: number) => boolean;
   onUpdate?: () => void;

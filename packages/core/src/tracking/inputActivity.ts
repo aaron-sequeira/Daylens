@@ -1,5 +1,5 @@
 import { uIOhook } from 'uiohook-napi';
-import type { InputCounts } from '../../shared/types';
+import type { InputCounts } from '../types';
 import type { InputSource } from './types';
 
 const blank = (): InputCounts => ({ mouseMoves: 0, mouseDistancePx: 0, clicks: 0, scrolls: 0, keyEvents: 0 });

@@ -1,12 +1,8 @@
 import { app, BrowserWindow, Tray, Menu, powerMonitor, safeStorage } from 'electron';
 import { join } from 'node:path';
-import { openDatabase } from './db/database';
-import { createRepositories } from './db/repositories';
+import { openDatabase, createRepositories, createTracker, systemClock } from '@worksight/core';
+import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
 import { createSettingsStore } from './settings';
-import { createTracker } from './tracking/tracker';
-import { systemClock } from './tracking/types';
-import { ActiveWinForegroundSource } from './tracking/activeWindow';
-import { UiohookInputSource } from './tracking/inputActivity';
 import { registerIpc } from './ipc/handlers';
 import { CH } from './ipc/channels';
 import { getCloudConfig } from './cloud/config';

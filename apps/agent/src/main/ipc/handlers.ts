@@ -1,10 +1,8 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
 import { CH } from './channels';
-import type { Repositories } from '../db/repositories';
+import { computeDaySummary, type Repositories, type Tracker } from '@worksight/core';
 import type { SettingsStore } from '../settings';
-import type { Tracker } from '../tracking/tracker';
-import { computeDaySummary } from '../summary/rollup';
 import { generateAiSummary } from '../summary/ai';
 import type { AppSettings } from '../../shared/types';
 import type { CloudController } from '../cloud/controller';

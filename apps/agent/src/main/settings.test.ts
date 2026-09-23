@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { SCHEMA_SQL } from './db/schema';
+import { SCHEMA_SQL } from '@worksight/core';
 import { createSettingsStore, SettingsStore } from './settings';
 
 const enc = { encrypt: (s: string) => Buffer.from(s, 'utf8'), decrypt: (b: Buffer) => b.toString('utf8') };

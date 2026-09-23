@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { FocusSessionRow, ActivitySampleRow, ISODate } from '../../shared/types';
+import type { FocusSessionRow, ActivitySampleRow, ISODate } from '../types';
 
 export interface StartSessionInput {
   appName: string; appPath: string | null; windowTitle: string | null; pid: number | null; startedAt: number; date: ISODate;

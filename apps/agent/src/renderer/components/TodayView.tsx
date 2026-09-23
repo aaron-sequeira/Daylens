@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { DaySummary } from '../../shared/types';
 import { api } from '../lib/ipc';
 import { formatDuration } from '../lib/format';
-import { localDate } from '../../shared/date';
+import { localDate } from '@worksight/core/date';
 import { StatCard } from './StatCard';
 import { DayPicker } from './DayPicker';
 import { AppTable } from './AppTable';
