@@ -86,10 +86,28 @@ importers:
       '@huggingface/transformers':
         specifier: ^3
         version: 3.8.1
+      active-win:
+        specifier: ^8.2.1
+        version: 8.2.1(encoding@0.1.13)
+      better-sqlite3:
+        specifier: ^11.8.1
+        version: 11.10.0
       onnxruntime-node:
         specifier: 1.21.0
         version: 1.21.0
+      uiohook-napi:
+        specifier: ^1.5.4
+        version: 1.5.5
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.12
+        version: 7.6.13
+      '@worksight/core':
+        specifier: workspace:^
+        version: link:../../packages/core
       typescript:
         specifier: ^5.7.3
         version: 5.9.3

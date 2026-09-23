@@ -5,14 +5,21 @@
   "description": "Daylens: see your day clearly",
   "main": "out/main/index.js",
   "scripts": {
+    "pretest": "pnpm rebuild better-sqlite3",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
     "@huggingface/transformers": "^3",
-    "onnxruntime-node": "1.21.0"
+    "active-win": "^8.2.1",
+    "better-sqlite3": "^11.8.1",
+    "onnxruntime-node": "1.21.0",
+    "uiohook-napi": "^1.5.4",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@worksight/core": "workspace:^",
     "typescript": "^5.7.3",
     "vitest": "^2.1.8"
   }
