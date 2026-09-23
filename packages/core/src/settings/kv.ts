@@ -21,7 +21,7 @@ export function createKvStore<T extends Record<string, KvValue>>(db: Database.Da
   };
   const set = (patch: Partial<T>): T => {
     db.transaction(() => {
-      for (const [k, v] of Object.entries(patch)) if (k in defaults && v !== undefined) write.run(k, String(v));
+      for (const [k, v] of Object.entries(patch)) if (Object.hasOwn(defaults, k) && v !== undefined) write.run(k, String(v));
     })();
     return get();
   };

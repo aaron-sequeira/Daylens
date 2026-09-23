@@ -20,6 +20,8 @@ describe('createKvStore', () => {
     const kv = createKvStore(db, DEFAULTS);
     kv.set({ nope: 1 } as never);
     expect(db.prepare("SELECT count(*) AS n FROM settings WHERE key = 'nope'").get()).toEqual({ n: 0 });
+    kv.set({ toString: 'x' } as never);
+    expect(db.prepare("SELECT count(*) AS n FROM settings WHERE key = 'toString'").get()).toEqual({ n: 0 });
   });
   it('falls back to the default when a stored number is corrupt', () => {
     db.prepare("INSERT INTO settings (key, value) VALUES ('goal', 'abc')").run();
