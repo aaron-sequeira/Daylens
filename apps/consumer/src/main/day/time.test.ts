@@ -34,6 +34,7 @@ describe('atLeast / subtract / clip', () => {
     expect(subtract({ start: 0, end: 100 }, [{ start: 20, end: 30 }, { start: 90, end: 200 }])).toEqual([{ start: 0, end: 20 }, { start: 30, end: 90 }]);
     expect(subtract({ start: 0, end: 100 }, [{ start: -5, end: 500 }])).toEqual([]);
     expect(subtract({ start: 0, end: 100 }, [])).toEqual([{ start: 0, end: 100 }]);
+    expect(subtract({ start: 0, end: 100 }, [{ start: 10, end: 50 }, { start: 40, end: 80 }])).toEqual([{ start: 0, end: 10 }, { start: 80, end: 100 }]);
   });
   it('clips to bounds or returns null', () => {
     expect(clip({ start: 0, end: 100 }, 50, 200)).toEqual({ start: 50, end: 100 });
