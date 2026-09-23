@@ -1,0 +1,19 @@
+{
+  "name": "@worksight/consumer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Daylens: see your day clearly",
+  "main": "out/main/index.js",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3",
+    "onnxruntime-node": "1.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
