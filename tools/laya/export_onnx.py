@@ -74,6 +74,7 @@ class Export(torch.nn.Module):
         keep = attention_mask.bool()[:, None, None, :]  # [b,1,1,l]
         pos = torch.cumsum(torch.ones_like(input_ids[0]), 0) - 1  # [l] = arange(l)
         near = (pos[:, None] - pos[None, :]).abs() <= m.encoder.config.sliding_window  # [l,l]
+        # Tested on transformers 5.17.0: needs ModernBertModel's per-layer-type attention-mask dict + config.sliding_window.
         masks = {"full_attention": (~keep).float() * MIN, "sliding_attention": (~(keep & near)).float() * MIN}
         h = m.encoder(input_ids=input_ids, attention_mask=masks, position_ids=pos[None]).last_hidden_state
         h = h + m.type_emb(qtype)[:, None, :]
