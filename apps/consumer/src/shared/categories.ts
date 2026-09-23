@@ -10,9 +10,9 @@ export const CATEGORY_LABEL: Record<Category, string> = {
 const RULES: [RegExp, Category][] = [
   [/visual studio|^code$|cursor|antigravity|android studio|intellij|pycharm|webstorm|rider|figma|photoshop|illustrator|blender|microsoft (word|excel|powerpoint|onenote)|^(winword|excel|powerpnt)$|notion|obsidian|terminal|command prompt|powershell|postman|docker desktop|notepad\+\+|sublime/i, 'work'],
   [/anki|kindle/i, 'learning'],
-  [/discord|whatsapp|telegram|signal|messenger|instagram/i, 'social'],
+  [/discord|whatsapp|telegram|^signal$|messenger|instagram/i, 'social'],
   [/spotify|steam|epic games|netflix|vlc|riot client|league of legends|valorant|rocket league|deadlock|battle\.net|xbox/i, 'entertainment'],
-  [/slack|teams|outlook|thunderbird|zoom|rocket\.chat|mail/i, 'communication']
+  [/slack|teams|outlook|thunderbird|zoom (workplace|meetings?)|^zoom$|rocket\.chat|\bmail\b/i, 'communication']
 ];
 
 export function displayAppName(appName: string): string {

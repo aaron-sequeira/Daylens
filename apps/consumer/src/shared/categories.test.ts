@@ -9,7 +9,8 @@ describe('categoryForApp', () => {
     ['Discord', 'social'], ['WhatsApp', 'social'], ['Telegram Desktop', 'social'],
     ['Steam Client WebHelper', 'entertainment'], ['Spotify', 'entertainment'], ['Riot Client', 'entertainment'], ['deadlock.exe', 'entertainment'], ['Rocket League', 'entertainment'],
     ['Microsoft Outlook', 'communication'], ['Slack', 'communication'], ['Microsoft Teams', 'communication'], ['Zoom Workplace', 'communication'], ['Rocket.Chat', 'communication'],
-    ['Google Chrome', 'other'], ['Windows Explorer', 'other'], ['SnippingTool.exe', 'other']
+    ['Google Chrome', 'other'], ['Windows Explorer', 'other'], ['SnippingTool.exe', 'other'],
+    ['ZoomIt', 'other'], ['SignalRGB', 'other'], ['Signal', 'social'], ['Mail', 'communication']
   ])('%s → %s', (app, cat) => {
     expect(categoryForApp(app)).toBe(cat);
   });
