@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daylens — Daily report</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stage:#BFEBD9; --win:#FBF8F4; --panel:#F2EBE6; --ink:#171717; --muted:#77716c; --line:#E7DFD8;
+    --pink:#F4C6C8; --peach:#F9DDB9; --lav:#D8D2FC; --mint:#BFEBD3; --white:#fff;
+    --spring:cubic-bezier(.2,1.35,.35,1); --ease:cubic-bezier(.22,.8,.26,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:var(--stage);color:var(--ink);min-height:100vh;display:flex;justify-content:center;padding:48px 24px;overflow-x:hidden}
+  .stage{width:100%;max-width:1280px}
+  .caption{font-size:13px;color:#2d6b54;margin:0 0 14px 6px}
+  .window{background:var(--win);border-radius:28px;box-shadow:0 40px 80px -30px rgba(20,60,45,.45);overflow:hidden;animation:pop .7s var(--ease) both}
+  @keyframes pop{from{opacity:0;transform:translateY(24px) scale(.985)}}
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}}
+  .titlebar{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 18px;border-bottom:1px solid var(--line);font-size:13px}
+  .titlebar .brand{display:flex;gap:8px;align-items:center;font-weight:600}
+  .wc{display:flex;color:#555}.wc span{width:44px;height:32px;display:grid;place-items:center}
+  .body{display:grid;grid-template-columns:84px 1fr 330px;gap:22px;padding:20px;height:860px}
+  .rail{background:var(--panel);border-radius:22px;display:flex;flex-direction:column;align-items:center;padding:22px 0;gap:14px}
+  .logo{width:40px;height:40px;border-radius:12px;background:var(--ink);display:grid;place-items:center;margin-bottom:26px}
+  .nav{width:48px;height:48px;border-radius:50%;background:var(--white);display:grid;place-items:center;transition:transform .25s var(--spring)}
+  .nav:hover{transform:scale(1.08)}.nav.on{background:var(--ink);color:#fff}.nav svg{width:20px;height:20px}
+  .spacer{flex:1}
+  .avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#c9b8ff,#f4c6c8);display:grid;place-items:center;font-weight:600}
+  main{overflow-y:auto;padding:10px 12px 20px 10px;scrollbar-width:thin}
+  .rhead{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .arrow{width:34px;height:34px;border-radius:50%;background:#fff;display:grid;place-items:center;border:1px solid var(--line);cursor:pointer;transition:transform .25s var(--spring)}
+  .arrow:hover{transform:scale(1.1)}
+  .rhead .date{font-size:14px;color:var(--muted)}
+  .badge{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:12px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+  .badge i{width:7px;height:7px;border-radius:50%;background:#34c38f;box-shadow:0 0 0 4px rgba(52,195,143,.18)}
+  .export{background:var(--ink);color:#fff;border-radius:999px;padding:8px 16px;font-size:12px;font-weight:600}
+  h1{font-weight:400;font-size:46px;letter-spacing:-.025em;line-height:1.08;margin:14px 0 14px}
+  .story{font-size:17px;line-height:1.6;color:#3a3531;max-width:720px;min-height:108px}
+  .story b{font-weight:600;color:var(--ink)}
+  .caret{display:inline-block;width:2px;height:18px;background:var(--ink);vertical-align:-3px;margin-left:2px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:22px 0 26px}
+  .stat{background:#fff;border-radius:18px;padding:14px 16px;animation:rise .6s var(--ease) both}
+  .stat small{font-size:12px;color:var(--muted)}
+  .stat b{display:block;font-size:24px;font-weight:500;margin-top:4px;letter-spacing:-.01em}
+  .stat em{font-style:normal;font-size:11px;font-weight:600;border-radius:6px;padding:2px 6px;display:inline-block;margin-top:6px}
+  .up{background:#FDE7E7;color:#b42318}.down{background:#DDF5E8;color:#0f7a4a}.flat{background:#F2EBE6;color:#5c5650}
+  h2{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  h2 span{font-weight:400;color:var(--muted);font-size:13px}
+  /* chronological story */
+  .tline{position:relative;margin:0 0 28px 8px;padding-left:26px;border-left:2px dashed var(--line)}
+  .ev{position:relative;background:#fff;border-radius:16px;padding:12px 16px;margin-bottom:10px;display:grid;grid-template-columns:110px 1fr auto;gap:14px;align-items:center;animation:rise .6s var(--ease) both;transition:transform .3s var(--spring)}
+  .ev:hover{transform:translateX(4px)}
+  .ev:before{content:"";position:absolute;left:-35px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--c);border:3px solid var(--win)}
+  .ev time{font-size:12px;color:var(--muted)}
+  .ev p{font-size:14px;line-height:1.4}.ev p small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+  .ev .dur{font-size:12px;font-weight:600;background:var(--c);border-radius:999px;padding:4px 10px}
+  /* three columns */
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:26px}
+  .blk{border-radius:22px;padding:18px;animation:rise .6s var(--ease) both}
+  .blk ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+  .blk li{display:flex;gap:10px;font-size:13.5px;line-height:1.45}
+  .blk li i{flex:none;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.85);display:grid;place-items:center;font-style:normal;font-size:12px}
+  .better{background:#fff;border-radius:22px;padding:18px;margin-bottom:26px;animation:rise .6s var(--ease) both}
+  .fix{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+  .fix:first-of-type{border-top:0;padding-top:0}
+  .fix .was,.fix .now{border-radius:14px;padding:12px 14px;font-size:13px;line-height:1.45}
+  .fix .was{background:#FBF1F1}.fix .now{background:#EEF9F3}
+  .fix small{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;opacity:.6}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:rgba(0,0,0,.06);border-radius:5px;padding:1px 5px}
+  .plan{background:var(--ink);color:#fff;border-radius:22px;padding:18px 20px;animation:rise .6s var(--ease) both}
+  .plan h2 span{color:#aaa}
+  .plan label{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid #333;font-size:14px;cursor:pointer}
+  .plan input{appearance:none;width:20px;height:20px;border-radius:7px;border:2px solid #666;display:grid;place-items:center;transition:all .25s var(--spring)}
+  .plan input:checked{background:var(--mint);border-color:var(--mint);transform:scale(1.1)}
+  .plan input:checked:after{content:"✓";color:var(--ink);font-size:12px;font-weight:700}
+  .plan .add{margin-left:auto;font-size:12px;color:#aaa}
+  /* right panel */
+  .panel{background:var(--panel);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+  .box{background:#fff;border-radius:18px;padding:14px 16px;animation:rise .6s var(--ease) both}
+  .box h3{font-size:13px;font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between}
+  .box h3 span{font-weight:400;color:var(--muted)}
+  .app{display:grid;grid-template-columns:26px 1fr auto;gap:10px;align-items:center;font-size:13px;margin-bottom:9px}
+  .app b.lg{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#fff;font-size:10px}
+  .app .tr{height:6px;border-radius:6px;background:#F2EBE6;margin-top:4px;overflow:hidden}
+  .app .tr div{height:100%;border-radius:6px;background:var(--c);transform-origin:left;animation:grow 1s var(--ease) both}
+  @keyframes grow{from{transform:scaleX(0)}}
+  .app em{font-style:normal;color:var(--muted);font-size:12px}
+  .goal{display:flex;align-items:end;gap:6px;margin-bottom:8px}.goal b{font-size:24px;font-weight:500}.goal span{font-size:12px;color:var(--muted);padding-bottom:4px}
+  .gbar{height:12px;border-radius:12px;background:#F2EBE6;position:relative;overflow:hidden}
+  .gbar div{position:absolute;inset:0;width:88%;background:linear-gradient(90deg,var(--mint),#9ADBB9);border-radius:12px;transform-origin:left;animation:grow 1.2s .3s var(--ease) both}
+  .hrow{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-top:1px solid var(--line)}
+  .hrow:first-of-type{border-top:0}
+  .ok{color:#0f7a4a;font-weight:600}.meh{color:#b45309;font-weight:600}
+</style>
+</head>
+<body>
+<div class="stage">
+  <p class="caption">Mockup 2 of ~4 · <b>Daily report</b> · written by the local AI at the end of your day (or whenever you click “Generate”)</p>
+  <div class="window">
+    <div class="titlebar"><div class="brand"><svg width="16" height="16" viewBox="0 0 24 24" fill="#171717"><circle cx="12" cy="12" r="5"/></svg>Daylens</div><div class="wc"><span>&#x2014;</span><span>&#x2610;</span><span>&#x2715;</span></div></div>
+    <div class="body">
+      <aside class="rail">
+        <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="5"/></svg></div>
+        <div class="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></div>
+        <div class="nav on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div>
+        <div class="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <div class="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="7" rx="3.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="3.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="3.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="3.5"/></svg></div>
+        <div class="spacer"></div>
+        <div class="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/></svg></div>
+        <div class="avatar">A</div>
+      </aside>
+
+      <main>
+        <div class="rhead">
+          <span class="arrow">‹</span><span class="arrow">›</span>
+          <span class="date">Tuesday, 23 September 2026</span>
+          <span class="badge"><i></i>Written on-device · Qwen3 4B · 9:02 pm</span>
+          <span class="export">Export PDF</span>
+        </div>
+        <h1>A focused morning,<br>a scattered afternoon.</h1>
+        <p class="story" id="story"></p>
+
+        <div class="stats">
+          <div class="stat" style="animation-delay:.1s"><small>Screen time</small><b data-n="372" data-f="hm">0</b><em class="down">↓ 18% vs avg</em></div>
+          <div class="stat" style="animation-delay:.16s"><small>Actively used</small><b data-n="304" data-f="hm">0</b><em class="flat">82% of screen time</em></div>
+          <div class="stat" style="animation-delay:.22s"><small>Deep work</small><b data-n="155" data-f="hm">0</b><em class="down">best this week</em></div>
+          <div class="stat" style="animation-delay:.28s"><small>App switches</small><b data-n="412">0</b><em class="up">↑ 31% vs avg</em></div>
+          <div class="stat" style="animation-delay:.34s"><small>Breaks</small><b data-n="3">0</b><em class="flat">goal: 6</em></div>
+        </div>
+
+        <h2>How your day went <span>· from 1,146 screen reads, 30 s apart</span></h2>
+        <div class="tline">
+          <div class="ev" style="--c:var(--peach);animation-delay:.2s"><time>8:12 – 9:30 am</time><p>Caught up on email and WhatsApp Web<small>Replied to 11 emails, read the Stripe invoice thread</small></p><span class="dur">1h 18m</span></div>
+          <div class="ev" style="--c:var(--lav);animation-delay:.28s"><time>10:05 – 11:50 am</time><p>Deep work: built the team dashboard in VS Code<small>Worked on TeamsView.tsx and invites.ts, 2 commits, no distractions</small></p><span class="dur">1h 45m</span></div>
+          <div class="ev" style="--c:var(--mint);animation-delay:.36s"><time>12:40 – 1:28 pm</time><p>Watched a React Server Components talk over lunch<small>YouTube, then read 4 pages of the Next.js docs</small></p><span class="dur">48m</span></div>
+          <div class="ev" style="--c:var(--pink);animation-delay:.44s"><time>2:10 – 4:15 pm</time><p>Fixed the invite flow, with lots of Instagram and Discord in between<small>61 app switches at the peak, one 27-min Instagram scroll at 3:40</small></p><span class="dur">2h 05m</span></div>
+          <div class="ev" style="--c:var(--peach);animation-delay:.52s"><time>8:30 – 9:02 pm</time><p>Gaming videos and a lofi playlist<small>YouTube · Spotify</small></p><span class="dur">32m</span></div>
+        </div>
+
+        <div class="cols">
+          <div class="blk" style="background:var(--mint);animation-delay:.3s">
+            <h2>🏆 Wins</h2>
+            <ul>
+              <li><i>1</i>A 1h 45m deep-work block, your longest this week.</li>
+              <li><i>2</i>Shipped the invite flow fix you'd been stuck on since Monday.</li>
+              <li><i>3</i>Screen time down 18% vs your 7-day average.</li>
+            </ul>
+          </div>
+          <div class="blk" style="background:var(--pink);animation-delay:.38s">
+            <h2>👀 Habits to watch</h2>
+            <ul>
+              <li><i>1</i>Instagram opened 23 times, mostly within 2 min of hitting an error. It looks like your “stuck” reflex.</li>
+              <li><i>2</i>Only 3 breaks, and one screen stretch ran 1h 52m without a pause.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="better">
+          <h2>🛠 Do it better <span>· things the AI saw you do the slow way</span></h2>
+          <div class="fix">
+            <div class="was"><small>What happened</small>You searched <b>“git undo last commit”</b> 3 times this week.</div>
+            <div class="now"><small>Faster way</small><code>git reset --soft HEAD~1</code> keeps your changes. Save it as an alias: <code>git undo</code>.</div>
+          </div>
+          <div class="fix">
+            <div class="was"><small>What happened</small>The same <b>TS2322 error</b> in invite.tsx took 4 attempts and 18 minutes.</div>
+            <div class="now"><small>Faster way</small><code>user</code> can be null on first render. Use <code>user?.id</code>, or return early while it's loading.</div>
+          </div>
+          <div class="fix">
+            <div class="was"><small>What happened</small>Renamed 14 screenshots one at a time in File Explorer.</div>
+            <div class="now"><small>Faster way</small>Select them all and press <code>F2</code>: Windows numbers them automatically. PowerToys PowerRename does patterns.</div>
+          </div>
+        </div>
+
+        <div class="plan">
+          <h2>☀ Plan for tomorrow <span>· tick to turn into reminders</span></h2>
+          <label><input type="checkbox" checked>Block 10:00–12:00 for deep work (your best hours)<span class="add">focus mode</span></label>
+          <label><input type="checkbox" checked>Cap Instagram at 30 min and use it only after 5 pm<span class="add">app limit</span></label>
+          <label><input type="checkbox">A 5-min break every 50 min<span class="add">health nudge</span></label>
+          <label><input type="checkbox">Screen off by 11:00 pm<span class="add">wind-down</span></label>
+        </div>
+      </main>
+
+      <aside class="panel">
+        <div class="box" style="animation-delay:.2s">
+          <h3>Daily goal <span>under 7h</span></h3>
+          <div class="goal"><b>6h 12m</b><span>/ 7h, 48m left</span></div>
+          <div class="gbar"><div></div></div>
+        </div>
+        <div class="box" style="animation-delay:.3s">
+          <h3>Top apps <span>today</span></h3>
+          <div class="app" style="--c:var(--lav)"><b class="lg" style="background:#3b82f6">VS</b><div>VS Code<div class="tr"><div style="width:100%"></div></div></div><em>2h 31m</em></div>
+          <div class="app" style="--c:var(--peach)"><b class="lg" style="background:#f59e0b">C</b><div>Chrome<div class="tr"><div style="width:72%;animation-delay:.1s"></div></div></div><em>1h 49m</em></div>
+          <div class="app" style="--c:var(--pink)"><b class="lg" style="background:#e1306c">IG</b><div>Instagram<div class="tr"><div style="width:30%;animation-delay:.2s"></div></div></div><em>46m</em></div>
+          <div class="app" style="--c:var(--mint)"><b class="lg" style="background:#ef4444">Y</b><div>YouTube<div class="tr"><div style="width:28%;animation-delay:.3s"></div></div></div><em>43m</em></div>
+          <div class="app" style="--c:var(--pink)"><b class="lg" style="background:#5865f2">D</b><div>Discord<div class="tr"><div style="width:13%;animation-delay:.4s"></div></div></div><em>19m</em></div>
+          <div class="app" style="--c:var(--lav)"><b class="lg" style="background:#a855f7">F</b><div>Figma<div class="tr"><div style="width:9%;animation-delay:.5s"></div></div></div><em>14m</em></div>
+        </div>
+        <div class="box" style="animation-delay:.4s">
+          <h3>Health check <span>score 72</span></h3>
+          <div class="hrow">Eye breaks (20-20-20)<span class="meh">3 / 8</span></div>
+          <div class="hrow">Longest non-stop stretch<span class="meh">1h 52m</span></div>
+          <div class="hrow">Late-night use (after 11 pm)<span class="ok">None</span></div>
+          <div class="hrow">Screen time vs goal<span class="ok">Under</span></div>
+        </div>
+        <div class="box" style="background:var(--lav);animation-delay:.5s">
+          <h3>✦ Coach's advice</h3>
+          <p style="font-size:13px;line-height:1.5">Your afternoon focus drops right after you hit an error. Next time you're stuck, try a 2-minute walk instead of Instagram. It resets focus faster and doesn't pull you into a 27-minute scroll.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+<script>
+  // AI narrative "types in" once, like it's being written
+  const html = 'You were on screen for <b>6h 12m</b> today, 18% less than usual. Your best stretch was <b>10–11:50 am</b>: nearly two hours of uninterrupted work on the team dashboard. After lunch things got choppy. Each time the invite bug fought back, you drifted to <b>Instagram</b>, 23 times in total. You still fixed it, which is a real win. The main thing to change tomorrow: <b>more breaks, fewer escape hatches.</b>';
+  const el = document.getElementById('story');
+  const words = html.split(/(\s+)/); let i = 0;
+  setTimeout(function tick(){
+    el.innerHTML = words.slice(0, i).join('') + '<span class="caret"></span>';
+    if (i++ < words.length) setTimeout(tick, 28); else setTimeout(()=>el.querySelector('.caret').remove(), 1200);
+  }, 700);
+  // count-up stats
+  document.querySelectorAll('[data-n]').forEach(b => {
+    const n = +b.dataset.n, hm = b.dataset.f === 'hm', t0 = performance.now() + 300, d = 1100;
+    const fmt = v => hm ? `${Math.floor(v/60)}h ${String(v%60).padStart(2,'0')}m` : v.toLocaleString();
+    (function f(t){ const p = Math.min(1, Math.max(0, (t - t0) / d)), e = 1 - Math.pow(1 - p, 3);
+      b.textContent = fmt(Math.round(n * e)); if (p < 1) requestAnimationFrame(f); })(t0);
+  });
+</script>
+</body>
+</html>

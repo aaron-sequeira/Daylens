@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daylens — Today</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stage:#BFEBD9; --win:#FBF8F4; --panel:#F2EBE6; --ink:#171717; --muted:#77716c; --line:#E7DFD8;
+    --pink:#F4C6C8; --peach:#F9DDB9; --lav:#D8D2FC; --mint:#BFEBD3; --white:#fff;
+    --spring:cubic-bezier(.2,1.35,.35,1); --ease:cubic-bezier(.22,.8,.26,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:var(--stage);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:48px 24px;overflow-x:hidden}
+  .stage{position:relative;width:100%;max-width:1280px}
+  .caption{font-size:13px;color:#2d6b54;margin:0 0 14px 6px;letter-spacing:.02em}
+  .window{background:var(--win);border-radius:28px;box-shadow:0 40px 80px -30px rgba(20,60,45,.45),0 2px 0 rgba(255,255,255,.6) inset;overflow:hidden;animation:pop .7s var(--ease) both}
+  @keyframes pop{from{opacity:0;transform:translateY(24px) scale(.985)}}
+  /* title bar (Windows) */
+  .titlebar{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 18px;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+  .titlebar .brand{display:flex;gap:8px;align-items:center;font-weight:600;color:var(--ink)}
+  .wc{display:flex}.wc span{width:44px;height:32px;display:grid;place-items:center;border-radius:8px;color:#555}
+  .wc span:hover{background:#eee}.wc span.x:hover{background:#e5484d;color:#fff}
+  .body{display:grid;grid-template-columns:84px 1fr 330px;gap:22px;padding:20px;height:760px}
+  /* rail */
+  .rail{background:var(--panel);border-radius:22px;display:flex;flex-direction:column;align-items:center;padding:22px 0;gap:14px}
+  .logo{width:40px;height:40px;border-radius:12px;background:var(--ink);display:grid;place-items:center;margin-bottom:26px}
+  .nav{width:48px;height:48px;border-radius:50%;background:var(--white);display:grid;place-items:center;cursor:pointer;transition:transform .25s var(--spring),background .2s}
+  .nav:hover{transform:scale(1.08)}
+  .nav.on{background:var(--ink);color:#fff}
+  .nav svg{width:20px;height:20px}
+  .spacer{flex:1}
+  .avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#c9b8ff,#f4c6c8);display:grid;place-items:center;font-weight:600;font-size:15px}
+  /* main */
+  main{overflow:hidden;padding:14px 6px 0 14px;display:flex;flex-direction:column}
+  .date{font-size:14px;color:var(--muted);margin-bottom:10px}
+  h1{font-weight:400;font-size:54px;line-height:1.05;letter-spacing:-.025em;margin-bottom:26px}
+  h1 b{font-weight:600}
+  .pills{display:flex;gap:10px;margin-bottom:24px}
+  .pill{display:flex;align-items:center;gap:9px;padding:6px 18px 6px 6px;border-radius:999px;background:var(--white);font-size:13px;font-weight:500;cursor:pointer;transition:transform .25s var(--spring)}
+  .pill:hover{transform:translateY(-2px)}
+  .pill i{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-style:normal;background:var(--win);border:1px solid var(--line)}
+  .pill.on{background:var(--ink);color:#fff}.pill.on i{background:#fff;color:var(--ink);border:0}
+  .pill i svg{width:17px;height:17px}
+  .sec{font-size:14px;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between}
+  .sec a{color:var(--ink);text-decoration:none;font-weight:500}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}
+  .card{border-radius:22px;padding:16px 18px 16px;min-height:140px;display:flex;flex-direction:column;position:relative;cursor:pointer;transition:transform .35s var(--spring),box-shadow .3s;animation:rise .7s var(--ease) both}
+  .card:hover{transform:translateY(-4px);box-shadow:0 18px 30px -18px rgba(0,0,0,.35)}
+  .card:nth-child(1){background:var(--lav);animation-delay:.15s}
+  .card:nth-child(2){background:var(--mint);animation-delay:.25s}
+  .card:nth-child(3){background:var(--pink);animation-delay:.35s}
+  .card:nth-child(4){background:var(--peach);animation-delay:.45s}
+  @keyframes rise{from{opacity:0;transform:translateY(18px)}}
+  .ctop{display:flex;align-items:center;gap:10px;font-size:12px}
+  .ico{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.85);display:grid;place-items:center}
+  .ico svg{width:17px;height:17px}
+  .chips{margin-left:auto;display:flex;gap:6px}
+  .chip{background:rgba(255,255,255,.9);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
+  .chip.warn{background:#fff;color:#c2410c}
+  .card h3{font-weight:500;font-size:19px;line-height:1.25;margin-top:auto;padding-top:14px;max-width:88%}
+  .cfoot{display:flex;justify-content:space-between;align-items:end;margin-top:6px;font-size:12px;color:rgba(0,0,0,.6)}
+  .apps{display:flex}.apps b{width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.9);margin-left:-7px;display:grid;place-items:center;font-size:10px;color:#fff}
+  /* timeline */
+  .tl{background:var(--white);border-radius:20px;padding:14px 18px 12px;animation:rise .7s .55s var(--ease) both}
+  .tlbar{position:relative;height:30px;border-radius:10px;background:#F5F1EC;overflow:hidden;display:flex}
+  .seg{height:100%;transform-origin:left;animation:grow 1s var(--ease) both}
+  @keyframes grow{from{transform:scaleX(0)}}
+  .ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:7px}
+  .now{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink);border-radius:2px}
+  /* right panel */
+  .panel{background:var(--panel);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+  .ptop{display:flex;justify-content:space-between;align-items:center}
+  .ptop span{position:relative;width:34px;height:34px;display:grid;place-items:center}
+  .ptop svg{width:21px;height:21px}
+  .dot{position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:#f06a6a}
+  .box{background:var(--white);border-radius:18px;padding:14px 16px}
+  .health{display:flex;align-items:center;gap:14px}
+  .ring{position:relative;width:78px;height:78px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .val{position:absolute;inset:0;display:grid;place-items:center;font-size:22px;font-weight:600}
+  .ring circle.p{stroke-dasharray:201;stroke-dashoffset:201;animation:ring 1.4s .4s var(--ease) forwards}
+  @keyframes ring{to{stroke-dashoffset:56}}
+  .health h4{font-size:15px;font-weight:600}.health p{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .ahead{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}
+  .sel{border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--ink);font-size:12px}
+  .big{display:flex;align-items:center;gap:8px;margin:6px 0 10px}
+  .big b{font-size:24px;font-weight:500}
+  .good{background:#FFF3D6;border-radius:8px;padding:3px 8px;font-size:12px}
+  .bars{display:flex;justify-content:space-between;align-items:flex-end;height:108px;gap:6px;border-top:1px dashed var(--line);padding-top:6px}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;color:var(--muted)}
+  .stack{width:100%;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;transform-origin:bottom;animation:growy .9s var(--ease) both}
+  .stack div{width:100%}
+  .bar.today .stack{outline:2px solid var(--ink);outline-offset:2px}
+  .bar.today span{background:var(--ink);color:#fff;border-radius:5px;padding:1px 6px}
+  @keyframes growy{from{transform:scaleY(0)}}
+  .coach-h{font-size:13px;color:var(--muted);margin-top:2px}
+  .tip{border-radius:18px;padding:13px 15px;font-size:13px;line-height:1.45;animation:rise .7s var(--ease) both;cursor:pointer;transition:transform .3s var(--spring)}
+  .tip:hover{transform:translateY(-3px)}
+  .tip small{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;opacity:.75}
+  .tip b{font-weight:600}
+  .tip .go{display:inline-block;margin-top:8px;font-weight:600;font-size:12px}
+  /* toast */
+  .toast{position:absolute;top:58px;right:-10px;width:360px;background:rgba(255,255,255,.82);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border:1px solid rgba(255,255,255,.9);border-radius:22px;padding:16px 16px 14px;box-shadow:0 30px 60px -20px rgba(0,0,0,.35),0 8px 20px -10px rgba(0,0,0,.15);z-index:10;transform:translateX(calc(100% + 60px));opacity:0}
+  .toast.in{animation:tin .7s var(--spring) forwards}
+  .toast.out{animation:tout .45s var(--ease) forwards}
+  @keyframes tin{from{transform:translateX(calc(100% + 60px));opacity:0}to{transform:none;opacity:1}}
+  @keyframes tout{from{transform:none;opacity:1}to{transform:translateX(40px) scale(.96);opacity:0}}
+  .trow{display:flex;gap:12px}
+  .tico{flex:none;width:42px;height:42px;border-radius:14px;display:grid;place-items:center;animation:wiggle 1.2s .6s var(--ease)}
+  @keyframes wiggle{20%{transform:rotate(-10deg) scale(1.08)}40%{transform:rotate(8deg)}60%{transform:rotate(-4deg)}80%{transform:none}}
+  .tico svg{width:21px;height:21px}
+  .tkind{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:flex;justify-content:space-between}
+  .ttitle{font-size:16px;font-weight:600;margin:2px 0 3px}
+  .tbody{font-size:13px;color:#4b4642;line-height:1.45}
+  .tact{display:flex;gap:8px;margin:12px 0 10px 54px}
+  .btn{border:0;border-radius:999px;padding:8px 15px;font:600 12px 'DM Sans';cursor:pointer;transition:transform .25s var(--spring)}
+  .btn:hover{transform:scale(1.05)}
+  .btn.p{background:var(--ink);color:#fff}.btn.s{background:#F2EBE6;color:var(--ink)}
+  .tprog{height:3px;border-radius:3px;background:#EEE7E1;overflow:hidden}
+  .tprog div{height:100%;background:var(--ink);transform-origin:left}
+  .toast.in .tprog div{animation:shrink 7s linear forwards}
+  @keyframes shrink{to{transform:scaleX(0)}}
+  .legend{display:flex;gap:14px;font-size:12px;color:#2d6b54;margin:16px 0 0 6px;flex-wrap:wrap}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="stage">
+  <p class="caption">Mockup 1 of ~4 · <b>Today</b> dashboard · placeholder name “Daylens” · the pop-up (top-right) cycles through all 4 notification types</p>
+
+  <div class="window">
+    <div class="titlebar">
+      <div class="brand"><svg width="16" height="16" viewBox="0 0 24 24" fill="#171717"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="#171717" stroke-width="2" stroke-linecap="round"/></svg>Daylens</div>
+      <div class="wc"><span>&#x2014;</span><span>&#x2610;</span><span class="x">&#x2715;</span></div>
+    </div>
+
+    <div class="body">
+      <!-- rail -->
+      <aside class="rail">
+        <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></div>
+        <div class="nav on" title="Today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></div>
+        <div class="nav" title="Daily reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></div>
+        <div class="nav" title="Insights"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <div class="nav" title="Apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="7" rx="3.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="3.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="3.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="3.5"/></svg></div>
+        <div class="spacer"></div>
+        <div class="nav" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
+        <div class="avatar">A</div>
+      </aside>
+
+      <!-- main -->
+      <main>
+        <p class="date">Tuesday, 23 September · tracking since 8:12 am</p>
+        <h1>You spent <b>6h 12m</b><br>on screen today</h1>
+
+        <div class="pills">
+          <div class="pill on"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="7" rx="3.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="3.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="3.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="3.5"/></svg></i>All</div>
+          <div class="pill"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></i>Work</div>
+          <div class="pill"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg></i>Learning</div>
+          <div class="pill"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg></i>Social</div>
+          <div class="pill"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg></i>Entertainment</div>
+        </div>
+
+        <p class="sec">What you did today <a href="#">Full report →</a></p>
+        <div class="grid">
+          <div class="card">
+            <div class="ctop"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>Work<span class="chips"><span class="chip">3h 40m</span></span></div>
+            <h3>Built the team dashboard & fixed the invite flow</h3>
+            <div class="cfoot"><span>VS Code · Figma · Chrome</span><span class="apps"><b style="background:#3b82f6">VS</b><b style="background:#a855f7">F</b><b style="background:#f59e0b">C</b></span></div>
+          </div>
+          <div class="card">
+            <div class="ctop"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg></span>Learning<span class="chips"><span class="chip">48m</span></span></div>
+            <h3>Watched a React Server Components talk, read Next.js docs</h3>
+            <div class="cfoot"><span>YouTube · nextjs.org</span><span class="apps"><b style="background:#ef4444">Y</b><b style="background:#111">N</b></span></div>
+          </div>
+          <div class="card">
+            <div class="ctop"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg></span>Social<span class="chips"><span class="chip warn">↑ 22%</span><span class="chip">1h 05m</span></span></div>
+            <h3>Instagram & Discord, 38 quick check-ins</h3>
+            <div class="cfoot"><span>Longest scroll: 27 min at 3:40 pm</span><span class="apps"><b style="background:#e1306c">IG</b><b style="background:#5865f2">D</b></span></div>
+          </div>
+          <div class="card">
+            <div class="ctop"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/></svg></span>Entertainment<span class="chips"><span class="chip">39m</span></span></div>
+            <h3>Gaming videos & a lofi playlist in the background</h3>
+            <div class="cfoot"><span>YouTube · Spotify</span><span class="apps"><b style="background:#ef4444">Y</b><b style="background:#1db954">S</b></span></div>
+          </div>
+        </div>
+
+        <div class="tl">
+          <p class="sec" style="margin-bottom:10px">Your day <span>Deep work peak: 10:05 – 11:50 am</span></p>
+          <div class="tlbar">
+            <div class="seg" style="width:3%"></div>
+            <div class="seg" style="width:18%;background:var(--lav);animation-delay:.6s"></div>
+            <div class="seg" style="width:3%;background:var(--pink);animation-delay:.7s"></div>
+            <div class="seg" style="width:9%;background:var(--lav);animation-delay:.8s"></div>
+            <div class="seg" style="width:6%;animation-delay:.9s"></div>
+            <div class="seg" style="width:8%;background:var(--mint);animation-delay:1s"></div>
+            <div class="seg" style="width:11%;background:var(--pink);animation-delay:1.1s"></div>
+            <div class="seg" style="width:10%;background:var(--lav);animation-delay:1.2s"></div>
+            <div class="seg" style="width:7%;background:var(--peach);animation-delay:1.3s"></div>
+            <div class="now" style="left:75%"></div>
+          </div>
+          <div class="ticks"><span>8 am</span><span>10</span><span>12 pm</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10 pm</span></div>
+        </div>
+      </main>
+
+      <!-- right panel -->
+      <aside class="panel">
+        <div class="ptop">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><i class="dot"></i></span>
+          <b style="font-weight:600">Screen health</b>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>
+        </div>
+
+        <div class="box health">
+          <div class="ring">
+            <svg width="78" height="78"><circle cx="39" cy="39" r="32" stroke="#F2EBE6" stroke-width="9" fill="none"/><circle class="p" cx="39" cy="39" r="32" stroke="#7FD1A8" stroke-width="9" fill="none" stroke-linecap="round"/></svg>
+            <div class="val">72</div>
+          </div>
+          <div><h4>Pretty healthy</h4><p>3 breaks taken · longest stretch 1h 52m · 0 late-night use</p></div>
+        </div>
+
+        <div class="box">
+          <div class="ahead">Screen time <span class="sel">Week ▾</span></div>
+          <div class="big"><b>5.8h</b><span class="good">👍 18% less than last week</span></div>
+          <div class="bars">
+            <div class="bar"><div class="stack" style="height:78px;animation-delay:.3s"><div style="height:30%;background:var(--pink)"></div><div style="height:20%;background:var(--peach)"></div><div style="height:50%;background:var(--lav)"></div></div><span>Mon</span></div>
+            <div class="bar"><div class="stack" style="height:64px;animation-delay:.38s"><div style="height:25%;background:var(--peach)"></div><div style="height:35%;background:var(--mint)"></div><div style="height:40%;background:var(--lav)"></div></div><span>Tue</span></div>
+            <div class="bar"><div class="stack" style="height:52px;animation-delay:.46s"><div style="height:20%;background:var(--pink)"></div><div style="height:30%;background:var(--peach)"></div><div style="height:50%;background:var(--mint)"></div></div><span>Wed</span></div>
+            <div class="bar"><div class="stack" style="height:86px;animation-delay:.54s"><div style="height:15%;background:var(--mint)"></div><div style="height:30%;background:var(--pink)"></div><div style="height:55%;background:var(--lav)"></div></div><span>Thu</span></div>
+            <div class="bar"><div class="stack" style="height:48px;animation-delay:.62s"><div style="height:40%;background:var(--pink)"></div><div style="height:60%;background:var(--peach)"></div></div><span>Fri</span></div>
+            <div class="bar"><div class="stack" style="height:40px;animation-delay:.7s"><div style="height:30%;background:var(--lav)"></div><div style="height:70%;background:var(--mint)"></div></div><span>Sat</span></div>
+            <div class="bar today"><div class="stack" style="height:72px;animation-delay:.78s"><div style="height:15%;background:var(--peach)"></div><div style="height:25%;background:var(--pink)"></div><div style="height:15%;background:var(--mint)"></div><div style="height:45%;background:var(--lav)"></div></div><span>Today</span></div>
+          </div>
+        </div>
+
+        <p class="coach-h">Your coach noticed</p>
+        <div class="tip" style="background:var(--lav);animation-delay:.6s">
+          <small>✦ Tip</small>
+          You hit the same <b>TS2322 error</b> 4 times in <b>invite.tsx</b>. The fix was a missing <b>null check</b>. Try enabling <b>strictNullChecks hints</b> in VS Code to catch it early.
+        </div>
+        <div class="tip" style="background:var(--peach);animation-delay:.75s">
+          <small>☀ Daily report</small>
+          Your full report for today is ready: 3 wins, 2 habits to watch, and a plan for tomorrow.
+          <br><span class="go">Read report →</span>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- desktop pop-up (in the real app: separate always-on-top transparent window) -->
+  <div class="toast" id="toast">
+    <div class="trow">
+      <div class="tico" id="tico"></div>
+      <div style="flex:1">
+        <div class="tkind"><span id="tkind"></span><span>now · ✕</span></div>
+        <div class="ttitle" id="ttitle"></div>
+        <div class="tbody" id="tbody"></div>
+      </div>
+    </div>
+    <div class="tact"><button class="btn p" id="tp"></button><button class="btn s" id="ts"></button></div>
+    <div class="tprog"><div></div></div>
+  </div>
+
+  <div class="legend"><span><i style="background:var(--lav)"></i>Work</span><span><i style="background:var(--mint)"></i>Learning</span><span><i style="background:var(--pink)"></i>Social</span><span><i style="background:var(--peach)"></i>Entertainment</span></div>
+</div>
+
+<script>
+  const eye='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const loop='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>';
+  const bulb='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg>';
+  const star='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>';
+  const msgs=[
+    {k:'Health',bg:'var(--mint)',i:eye,t:'Give your eyes a break',b:'1h 52m of non-stop screen time. Look at something 6 m away for 20 seconds.',p:'Start 20s break',s:'Snooze 10m'},
+    {k:'Behaviour',bg:'var(--pink)',i:loop,t:'Feeling scattered?',b:'You switched apps 61 times in the last 15 min. Close Discord for a while and pick one task.',p:'Start focus 25m',s:'I\'m fine'},
+    {k:'Tip',bg:'var(--lav)',i:bulb,t:'Same error, 3rd time',b:'“Cannot read properties of undefined (reading \'id\')”: <b>user</b> can be null on first render. Add optional chaining: <b>user?.id</b>.',p:'Show me',s:'Dismiss'},
+    {k:'Win',bg:'var(--peach)',i:star,t:'90-min deep-work streak 🎉',b:'Your longest this week. Stand up, stretch, grab some water, you earned it.',p:'Take a break',s:'Keep going'}
+  ];
+  const el=id=>document.getElementById(id), toast=el('toast');
+  let n=0;
+  function show(){
+    const m=msgs[n++%msgs.length];
+    el('tico').style.background=m.bg; el('tico').innerHTML=m.i;
+    el('tkind').textContent=m.k; el('ttitle').textContent=m.t; el('tbody').innerHTML=m.b;
+    el('tp').textContent=m.p; el('ts').textContent=m.s;
+    toast.className='toast'; void toast.offsetWidth; toast.className='toast in';
+    // restart icon wiggle
+    const ic=el('tico'); ic.style.animation='none'; void ic.offsetWidth; ic.style.animation='';
+    setTimeout(()=>{toast.className='toast out'; setTimeout(show,1100);},7000);
+  }
+  setTimeout(show,1400);
+</script>
+</body>
+</html>

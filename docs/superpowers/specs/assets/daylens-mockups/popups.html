@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daylens — Pop-ups</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root{--stage:#BFEBD9;--ink:#171717;--muted:#77716c;--line:#E7DFD8;--pink:#F4C6C8;--peach:#F9DDB9;--lav:#D8D2FC;--mint:#BFEBD3;
+    --spring:cubic-bezier(.2,1.35,.35,1);--ease:cubic-bezier(.22,.8,.26,1)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:var(--stage);color:var(--ink);padding:44px 24px 80px;display:flex;justify-content:center}
+  .stage{width:100%;max-width:1280px}
+  .caption{font-size:13px;color:#2d6b54;margin:0 0 8px 4px}
+  h2{font-size:30px;font-weight:500;letter-spacing:-.02em;margin:34px 0 4px 4px}
+  .sub{font-size:14px;color:#2d6b54;margin:0 0 16px 4px}
+  /* desktop */
+  .desk{position:relative;border-radius:20px;overflow:hidden;background:
+      radial-gradient(60% 80% at 30% 110%,#5b8cff 0%,transparent 60%),
+      radial-gradient(50% 70% at 75% 100%,#9b7bff 0%,transparent 60%),
+      linear-gradient(160deg,#dfe8ff,#b9c9f5 60%,#8fa8ee);box-shadow:0 30px 60px -30px rgba(20,60,45,.5)}
+  .desk .fakewin{position:absolute;left:6%;top:12%;width:58%;height:62%;background:rgba(255,255,255,.75);border-radius:10px;box-shadow:0 10px 30px rgba(0,40,120,.18)}
+  .desk .fakewin:before{content:"";position:absolute;inset:0 0 auto 0;height:22px;border-bottom:1px solid rgba(0,0,0,.06)}
+  .desk .fakewin i{position:absolute;left:8%;height:7px;border-radius:4px;background:rgba(0,0,0,.08)}
+  .taskbar{position:absolute;left:0;right:0;bottom:0;height:34px;background:rgba(240,244,255,.8);backdrop-filter:blur(10px);display:flex;justify-content:center;gap:8px;align-items:center}
+  .taskbar b{width:20px;height:20px;border-radius:5px;background:rgba(0,0,0,.12)}
+  .taskbar b:first-child{background:#3b82f6}
+  /* style options */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .card{background:#fff;border-radius:22px;padding:10px;cursor:pointer;transition:transform .3s var(--spring),box-shadow .3s;border:3px solid transparent}
+  .card:hover{transform:translateY(-4px)}
+  .card.selected{border-color:var(--ink);box-shadow:0 14px 30px -16px rgba(0,0,0,.4)}
+  .card .desk{height:250px;border-radius:14px}
+  .card-body{padding:12px 8px 6px}
+  .card-body h3{font-size:16px;font-weight:600;display:flex;gap:8px;align-items:center}
+  .card-body h3 em{font-style:normal;font-size:11px;background:var(--ink);color:#fff;border-radius:999px;padding:2px 8px}
+  .card-body p{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.45}
+  /* toast shared */
+  .t{position:absolute;top:12px;right:12px;width:230px;border-radius:16px;padding:11px 12px;font-size:11px;line-height:1.4;opacity:0;transform:translateX(120%)}
+  .play .t{animation:tin .7s var(--spring) forwards}
+  @keyframes tin{to{opacity:1;transform:none}}
+  .t .r{display:flex;gap:9px}
+  .t .ic{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-size:14px}
+  .t b{display:block;font-size:12.5px;margin-bottom:1px}
+  .t .k{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;opacity:.55}
+  .t .acts{display:flex;gap:6px;margin:9px 0 0 39px}
+  .t .acts span{border-radius:999px;padding:4px 10px;font-weight:600;font-size:10.5px}
+  /* A glass */
+  .glass{background:rgba(255,255,255,.8);backdrop-filter:blur(16px) saturate(1.4);border:1px solid #fff;box-shadow:0 18px 36px -14px rgba(0,0,0,.35)}
+  .glass .acts span:first-child{background:var(--ink);color:#fff}.glass .acts span+span{background:#F2EBE6}
+  /* B pastel */
+  .pastel{background:var(--mint);box-shadow:0 18px 36px -14px rgba(0,60,30,.4)}
+  .pastel .ic{background:rgba(255,255,255,.85)}
+  .pastel .acts span:first-child{background:var(--ink);color:#fff}.pastel .acts span+span{background:rgba(255,255,255,.7)}
+  /* C island */
+  .island{position:absolute;top:12px;right:12px;background:#111;color:#fff;border-radius:999px;height:36px;width:150px;display:flex;align-items:center;gap:8px;padding:0 6px;overflow:hidden;box-shadow:0 18px 36px -14px rgba(0,0,0,.6);transition:width .6s var(--spring),height .6s var(--spring),border-radius .6s var(--spring)}
+  .island .dotic{flex:none;width:24px;height:24px;border-radius:50%;background:var(--mint);display:grid;place-items:center;font-size:12px}
+  .island .mini{font-size:11px;font-weight:600;white-space:nowrap}
+  .island .full{position:absolute;left:12px;right:12px;top:48px;font-size:11px;line-height:1.45;opacity:0;transition:opacity .3s}
+  .island .full b{display:block;font-size:13px;margin-bottom:2px}
+  .island .full .acts{display:flex;gap:6px;margin-top:9px}
+  .island .full .acts span{border-radius:999px;padding:4px 10px;font-weight:600;font-size:10.5px;background:#fff;color:#111}
+  .island .full .acts span+span{background:#333;color:#fff}
+  .island.open{width:250px;height:150px;border-radius:24px}
+  .island.open .full{opacity:1;transition-delay:.25s}
+  .island.open .mini{opacity:.6}
+  /* break overlay */
+  .bigdesk{height:520px}
+  .overlay{position:absolute;inset:0;background:rgba(251,248,244,.55);backdrop-filter:blur(22px) saturate(1.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;opacity:0;pointer-events:none;transition:opacity .6s var(--ease)}
+  .overlay.on{opacity:1;pointer-events:auto}
+  .breath{position:relative;width:180px;height:180px;display:grid;place-items:center}
+  .breath .blob{position:absolute;inset:18px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,var(--mint) 55%,#9ADBB9);animation:breathe 8s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(.72)}50%{transform:scale(1)}}
+  .breath svg{position:absolute;inset:0;transform:rotate(-90deg)}
+  .breath circle.p{stroke-dasharray:540;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear}
+  .breath .num{position:relative;font-size:44px;font-weight:500}
+  .overlay h3{font-size:26px;font-weight:500;letter-spacing:-.01em}
+  .overlay p{font-size:14px;color:#4b4642;margin-top:-10px}
+  .overlay .hint{font-size:13px;font-weight:600;letter-spacing:.02em;color:#2d6b54;height:18px}
+  .pbtn{border:0;border-radius:999px;padding:10px 20px;font:600 13px 'DM Sans';cursor:pointer;background:var(--ink);color:#fff;transition:transform .25s var(--spring)}
+  .pbtn:hover{transform:scale(1.05)}
+  .pbtn.s{background:rgba(255,255,255,.8);color:var(--ink)}
+  .startbtn{position:absolute;left:50%;bottom:60px;transform:translateX(-50%)}
+  /* stacking + rules */
+  .row{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
+  .stackdesk{height:340px}
+  .stk{position:absolute;right:16px;width:300px}
+  .stk .t{position:absolute;right:0;width:300px;opacity:1;transform:none;font-size:12px}
+  .stk .t b{font-size:14px}
+  .stk .t:nth-child(1){top:16px;z-index:3}
+  .stk .t:nth-child(2){top:28px;transform:scale(.94);z-index:2;opacity:.85}
+  .stk .t:nth-child(3){top:40px;transform:scale(.88);z-index:1;opacity:.6}
+  .stk:hover .t:nth-child(2){top:128px;transform:none;opacity:1}
+  .stk:hover .t:nth-child(3){top:240px;transform:none;opacity:1}
+  .stk .t{transition:all .5s var(--spring)}
+  .hov{position:absolute;left:18px;bottom:48px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;border-radius:999px;padding:6px 12px}
+  .rules{background:#FBF8F4;border-radius:22px;padding:20px 22px}
+  .rules h3{font-size:16px;font-weight:600;margin-bottom:10px}
+  .rules li{list-style:none;display:flex;gap:10px;font-size:13.5px;line-height:1.45;padding:9px 0;border-top:1px solid var(--line)}
+  .rules li:first-of-type{border-top:0}
+  .rules li i{flex:none;font-style:normal;width:26px;height:26px;border-radius:9px;display:grid;place-items:center;font-size:13px}
+</style>
+</head>
+<body>
+<div class="stage">
+  <p class="caption">Mockup 3 of ~4 · <b>Pop-ups</b> · in the real app these float over your whole Windows desktop, top-right, above any app</p>
+
+  <h2>1 · Pick a pop-up style</h2>
+  <p class="sub">Click one to select it. Each replays every few seconds.</p>
+  <div class="cards">
+    <div class="card" data-choice="glass" onclick="toggleSelect(this)">
+      <div class="desk play" data-loop><div class="fakewin"><i style="top:40px;width:60%"></i><i style="top:56px;width:40%"></i><i style="top:72px;width:52%"></i></div>
+        <div class="t glass"><div class="r"><div class="ic" style="background:var(--mint)">👁</div><div><span class="k">Health</span><b>Give your eyes a break</b>1h 52m non-stop. Look 6 m away for 20 s.</div></div><div class="acts"><span>Start break</span><span>Snooze</span></div></div>
+        <div class="taskbar"><b></b><b></b><b></b><b></b></div></div>
+      <div class="card-body"><h3>A · Frosted glass <em>from mockup 1</em></h3><p>Neutral white glass that blurs whatever is behind it. Only the icon carries the category colour. Calm and native-feeling on Windows 11.</p></div>
+    </div>
+    <div class="card" data-choice="pastel" onclick="toggleSelect(this)">
+      <div class="desk play" data-loop><div class="fakewin"><i style="top:40px;width:60%"></i><i style="top:56px;width:40%"></i><i style="top:72px;width:52%"></i></div>
+        <div class="t pastel"><div class="r"><div class="ic">👁</div><div><span class="k">Health</span><b>Give your eyes a break</b>1h 52m non-stop. Look 6 m away for 20 s.</div></div><div class="acts"><span>Start break</span><span>Snooze</span></div></div>
+        <div class="taskbar"><b></b><b></b><b></b><b></b></div></div>
+      <div class="card-body"><h3>B · Pastel card</h3><p>The whole card takes the category colour (mint = health, pink = behaviour, lavender = tip, peach = win). Most on-brand, and you can tell the type at a glance.</p></div>
+    </div>
+    <div class="card" data-choice="island" onclick="toggleSelect(this)">
+      <div class="desk" id="islandDesk"><div class="fakewin"><i style="top:40px;width:60%"></i><i style="top:56px;width:40%"></i><i style="top:72px;width:52%"></i></div>
+        <div class="island" id="island"><span class="dotic">👁</span><span class="mini">Eye break · 1h 52m</span>
+          <div class="full"><b>Give your eyes a break</b>1h 52m non-stop. Look at something 6 m away for 20 seconds.<div class="acts"><span>Start break</span><span>Snooze</span></div></div></div>
+        <div class="taskbar"><b></b><b></b><b></b><b></b></div></div>
+      <div class="card-body"><h3>C · Morphing pill</h3><p>Starts as a small black pill, springs open into a card, and shrinks back to the pill if you ignore it. Least intrusive and the most “wow”, but the most work to build.</p></div>
+    </div>
+  </div>
+
+  <h2>2 · The 20-second eye break</h2>
+  <p class="sub">What happens when you click “Start break”: the screen softly blurs, and a breathing circle counts you down. Click the button to try it.</p>
+  <div class="desk bigdesk" id="bd">
+    <div class="fakewin"><i style="top:50px;width:60%"></i><i style="top:70px;width:40%"></i><i style="top:90px;width:52%"></i><i style="top:110px;width:30%"></i></div>
+    <button class="pbtn startbtn" id="startBreak">▶ Start 20s break</button>
+    <div class="overlay" id="ov">
+      <div class="breath"><div class="blob"></div>
+        <svg width="180" height="180"><circle cx="90" cy="90" r="86" stroke="rgba(0,0,0,.08)" stroke-width="4" fill="none"/><circle class="p" id="ring" cx="90" cy="90" r="86" stroke="#171717" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+        <span class="num" id="num">20</span></div>
+      <span class="hint" id="hint">Breathe in…</span>
+      <h3>Look at something far away</h3>
+      <p>At least 6 metres, like a window, a wall across the room, or the sky.</p>
+      <div style="display:flex;gap:8px"><button class="pbtn s" id="skip">Skip</button><button class="pbtn s">+1 min</button></div>
+    </div>
+    <div class="taskbar"><b></b><b></b><b></b><b></b></div>
+  </div>
+
+  <h2>3 · Stacking & manners</h2>
+  <p class="sub">Several pop-ups stack into a neat pile instead of flooding the screen. Hover the pile to fan them out.</p>
+  <div class="row">
+    <div class="desk stackdesk"><div class="fakewin"><i style="top:40px;width:60%"></i><i style="top:56px;width:40%"></i></div>
+      <div class="stk">
+        <div class="t glass"><div class="r"><div class="ic" style="background:var(--pink)">↻</div><div><span class="k">Behaviour · now</span><b>Feeling scattered?</b>61 app switches in 15 min. Pick one task and close Discord for a bit.</div></div><div class="acts"><span>Focus 25m</span><span>I'm fine</span></div></div>
+        <div class="t glass"><div class="r"><div class="ic" style="background:var(--lav)">💡</div><div><span class="k">Tip · 18 min ago</span><b>Same error, 3rd time</b><code style="font-size:11px">user</code> can be null on first render. Try <code style="font-size:11px">user?.id</code>.</div></div><div class="acts"><span>Show me</span><span>Dismiss</span></div></div>
+        <div class="t glass"><div class="r"><div class="ic" style="background:var(--peach)">★</div><div><span class="k">Win · 41 min ago</span><b>90-min deep-work streak 🎉</b>Your longest this week.</div></div></div>
+      </div>
+      <span class="hov">hover the pile ↗</span>
+      <div class="taskbar"><b></b><b></b><b></b><b></b></div>
+    </div>
+    <div class="rules">
+      <h3>Pop-up manners (built in, adjustable in Settings)</h3>
+      <ul>
+        <li><i style="background:var(--mint)">⏱</i><span><b>At most 1 every 20 min</b>, except break reminders you've asked for. Anything held back goes into a “while you were busy” summary.</span></li>
+        <li><i style="background:var(--lav)">🎮</i><span><b>Silent when it matters:</b> full-screen apps, games, video calls (Zoom, Meet, Teams), screen sharing, and Windows Do Not Disturb.</span></li>
+        <li><i style="background:var(--pink)">✋</i><span><b>Learns from you:</b> if you dismiss the same kind of pop-up three times, it backs off and asks whether you want fewer.</span></li>
+        <li><i style="background:var(--peach)">🔕</i><span><b>Snooze options:</b> 10 min, 1 hour, or rest of today. Each of the 4 types can be switched off on its own.</span></li>
+        <li><i style="background:#eee">⌨</i><span><b>Never steals focus:</b> pop-ups don't grab your keyboard, so typing never lands in them. <code>Win+Shift+D</code> dismisses them all.</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  // replay A/B toasts
+  setInterval(() => document.querySelectorAll('[data-loop]').forEach(d => { d.classList.remove('play'); void d.offsetWidth; d.classList.add('play'); }), 5000);
+  // island morph loop
+  const isl = document.getElementById('island');
+  (function cycle(){ setTimeout(()=>isl.classList.add('open'),900); setTimeout(()=>isl.classList.remove('open'),4200); setTimeout(cycle,5600); })();
+  // break overlay
+  const ov = document.getElementById('ov'), num = document.getElementById('num'), ring = document.getElementById('ring'), hint = document.getElementById('hint');
+  let timer;
+  function start(){
+    let s = 20; ov.classList.add('on'); num.textContent = s; ring.style.transition='none'; ring.style.strokeDashoffset = 0; void ring.offsetWidth; ring.style.transition='';
+    clearInterval(timer);
+    timer = setInterval(() => {
+      s--; num.textContent = s; ring.style.strokeDashoffset = 540 * (1 - s / 20);
+      hint.textContent = (Math.floor((20 - s) / 4) % 2) ? 'Breathe out…' : 'Breathe in…';
+      if (s <= 0) { clearInterval(timer); hint.textContent = 'Nice. Welcome back 🌿'; setTimeout(() => ov.classList.remove('on'), 1400); }
+    }, 1000);
+  }
+  document.getElementById('startBreak').onclick = start;
+  document.getElementById('skip').onclick = () => { clearInterval(timer); ov.classList.remove('on'); };
+</script>
+</body>
+</html>

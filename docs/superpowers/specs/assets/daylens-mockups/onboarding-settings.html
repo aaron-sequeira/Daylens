@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daylens — Onboarding & settings</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root{--stage:#BFEBD9;--win:#FBF8F4;--panel:#F2EBE6;--ink:#171717;--muted:#77716c;--line:#E7DFD8;--pink:#F4C6C8;--peach:#F9DDB9;--lav:#D8D2FC;--mint:#BFEBD3;
+    --spring:cubic-bezier(.2,1.35,.35,1);--ease:cubic-bezier(.22,.8,.26,1)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:var(--stage);color:var(--ink);padding:44px 24px 80px;display:flex;justify-content:center}
+  .stage{width:100%;max-width:1280px}
+  .caption{font-size:13px;color:#2d6b54;margin:0 0 8px 4px}
+  h2{font-size:30px;font-weight:500;letter-spacing:-.02em;margin:30px 0 4px 4px}
+  .sub{font-size:14px;color:#2d6b54;margin:0 0 16px 4px}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}}
+  /* desktop + hybrid pill */
+  .desk{position:relative;height:300px;border-radius:20px;overflow:hidden;background:radial-gradient(60% 80% at 30% 110%,#5b8cff 0%,transparent 60%),radial-gradient(50% 70% at 75% 100%,#9b7bff 0%,transparent 60%),linear-gradient(160deg,#dfe8ff,#b9c9f5 60%,#8fa8ee);box-shadow:0 30px 60px -30px rgba(20,60,45,.5)}
+  .fakewin{position:absolute;left:5%;top:12%;width:50%;height:62%;background:rgba(255,255,255,.75);border-radius:10px}
+  .taskbar{position:absolute;left:0;right:0;bottom:0;height:34px;background:rgba(240,244,255,.8);backdrop-filter:blur(10px)}
+  .pill{position:absolute;top:16px;right:16px;height:44px;width:230px;border-radius:999px;background:var(--c);display:flex;align-items:center;gap:10px;padding:0 8px;overflow:hidden;
+    box-shadow:0 20px 40px -16px rgba(0,0,0,.45);transition:width .65s var(--spring),height .65s var(--spring),border-radius .65s var(--spring),background .5s,transform .5s var(--spring),opacity .4s}
+  .pill.hide{transform:translateY(-80px);opacity:0}
+  .pill .ic{flex:none;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.9);display:grid;place-items:center;font-size:14px}
+  .pill .mini{font-size:13px;font-weight:600;white-space:nowrap}
+  .pill .mini span{font-weight:400;opacity:.6}
+  .pill .full{position:absolute;left:18px;right:18px;top:58px;font-size:13px;line-height:1.5;color:#3a3531;opacity:0;transform:translateY(6px);transition:opacity .3s,transform .3s}
+  .pill .full b{display:block;font-size:16px;color:var(--ink);margin-bottom:2px}
+  .pill .acts{display:flex;gap:8px;margin-top:12px}
+  .pill .acts span{border-radius:999px;padding:7px 14px;font-weight:600;font-size:12px;background:var(--ink);color:#fff}
+  .pill .acts span+span{background:rgba(255,255,255,.7);color:var(--ink)}
+  .pill .bar{position:absolute;left:18px;right:18px;bottom:12px;height:3px;border-radius:3px;background:rgba(0,0,0,.08);opacity:0}
+  .pill .bar i{display:block;height:100%;background:var(--ink);border-radius:3px;transform-origin:left}
+  .pill.open{width:360px;height:196px;border-radius:26px}
+  .pill.open .full{opacity:1;transform:none;transition-delay:.22s}
+  .pill.open .bar{opacity:1}
+  .pill.open .bar i{animation:shrink 3.4s linear forwards}
+  @keyframes shrink{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+  .legend{position:absolute;left:5%;bottom:48px;display:flex;gap:6px}
+  .legend span{font-size:12px;border-radius:999px;padding:5px 12px;background:rgba(255,255,255,.7);transition:all .3s}
+  .legend span.on{background:var(--ink);color:#fff}
+  /* onboarding */
+  .win{background:var(--win);border-radius:28px;box-shadow:0 40px 80px -30px rgba(20,60,45,.45);overflow:hidden}
+  .titlebar{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 18px;border-bottom:1px solid var(--line);font-size:13px;font-weight:600}
+  .wc{display:flex;color:#555;font-weight:400}.wc span{width:44px;height:32px;display:grid;place-items:center}
+  .ob{display:grid;grid-template-columns:1fr 1fr;min-height:560px}
+  .obl{padding:44px 48px;display:flex;flex-direction:column}
+  .steps{display:flex;gap:8px;margin-bottom:36px}
+  .steps i{height:6px;width:28px;border-radius:6px;background:var(--line);transition:all .5s var(--spring);cursor:pointer}
+  .steps i.on{width:56px;background:var(--ink)}
+  .step{display:none;flex-direction:column;flex:1}
+  .step.on{display:flex}
+  .step > *{animation:rise .55s var(--ease) both}
+  .step > *:nth-child(2){animation-delay:.06s}.step > *:nth-child(3){animation-delay:.12s}.step > *:nth-child(4){animation-delay:.18s}.step > *:nth-child(5){animation-delay:.24s}
+  .obl h1{font-weight:400;font-size:46px;letter-spacing:-.025em;line-height:1.05;margin-bottom:14px}
+  .obl h1 b{font-weight:600}
+  .lead{font-size:15px;color:#4b4642;line-height:1.55;margin-bottom:22px;max-width:440px}
+  .promise{display:flex;flex-direction:column;gap:10px;margin-bottom:26px}
+  .promise div{display:flex;gap:12px;align-items:center;font-size:14px}
+  .promise i{flex:none;width:34px;height:34px;border-radius:12px;display:grid;place-items:center;font-style:normal}
+  .next{margin-top:auto;display:flex;gap:10px;align-items:center}
+  .btn{border:0;border-radius:999px;padding:12px 22px;font:600 14px 'DM Sans';cursor:pointer;background:var(--ink);color:#fff;transition:transform .25s var(--spring)}
+  .btn:hover{transform:scale(1.04)}.btn.s{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .link{font-size:13px;color:var(--muted);margin-left:auto;cursor:pointer}
+  .obr{margin:14px;border-radius:22px;position:relative;overflow:hidden;display:grid;place-items:center;transition:background .6s}
+  /* right-side art */
+  .orb{width:260px;height:260px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,rgba(255,255,255,0) 60%),conic-gradient(from 0deg,var(--lav),var(--mint),var(--peach),var(--pink),var(--lav));animation:spin 18s linear infinite;filter:saturate(1.1)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .float{position:absolute;background:#fff;border-radius:16px;padding:10px 14px;font-size:12.5px;box-shadow:0 14px 30px -16px rgba(0,0,0,.3);animation:bob 5s ease-in-out infinite}
+  .float b{display:block;font-size:15px}
+  @keyframes bob{50%{transform:translateY(-10px)}}
+  /* model download */
+  .model{background:#fff;border-radius:18px;padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center}
+  .model i{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-style:normal;font-size:18px}
+  .model h4{font-size:14px;font-weight:600}.model p{font-size:12px;color:var(--muted);margin-top:1px}
+  .model .pb{grid-column:2/4;height:8px;border-radius:8px;background:var(--panel);overflow:hidden}
+  .model .pb div{height:100%;width:0;border-radius:8px;background:var(--ink);transition:width .25s linear}
+  .model em{font-style:normal;font-size:12px;font-weight:600}
+  .hw{display:flex;gap:10px;align-items:center;font-size:13px;background:var(--mint);border-radius:14px;padding:10px 14px;margin:6px 0 14px}
+  .or{font-size:13px;color:var(--muted)}.or u{color:var(--ink);cursor:pointer}
+  /* goals */
+  .field{background:#fff;border-radius:18px;padding:14px 16px;margin-bottom:10px}
+  .field label{display:flex;justify-content:space-between;font-size:14px;font-weight:500}
+  .field label b{font-weight:600}
+  input[type=range]{width:100%;margin-top:10px;accent-color:#171717}
+  .tg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tgl{display:flex;align-items:center;gap:10px;border-radius:14px;padding:10px 12px;font-size:13px;font-weight:500;cursor:pointer;user-select:none}
+  .sw{margin-left:auto;width:36px;height:22px;border-radius:22px;background:rgba(0,0,0,.18);position:relative;transition:background .3s}
+  .sw:after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .35s var(--spring)}
+  .on>.sw,.sw.on{background:var(--ink)}.on>.sw:after,.sw.on:after{transform:translateX(14px)}
+  /* settings */
+  .set{display:grid;grid-template-columns:84px 240px 1fr;gap:22px;padding:20px;height:640px}
+  .rail{background:var(--panel);border-radius:22px;display:flex;flex-direction:column;align-items:center;padding:22px 0;gap:14px}
+  .rail .n{width:48px;height:48px;border-radius:50%;background:#fff}.rail .n.on{background:var(--ink)}
+  .rail .logo{width:40px;height:40px;border-radius:12px;background:var(--ink);margin-bottom:26px}
+  .smenu{display:flex;flex-direction:column;gap:6px;padding-top:6px}
+  .smenu h3{font-size:28px;font-weight:500;letter-spacing:-.02em;margin:0 0 14px 6px}
+  .smenu a{font-size:14px;padding:11px 14px;border-radius:14px;color:var(--ink);text-decoration:none;display:flex;gap:10px;align-items:center;cursor:pointer;transition:background .2s}
+  .smenu a.on{background:#fff;font-weight:600;box-shadow:0 6px 16px -10px rgba(0,0,0,.3)}
+  .spane{overflow-y:auto;padding:6px 6px 20px;scrollbar-width:thin}
+  .grp{background:#fff;border-radius:20px;padding:6px 18px;margin-bottom:14px}
+  .grp h4{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding:12px 0 4px}
+  .srow{display:flex;align-items:center;gap:14px;padding:13px 0;border-top:1px solid var(--line);font-size:14px}
+  .grp h4 + .srow{border-top:0}
+  .srow p{flex:1}.srow p small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px;line-height:1.4}
+  .chipset{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .chipset span{font-size:12px;border-radius:999px;padding:5px 11px;background:var(--panel)}
+  .chipset span.add{background:#fff;border:1px dashed #bbb}
+  .seg{display:flex;background:var(--panel);border-radius:999px;padding:3px}
+  .seg span{font-size:12px;padding:6px 12px;border-radius:999px;cursor:pointer}
+  .seg span.on{background:#fff;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+  .danger{color:#b42318;font-weight:600;font-size:13px;border:1px solid #f3c1bd;border-radius:999px;padding:7px 14px;background:#fff}
+  .ghost{font-weight:600;font-size:13px;border:1px solid var(--line);border-radius:999px;padding:7px 14px;background:#fff}
+  .peek{background:var(--panel);border-radius:14px;padding:12px 14px;font:12px/1.5 ui-monospace,Consolas,monospace;color:#4b4642;margin:0 0 12px}
+</style>
+</head>
+<body>
+<div class="stage">
+  <p class="caption">Mockup 4 of 4 · <b>Final pop-up</b> (B's pastel colours + C's morph) · <b>Onboarding</b> · <b>Settings</b></p>
+
+  <h2>1 · Pop-up: pastel morphing pill</h2>
+  <p class="sub">It drops in as a colour-coded pill, springs open into a pastel card, and tucks back up when the timer runs out. It cycles through all 4 types.</p>
+  <div class="desk">
+    <div class="fakewin"></div>
+    <div class="pill hide" id="pill">
+      <span class="ic" id="pic"></span><span class="mini" id="pmini"></span>
+      <div class="full"><b id="ptitle"></b><span id="pbody"></span><div class="acts"><span id="pa"></span><span id="pb"></span></div></div>
+      <div class="bar"><i></i></div>
+    </div>
+    <div class="legend" id="legend"><span>Health</span><span>Behaviour</span><span>Tip</span><span>Win</span></div>
+    <div class="taskbar"></div>
+  </div>
+
+  <h2>2 · First launch: 3 steps</h2>
+  <p class="sub">Click the bars at the top, or the buttons, to move between steps. Step 2 plays a fake download.</p>
+  <div class="win">
+    <div class="titlebar">Daylens<div class="wc"><span>&#x2014;</span><span>&#x2610;</span><span>&#x2715;</span></div></div>
+    <div class="ob">
+      <div class="obl">
+        <div class="steps" id="steps"><i class="on"></i><i></i><i></i></div>
+
+        <div class="step on">
+          <h1>See your day<br><b>clearly.</b></h1>
+          <p class="lead">Daylens quietly notices what you do on your PC, writes you a daily report, and nudges you toward healthier screen habits.</p>
+          <div class="promise">
+            <div><i style="background:var(--mint)">🔒</i><span><b>Everything stays on this PC.</b> No account, no cloud, no uploads.</span></div>
+            <div><i style="background:var(--lav)">👁</i><span>Reads on-screen <b>text</b> every 30 s. <b>Screenshots are never saved.</b></span></div>
+            <div><i style="background:var(--pink)">🚫</i><span>Password managers, banking sites and private windows are <b>skipped automatically</b>.</span></div>
+            <div><i style="background:var(--peach)">⏸</i><span>Pause any time from the tray, or delete everything with one click.</span></div>
+          </div>
+          <div class="next"><button class="btn" data-go="1">Sounds good →</button><span class="link">Read the privacy details</span></div>
+        </div>
+
+        <div class="step">
+          <h1>Download your<br><b>on-device AI.</b></h1>
+          <p class="lead">Two small models run privately on your computer. This happens once and takes a few minutes.</p>
+          <div class="hw">✓ <span><b>Your PC:</b> 16 GB RAM · RTX 3060 · runs great</span></div>
+          <div class="model"><i style="background:var(--lav)">🧭</i><div><h4>Laya: the observer</h4><p>Labels what you're doing every 30 s · 808 MB</p></div><em id="m1p">0%</em><div class="pb"><div id="m1"></div></div></div>
+          <div class="model"><i style="background:var(--peach)">✍</i><div><h4>Qwen3 4B: the writer</h4><p>Writes your reports and advice · 2.5 GB</p></div><em id="m2p">waiting</em><div class="pb"><div id="m2"></div></div></div>
+          <p class="or">Low on space or have an older PC? <u>Use Claude / OpenAI with my own key instead</u></p>
+          <div class="next"><button class="btn s" data-go="0">Back</button><button class="btn" data-go="2">Continue →</button></div>
+        </div>
+
+        <div class="step">
+          <h1>What does a<br><b>good day</b> look like?</h1>
+          <p class="lead">You can change any of this later.</p>
+          <div class="field"><label>Daily screen-time goal <b id="gv">7h</b></label><input type="range" min="2" max="12" value="7" id="goal"></div>
+          <div class="field"><label>Wind down after <b>11:00 pm</b></label><input type="range" min="0" max="10" value="7"></div>
+          <div class="tg" id="tg">
+            <div class="tgl on" style="background:var(--mint)">👁 Health nudges<span class="sw"></span></div>
+            <div class="tgl on" style="background:var(--pink)">↻ Behaviour callouts<span class="sw"></span></div>
+            <div class="tgl on" style="background:var(--lav)">💡 Task tips<span class="sw"></span></div>
+            <div class="tgl on" style="background:var(--peach)">★ Wins & streaks<span class="sw"></span></div>
+          </div>
+          <div class="next" style="margin-top:22px"><button class="btn s" data-go="1">Back</button><button class="btn">Start tracking ✨</button></div>
+        </div>
+      </div>
+
+      <div class="obr" id="art" style="background:var(--mint)">
+        <div class="orb"></div>
+        <div class="float" style="top:18%;left:10%"><span style="color:var(--muted)">Today</span><b>6h 12m</b></div>
+        <div class="float" style="top:26%;right:9%;animation-delay:-1.5s;background:var(--lav)">✦ 90-min focus streak</div>
+        <div class="float" style="bottom:20%;left:14%;animation-delay:-3s;background:var(--peach)">☀ Your report is ready</div>
+        <div class="float" style="bottom:14%;right:12%;animation-delay:-2s">Health score <b>72</b></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>3 · Settings: privacy first</h2>
+  <p class="sub">The privacy page is the one people will look at most, so it's first and written in plain English.</p>
+  <div class="win">
+    <div class="titlebar">Daylens<div class="wc"><span>&#x2014;</span><span>&#x2610;</span><span>&#x2715;</span></div></div>
+    <div class="set">
+      <aside class="rail"><div class="logo"></div><div class="n"></div><div class="n"></div><div class="n"></div><div class="n"></div><div style="flex:1"></div><div class="n on"></div></aside>
+      <nav class="smenu">
+        <h3>Settings</h3>
+        <a class="on">🔒 Privacy & data</a>
+        <a>🔔 Pop-ups</a>
+        <a>🎯 Goals & health</a>
+        <a>🧠 AI models</a>
+        <a>🏷 Categories</a>
+        <a>⚙ General</a>
+      </nav>
+      <div class="spane">
+        <div class="grp">
+          <h4>What Daylens can see</h4>
+          <div class="srow"><p>Read on-screen text<small>OCR every 30 s. The image is thrown away right after; only the text is kept, for 7 days.</small></p><span class="sw on"></span></div>
+          <div class="srow"><p>Window titles & app names<small>Needed for screen time and per-app stats.</small></p><span class="sw on"></span></div>
+          <div class="srow"><p>Keyboard & mouse activity<small>Only counts, to tell active from idle. Never which keys you press.</small></p><span class="sw on"></span></div>
+          <div class="srow"><p>Keep raw screen text for<small>Reports only need summaries; older raw text is deleted automatically.</small></p><div class="seg"><span>1 day</span><span class="on">7 days</span><span>30 days</span></div></div>
+        </div>
+        <div class="grp">
+          <h4>Never look at</h4>
+          <div class="srow"><p>Excluded apps & sites<small>Nothing is read or recorded while these are on screen.</small></p>
+            <div class="chipset"><span>1Password</span><span>Bitwarden</span><span>*bank*</span><span>Private windows</span><span class="add">+ Add</span></div></div>
+        </div>
+        <div class="grp">
+          <h4>See it for yourself</h4>
+          <div class="srow" style="display:block"><p style="margin-bottom:8px">Last screen read (2 min ago)<small>This is exactly what the AI saw. Nothing more.</small></p>
+            <div class="peek">[VS Code] invite.tsx: TS2322: Type 'string | null' is not assignable to type 'string'.<br>→ Laya: category=<b>work</b> (0.97) · stuck=<b>yes</b> (0.81)</div></div>
+        </div>
+        <div class="grp">
+          <h4>Your data</h4>
+          <div class="srow"><p>Export everything<small>A JSON file with every stat, report and label.</small></p><button class="ghost">Export</button></div>
+          <div class="srow"><p>Delete all data<small>Wipes the local database. This can't be undone.</small></p><button class="danger">Delete everything</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // hybrid pill cycle
+  const T = [
+    {c:'var(--mint)', i:'👁', m:'Eye break', s:'1h 52m', t:'Give your eyes a break', b:'1h 52m non-stop. Look at something 6 m away for 20 seconds.', a:'Start break', z:'Snooze'},
+    {c:'var(--pink)', i:'↻', m:'Scattered?', s:'61 switches', t:'Feeling scattered?', b:'61 app switches in 15 min. Pick one task and close Discord for a while.', a:'Focus 25m', z:'I\'m fine'},
+    {c:'var(--lav)',  i:'💡', m:'Same error', s:'3rd time', t:'Same error, 3rd time', b:'user can be null on first render. Use user?.id or return early while loading.', a:'Show me', z:'Dismiss'},
+    {c:'var(--peach)',i:'★', m:'Deep work', s:'90 min 🎉', t:'90-min deep-work streak 🎉', b:'Your longest this week. Stand up, stretch, grab some water.', a:'Take a break', z:'Keep going'}
+  ];
+  const $ = id => document.getElementById(id), pill = $('pill'), leg = $('legend').children;
+  let k = 0;
+  function cycle(){
+    const m = T[k % 4]; [...leg].forEach((l, j) => l.classList.toggle('on', j === k % 4)); k++;
+    pill.style.setProperty('--c', m.c); $('pic').textContent = m.i; $('pmini').innerHTML = `${m.m} <span>· ${m.s}</span>`;
+    $('ptitle').textContent = m.t; $('pbody').textContent = m.b; $('pa').textContent = m.a; $('pb').textContent = m.z;
+    pill.classList.remove('hide');
+    setTimeout(() => pill.classList.add('open'), 900);
+    setTimeout(() => pill.classList.remove('open'), 4700);
+    setTimeout(() => pill.classList.add('hide'), 5700);
+    setTimeout(cycle, 6600);
+  }
+  setTimeout(cycle, 600);
+
+  // onboarding steps
+  const steps = document.querySelectorAll('.step'), bars = $('steps').children, art = $('art');
+  const artBg = ['var(--mint)', 'var(--lav)', 'var(--peach)'];
+  let dl;
+  function go(n){
+    steps.forEach((s, i) => s.classList.toggle('on', i === n));
+    [...bars].forEach((b, i) => b.classList.toggle('on', i === n));
+    art.style.background = artBg[n];
+    if (n === 1) fakeDownload();
+  }
+  [...bars].forEach((b, i) => b.onclick = () => go(i));
+  document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(+b.dataset.go));
+  function fakeDownload(){
+    clearInterval(dl); let a = 0, b = 0;
+    $('m1').style.width = '0'; $('m2').style.width = '0'; $('m2p').textContent = 'waiting';
+    dl = setInterval(() => {
+      if (a < 100) { a = Math.min(100, a + 4); $('m1').style.width = a + '%'; $('m1p').textContent = a === 100 ? '✓ ready' : a + '%'; }
+      else if (b < 100) { b = Math.min(100, b + 2); $('m2').style.width = b + '%'; $('m2p').textContent = b === 100 ? '✓ ready' : b + '%'; }
+      else clearInterval(dl);
+    }, 90);
+  }
+  $('goal').oninput = e => $('gv').textContent = e.target.value + 'h';
+  document.querySelectorAll('.tgl').forEach(t => t.onclick = () => t.classList.toggle('on'));
+  document.querySelectorAll('.sw').forEach(s => { if (!s.closest('.tgl')) s.onclick = () => s.classList.toggle('on'); });
+  document.querySelectorAll('.seg span').forEach(s => s.onclick = () => { s.parentNode.querySelectorAll('span').forEach(x => x.classList.remove('on')); s.classList.add('on'); });
+</script>
+</body>
+</html>
