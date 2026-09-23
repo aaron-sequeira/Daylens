@@ -45,3 +45,7 @@ __pycache__/
 
 # brainstorming visual companion
 .superpowers/
+
+# Daylens local model files + Laya tooling venv
+apps/consumer/.models/
+tools/laya/.venv/

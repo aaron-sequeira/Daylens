@@ -1,0 +1,2498 @@
+[
+ {
+  "id": 1,
+  "state": "App: Visual Studio Code\nWindow: invite.tsx - worksight - Visual Studio Code\nScreen text: src > app > invite.tsx export async function acceptInvite(token: string) { const { data, error } = await supabase.rpc('accept_invite', { token }); if (error) throw error; return data }",
+  "answers": {
+   "category": {
+    "choice": "work",
+    "probabilities": {
+     "work": 0.5255,
+     "learning": 0.1291,
+     "social": 0.0767,
+     "entertainment": 0.0288,
+     "communication": 0.0953,
+     "other": 0.1445
+    },
+    "confidence": 0.2157
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.7767,
+     "writing": 0.0979,
+     "reading": 0.0048,
+     "watching": 0.0059,
+     "scrolling": 0.0116,
+     "chatting": 0.007,
+     "designing": 0.0389,
+     "gaming": 0.005,
+     "browsing": 0.0042,
+     "other": 0.048
+    },
+    "confidence": 0.6145
+   },
+   "stuck": {
+    "score": 0.9972,
+    "probabilities": {
+     "0": 0.3264,
+     "1": 0.35,
+     "2": 0.3236
+    },
+    "confidence": 0.0006
+   },
+   "distraction": {
+    "score": 0.7491,
+    "probabilities": {
+     "0": 0.4661,
+     "1": 0.3187,
+     "2": 0.2152
+    },
+    "confidence": 0.0435
+   }
+  }
+ },
+ {
+  "id": 2,
+  "state": "App: Microsoft Excel\nWindow: Q3-budget.xlsx - Excel\nScreen text: Revenue Q1 Q2 Q3 Total =SUM(B2:D2) Marketing 12,400 13,100 15,900 Payroll 88,000 88,000 91,500 Sheet1 Sheet2",
+  "answers": {
+   "category": {
+    "choice": "work",
+    "probabilities": {
+     "work": 0.5606,
+     "learning": 0.0509,
+     "social": 0.0637,
+     "entertainment": 0.0193,
+     "communication": 0.1213,
+     "other": 0.1842
+    },
+    "confidence": 0.2773
+   },
+   "activity": {
+    "choice": "other",
+    "probabilities": {
+     "coding": 0.1215,
+     "writing": 0.1695,
+     "reading": 0.0851,
+     "watching": 0.0311,
+     "scrolling": 0.1311,
+     "chatting": 0.0241,
+     "designing": 0.118,
+     "gaming": 0.0102,
+     "browsing": 0.0528,
+     "other": 0.2567
+    },
+    "confidence": 0.1166
+   },
+   "stuck": {
+    "score": 0.9237,
+    "probabilities": {
+     "0": 0.3147,
+     "1": 0.4469,
+     "2": 0.2384
+    },
+    "confidence": 0.0301
+   },
+   "distraction": {
+    "score": 0.7148,
+    "probabilities": {
+     "0": 0.4554,
+     "1": 0.3744,
+     "2": 0.1702
+    },
+    "confidence": 0.0648
+   }
+  }
+ },
+ {
+  "id": 3,
+  "state": "App: Figma\nWindow: Onboarding flow - Figma\nScreen text: Frame 12 Auto layout Fill FBF8F4 Corner radius 28 Components Assets Prototype Share Design Inspect",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.2811,
+     "learning": 0.3351,
+     "social": 0.0644,
+     "entertainment": 0.0334,
+     "communication": 0.0789,
+     "other": 0.2072
+    },
+    "confidence": 0.1407
+   },
+   "activity": {
+    "choice": "designing",
+    "probabilities": {
+     "coding": 0.1546,
+     "writing": 0.0395,
+     "reading": 0.0221,
+     "watching": 0.0488,
+     "scrolling": 0.0518,
+     "chatting": 0.0426,
+     "designing": 0.521,
+     "gaming": 0.0063,
+     "browsing": 0.0244,
+     "other": 0.0889
+    },
+    "confidence": 0.2994
+   },
+   "stuck": {
+    "score": 0.7618,
+    "probabilities": {
+     "0": 0.4051,
+     "1": 0.428,
+     "2": 0.1669
+    },
+    "confidence": 0.0642
+   },
+   "distraction": {
+    "score": 0.7145,
+    "probabilities": {
+     "0": 0.4553,
+     "1": 0.3749,
+     "2": 0.1698
+    },
+    "confidence": 0.0651
+   }
+  }
+ },
+ {
+  "id": 4,
+  "state": "App: Windows Terminal Host\nWindow: Windows PowerShell\nScreen text: PS C:/repo> pnpm test  src/tracking/tracker.test.ts (12 tests) Test Files 9 passed Tests 64 passed Duration 3.2s",
+  "answers": {
+   "category": {
+    "choice": "work",
+    "probabilities": {
+     "work": 0.2648,
+     "learning": 0.1275,
+     "social": 0.2016,
+     "entertainment": 0.0405,
+     "communication": 0.1359,
+     "other": 0.2297
+    },
+    "confidence": 0.0644
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.7158,
+     "writing": 0.0994,
+     "reading": 0.0138,
+     "watching": 0.0337,
+     "scrolling": 0.0199,
+     "chatting": 0.0307,
+     "designing": 0.0075,
+     "gaming": 0.0084,
+     "browsing": 0.0095,
+     "other": 0.0614
+    },
+    "confidence": 0.5139
+   },
+   "stuck": {
+    "score": 0.6268,
+    "probabilities": {
+     "0": 0.5274,
+     "1": 0.3184,
+     "2": 0.1542
+    },
+    "confidence": 0.0988
+   },
+   "distraction": {
+    "score": 0.8418,
+    "probabilities": {
+     "0": 0.4284,
+     "1": 0.3014,
+     "2": 0.2702
+    },
+    "confidence": 0.0186
+   }
+  }
+ },
+ {
+  "id": 5,
+  "state": "App: Microsoft Word\nWindow: Project proposal.docx - Word\nScreen text: 1. Executive summary This proposal outlines the migration of the billing service to the new platform. 2. Timeline and budget",
+  "answers": {
+   "category": {
+    "choice": "work",
+    "probabilities": {
+     "work": 0.4147,
+     "learning": 0.0599,
+     "social": 0.0317,
+     "entertainment": 0.0157,
+     "communication": 0.1756,
+     "other": 0.3024
+    },
+    "confidence": 0.2323
+   },
+   "activity": {
+    "choice": "writing",
+    "probabilities": {
+     "coding": 0.0547,
+     "writing": 0.376,
+     "reading": 0.0844,
+     "watching": 0.0162,
+     "scrolling": 0.064,
+     "chatting": 0.0184,
+     "designing": 0.2238,
+     "gaming": 0.0059,
+     "browsing": 0.0195,
+     "other": 0.1371
+    },
+    "confidence": 0.2331
+   },
+   "stuck": {
+    "score": 0.7702,
+    "probabilities": {
+     "0": 0.39,
+     "1": 0.4498,
+     "2": 0.1602
+    },
+    "confidence": 0.0716
+   },
+   "distraction": {
+    "score": 0.5399,
+    "probabilities": {
+     "0": 0.539,
+     "1": 0.382,
+     "2": 0.0789
+    },
+    "confidence": 0.1797
+   }
+  }
+ },
+ {
+  "id": 6,
+  "state": "App: Google Chrome\nWindow: Fix invite flow by aaron - Pull Request #42 - GitHub - Google Chrome\nScreen text: Files changed 4 Conversation Commits 3 Review requested Approve Merge pull request src/app/invite.tsx +12 -4",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.2373,
+     "learning": 0.1278,
+     "social": 0.1095,
+     "entertainment": 0.0374,
+     "communication": 0.0804,
+     "other": 0.4075
+    },
+    "confidence": 0.1417
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.6594,
+     "writing": 0.0697,
+     "reading": 0.0172,
+     "watching": 0.009,
+     "scrolling": 0.0681,
+     "chatting": 0.0311,
+     "designing": 0.0642,
+     "gaming": 0.0059,
+     "browsing": 0.0097,
+     "other": 0.0657
+    },
+    "confidence": 0.4381
+   },
+   "stuck": {
+    "score": 1.0519,
+    "probabilities": {
+     "0": 0.2667,
+     "1": 0.4147,
+     "2": 0.3186
+    },
+    "confidence": 0.0152
+   },
+   "distraction": {
+    "score": 0.6154,
+    "probabilities": {
+     "0": 0.5007,
+     "1": 0.3833,
+     "2": 0.116
+    },
+    "confidence": 0.1226
+   }
+  }
+ },
+ {
+  "id": 7,
+  "state": "App: Android Studio\nWindow: MainActivity.kt - MyApp\nScreen text: class MainActivity : AppCompatActivity() { override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState) Gradle sync finished",
+  "answers": {
+   "category": {
+    "choice": "work",
+    "probabilities": {
+     "work": 0.2928,
+     "learning": 0.198,
+     "social": 0.0755,
+     "entertainment": 0.0785,
+     "communication": 0.1108,
+     "other": 0.2444
+    },
+    "confidence": 0.0717
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.6188,
+     "writing": 0.0519,
+     "reading": 0.0379,
+     "watching": 0.02,
+     "scrolling": 0.0359,
+     "chatting": 0.0167,
+     "designing": 0.1184,
+     "gaming": 0.0115,
+     "browsing": 0.0168,
+     "other": 0.0722
+    },
+    "confidence": 0.3908
+   },
+   "stuck": {
+    "score": 0.6215,
+    "probabilities": {
+     "0": 0.4874,
+     "1": 0.4036,
+     "2": 0.1089
+    },
+    "confidence": 0.128
+   },
+   "distraction": {
+    "score": 0.6232,
+    "probabilities": {
+     "0": 0.5074,
+     "1": 0.362,
+     "2": 0.1306
+    },
+    "confidence": 0.1098
+   }
+  }
+ },
+ {
+  "id": 8,
+  "state": "App: Google Chrome\nWindow: Sprint 14 board - Jira - Google Chrome\nScreen text: To do In progress Done WS-212 Add retry to sync engine Story points 3 Assignee Aaron WS-214 Fix tray icon",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.3094,
+     "learning": 0.0845,
+     "social": 0.0782,
+     "entertainment": 0.0286,
+     "communication": 0.1396,
+     "other": 0.3597
+    },
+    "confidence": 0.1543
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.2194,
+     "writing": 0.0472,
+     "reading": 0.0325,
+     "watching": 0.0334,
+     "scrolling": 0.1012,
+     "chatting": 0.0485,
+     "designing": 0.1205,
+     "gaming": 0.0494,
+     "browsing": 0.1439,
+     "other": 0.2041
+    },
+    "confidence": 0.0936
+   },
+   "stuck": {
+    "score": 0.974,
+    "probabilities": {
+     "0": 0.2891,
+     "1": 0.4478,
+     "2": 0.2631
+    },
+    "confidence": 0.0262
+   },
+   "distraction": {
+    "score": 0.6069,
+    "probabilities": {
+     "0": 0.5026,
+     "1": 0.3879,
+     "2": 0.1095
+    },
+    "confidence": 0.1305
+   }
+  }
+ },
+ {
+  "id": 9,
+  "state": "App: Google Chrome\nWindow: Understanding React Server Components - YouTube - Google Chrome\nScreen text: React Conf 2025 Understanding React Server Components 48:12 Transcript Chapters Next: Suspense deep dive",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.1497,
+     "learning": 0.4754,
+     "social": 0.0798,
+     "entertainment": 0.1776,
+     "communication": 0.0366,
+     "other": 0.0809
+    },
+    "confidence": 0.1791
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.4204,
+     "writing": 0.0249,
+     "reading": 0.1231,
+     "watching": 0.2109,
+     "scrolling": 0.0459,
+     "chatting": 0.0324,
+     "designing": 0.0754,
+     "gaming": 0.0069,
+     "browsing": 0.0207,
+     "other": 0.0394
+    },
+    "confidence": 0.2478
+   },
+   "stuck": {
+    "score": 0.7119,
+    "probabilities": {
+     "0": 0.4245,
+     "1": 0.4392,
+     "2": 0.1363
+    },
+    "confidence": 0.0927
+   },
+   "distraction": {
+    "score": 1.0844,
+    "probabilities": {
+     "0": 0.266,
+     "1": 0.3836,
+     "2": 0.3504
+    },
+    "confidence": 0.0103
+   }
+  }
+ },
+ {
+  "id": 10,
+  "state": "App: Google Chrome\nWindow: Getting Started: Layouts and Pages | Next.js - Google Chrome\nScreen text: Docs App Router Getting Started Layouts and Pages A page is UI that is rendered on a specific route. Creating a page",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.1588,
+     "learning": 0.5679,
+     "social": 0.0484,
+     "entertainment": 0.0223,
+     "communication": 0.0378,
+     "other": 0.1648
+    },
+    "confidence": 0.2935
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.4444,
+     "writing": 0.0501,
+     "reading": 0.077,
+     "watching": 0.0382,
+     "scrolling": 0.0643,
+     "chatting": 0.0142,
+     "designing": 0.1981,
+     "gaming": 0.0122,
+     "browsing": 0.0417,
+     "other": 0.0597
+    },
+    "confidence": 0.2422
+   },
+   "stuck": {
+    "score": 0.7288,
+    "probabilities": {
+     "0": 0.3984,
+     "1": 0.4744,
+     "2": 0.1272
+    },
+    "confidence": 0.1055
+   },
+   "distraction": {
+    "score": 0.5345,
+    "probabilities": {
+     "0": 0.5527,
+     "1": 0.36,
+     "2": 0.0873
+    },
+    "confidence": 0.1732
+   }
+  }
+ },
+ {
+  "id": 11,
+  "state": "App: Google Chrome\nWindow: Machine Learning Specialization | Coursera - Google Chrome\nScreen text: Week 2 Gradient descent for multiple linear regression Video 12 min Practice quiz Next item Course notes",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.1072,
+     "learning": 0.7365,
+     "social": 0.0325,
+     "entertainment": 0.0683,
+     "communication": 0.0288,
+     "other": 0.0268
+    },
+    "confidence": 0.4652
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.3811,
+     "writing": 0.0406,
+     "reading": 0.1078,
+     "watching": 0.2424,
+     "scrolling": 0.0592,
+     "chatting": 0.0458,
+     "designing": 0.0357,
+     "gaming": 0.0119,
+     "browsing": 0.0319,
+     "other": 0.0435
+    },
+    "confidence": 0.2148
+   },
+   "stuck": {
+    "score": 0.923,
+    "probabilities": {
+     "0": 0.3374,
+     "1": 0.4021,
+     "2": 0.2605
+    },
+    "confidence": 0.0139
+   },
+   "distraction": {
+    "score": 0.7302,
+    "probabilities": {
+     "0": 0.4785,
+     "1": 0.3128,
+     "2": 0.2087
+    },
+    "confidence": 0.0504
+   }
+  }
+ },
+ {
+  "id": 12,
+  "state": "App: Google Chrome\nWindow: Integration by parts | Khan Academy - Google Chrome\nScreen text: Integration by parts: integral of u dv = uv - integral of v du Practice 3 of 5 Check answer Get help Hint",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.0499,
+     "learning": 0.7861,
+     "social": 0.0399,
+     "entertainment": 0.0605,
+     "communication": 0.027,
+     "other": 0.0367
+    },
+    "confidence": 0.5224
+   },
+   "activity": {
+    "choice": "reading",
+    "probabilities": {
+     "coding": 0.1394,
+     "writing": 0.0868,
+     "reading": 0.1825,
+     "watching": 0.1789,
+     "scrolling": 0.104,
+     "chatting": 0.0441,
+     "designing": 0.0224,
+     "gaming": 0.0155,
+     "browsing": 0.1136,
+     "other": 0.1128
+    },
+    "confidence": 0.0788
+   },
+   "stuck": {
+    "score": 0.8263,
+    "probabilities": {
+     "0": 0.3796,
+     "1": 0.4144,
+     "2": 0.2059
+    },
+    "confidence": 0.0368
+   },
+   "distraction": {
+    "score": 0.6592,
+    "probabilities": {
+     "0": 0.5024,
+     "1": 0.3361,
+     "2": 0.1615
+    },
+    "confidence": 0.0836
+   }
+  }
+ },
+ {
+  "id": 13,
+  "state": "App: Google Chrome\nWindow: Python For Loops - W3Schools - Google Chrome\nScreen text: Python For Loops A for loop is used for iterating over a sequence Example fruits = ['apple', 'banana'] for x in fruits: print(x) Try it Yourself",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.0601,
+     "learning": 0.7069,
+     "social": 0.0318,
+     "entertainment": 0.1069,
+     "communication": 0.0221,
+     "other": 0.0722
+    },
+    "confidence": 0.4212
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.7072,
+     "writing": 0.0295,
+     "reading": 0.0518,
+     "watching": 0.0512,
+     "scrolling": 0.0151,
+     "chatting": 0.0116,
+     "designing": 0.0121,
+     "gaming": 0.0556,
+     "browsing": 0.0325,
+     "other": 0.0334
+    },
+    "confidence": 0.4752
+   },
+   "stuck": {
+    "score": 0.749,
+    "probabilities": {
+     "0": 0.4207,
+     "1": 0.4097,
+     "2": 0.1696
+    },
+    "confidence": 0.0617
+   },
+   "distraction": {
+    "score": 0.8103,
+    "probabilities": {
+     "0": 0.4292,
+     "1": 0.3314,
+     "2": 0.2395
+    },
+    "confidence": 0.0248
+   }
+  }
+ },
+ {
+  "id": 14,
+  "state": "App: Anki\nWindow: Anki - Spanish vocab\nScreen text: Donde esta la biblioteca? Show answer Again Hard Good Easy 12 new 40 review",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.0648,
+     "learning": 0.4037,
+     "social": 0.1088,
+     "entertainment": 0.124,
+     "communication": 0.0728,
+     "other": 0.2258
+    },
+    "confidence": 0.1235
+   },
+   "activity": {
+    "choice": "browsing",
+    "probabilities": {
+     "coding": 0.0226,
+     "writing": 0.0729,
+     "reading": 0.0995,
+     "watching": 0.0538,
+     "scrolling": 0.0802,
+     "chatting": 0.0445,
+     "designing": 0.0342,
+     "gaming": 0.0878,
+     "browsing": 0.2869,
+     "other": 0.2176
+    },
+    "confidence": 0.1213
+   },
+   "stuck": {
+    "score": 1.0633,
+    "probabilities": {
+     "0": 0.2426,
+     "1": 0.4516,
+     "2": 0.3059
+    },
+    "confidence": 0.0307
+   },
+   "distraction": {
+    "score": 1.214,
+    "probabilities": {
+     "0": 0.1803,
+     "1": 0.4253,
+     "2": 0.3944
+    },
+    "confidence": 0.0538
+   }
+  }
+ },
+ {
+  "id": 15,
+  "state": "App: Google Chrome\nWindow: Duolingo - Google Chrome\nScreen text: Translate this sentence Je voudrais un cafe s'il vous plait Check Skip Lesson 4 of 10 French",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.0555,
+     "learning": 0.7791,
+     "social": 0.0302,
+     "entertainment": 0.0343,
+     "communication": 0.0408,
+     "other": 0.06
+    },
+    "confidence": 0.5112
+   },
+   "activity": {
+    "choice": "watching",
+    "probabilities": {
+     "coding": 0.0683,
+     "writing": 0.1051,
+     "reading": 0.1009,
+     "watching": 0.1397,
+     "scrolling": 0.1022,
+     "chatting": 0.0688,
+     "designing": 0.1339,
+     "gaming": 0.0295,
+     "browsing": 0.1251,
+     "other": 0.1265
+    },
+    "confidence": 0.0279
+   },
+   "stuck": {
+    "score": 0.8593,
+    "probabilities": {
+     "0": 0.3565,
+     "1": 0.4276,
+     "2": 0.2159
+    },
+    "confidence": 0.0334
+   },
+   "distraction": {
+    "score": 1.025,
+    "probabilities": {
+     "0": 0.254,
+     "1": 0.4669,
+     "2": 0.2791
+    },
+    "confidence": 0.0352
+   }
+  }
+ },
+ {
+  "id": 16,
+  "state": "App: Google Chrome\nWindow: Array.prototype.reduce() - JavaScript | MDN - Google Chrome\nScreen text: The reduce() method of Array instances executes a user-supplied reducer callback function on each element Syntax reduce(callbackFn, initialValue)",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.2208,
+     "learning": 0.491,
+     "social": 0.0489,
+     "entertainment": 0.0572,
+     "communication": 0.0418,
+     "other": 0.1402
+    },
+    "confidence": 0.2173
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.4522,
+     "writing": 0.0773,
+     "reading": 0.0707,
+     "watching": 0.1479,
+     "scrolling": 0.0972,
+     "chatting": 0.008,
+     "designing": 0.0235,
+     "gaming": 0.0111,
+     "browsing": 0.0764,
+     "other": 0.0358
+    },
+    "confidence": 0.2419
+   },
+   "stuck": {
+    "score": 0.6641,
+    "probabilities": {
+     "0": 0.4362,
+     "1": 0.4635,
+     "2": 0.1003
+    },
+    "confidence": 0.1362
+   },
+   "distraction": {
+    "score": 0.5909,
+    "probabilities": {
+     "0": 0.5159,
+     "1": 0.3774,
+     "2": 0.1067
+    },
+    "confidence": 0.1371
+   }
+  }
+ },
+ {
+  "id": 17,
+  "state": "App: Google Chrome\nWindow: Instagram - Google Chrome\nScreen text: Home Search Explore Reels Messages Liked by sam_k and 2,341 others View all 88 comments Suggested for you Follow",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.027,
+     "learning": 0.0394,
+     "social": 0.4032,
+     "entertainment": 0.4203,
+     "communication": 0.0808,
+     "other": 0.0292
+    },
+    "confidence": 0.2956
+   },
+   "activity": {
+    "choice": "browsing",
+    "probabilities": {
+     "coding": 0.0262,
+     "writing": 0.0231,
+     "reading": 0.043,
+     "watching": 0.1485,
+     "scrolling": 0.1113,
+     "chatting": 0.1865,
+     "designing": 0.0084,
+     "gaming": 0.0496,
+     "browsing": 0.2186,
+     "other": 0.1848
+    },
+    "confidence": 0.1349
+   },
+   "stuck": {
+    "score": 0.6656,
+    "probabilities": {
+     "0": 0.4637,
+     "1": 0.4071,
+     "2": 0.1292
+    },
+    "confidence": 0.1019
+   },
+   "distraction": {
+    "score": 1.1838,
+    "probabilities": {
+     "0": 0.2251,
+     "1": 0.3661,
+     "2": 0.4089
+    },
+    "confidence": 0.0268
+   }
+  }
+ },
+ {
+  "id": 18,
+  "state": "App: Discord\nWindow: #general | Gaming Crew - Discord\nScreen text: jake: anyone on tonight? mia: yeah after 9 lol @here new patch dropped Message #general",
+  "answers": {
+   "category": {
+    "choice": "social",
+    "probabilities": {
+     "work": 0.0898,
+     "learning": 0.048,
+     "social": 0.2926,
+     "entertainment": 0.2905,
+     "communication": 0.1659,
+     "other": 0.1132
+    },
+    "confidence": 0.0928
+   },
+   "activity": {
+    "choice": "gaming",
+    "probabilities": {
+     "coding": 0.066,
+     "writing": 0.0071,
+     "reading": 0.0048,
+     "watching": 0.032,
+     "scrolling": 0.0095,
+     "chatting": 0.1104,
+     "designing": 0.0091,
+     "gaming": 0.6935,
+     "browsing": 0.0095,
+     "other": 0.0581
+    },
+    "confidence": 0.5032
+   },
+   "stuck": {
+    "score": 0.614,
+    "probabilities": {
+     "0": 0.494,
+     "1": 0.3979,
+     "2": 0.108
+    },
+    "confidence": 0.1303
+   },
+   "distraction": {
+    "score": 0.6392,
+    "probabilities": {
+     "0": 0.5122,
+     "1": 0.3363,
+     "2": 0.1515
+    },
+    "confidence": 0.0943
+   }
+  }
+ },
+ {
+  "id": 19,
+  "state": "App: Google Chrome\nWindow: Home / X - Google Chrome\nScreen text: For you Following What is happening?! Post 12K reposts Trending in India Show more Who to follow",
+  "answers": {
+   "category": {
+    "choice": "social",
+    "probabilities": {
+     "work": 0.0391,
+     "learning": 0.0367,
+     "social": 0.5737,
+     "entertainment": 0.2138,
+     "communication": 0.0921,
+     "other": 0.0446
+    },
+    "confidence": 0.2996
+   },
+   "activity": {
+    "choice": "watching",
+    "probabilities": {
+     "coding": 0.0436,
+     "writing": 0.041,
+     "reading": 0.0502,
+     "watching": 0.2223,
+     "scrolling": 0.08,
+     "chatting": 0.1306,
+     "designing": 0.0228,
+     "gaming": 0.0577,
+     "browsing": 0.2209,
+     "other": 0.131
+    },
+    "confidence": 0.1008
+   },
+   "stuck": {
+    "score": 0.7492,
+    "probabilities": {
+     "0": 0.4291,
+     "1": 0.3926,
+     "2": 0.1783
+    },
+    "confidence": 0.0556
+   },
+   "distraction": {
+    "score": 1.2651,
+    "probabilities": {
+     "0": 0.2135,
+     "1": 0.3078,
+     "2": 0.4786
+    },
+    "confidence": 0.0488
+   }
+  }
+ },
+ {
+  "id": 20,
+  "state": "App: Google Chrome\nWindow: r/pcmasterrace - Reddit - Google Chrome\nScreen text: Posted by u/throwaway 5h My first build! 2.3k upvotes 412 comments Join Share Sort by Best",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0989,
+     "learning": 0.204,
+     "social": 0.1895,
+     "entertainment": 0.2741,
+     "communication": 0.0462,
+     "other": 0.1872
+    },
+    "confidence": 0.063
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.2342,
+     "writing": 0.0399,
+     "reading": 0.0308,
+     "watching": 0.0888,
+     "scrolling": 0.0713,
+     "chatting": 0.0467,
+     "designing": 0.1578,
+     "gaming": 0.2042,
+     "browsing": 0.0691,
+     "other": 0.0572
+    },
+    "confidence": 0.094
+   },
+   "stuck": {
+    "score": 0.5052,
+    "probabilities": {
+     "0": 0.6022,
+     "1": 0.2904,
+     "2": 0.1074
+    },
+    "confidence": 0.177
+   },
+   "distraction": {
+    "score": 0.8921,
+    "probabilities": {
+     "0": 0.3815,
+     "1": 0.345,
+     "2": 0.2735
+    },
+    "confidence": 0.0084
+   }
+  }
+ },
+ {
+  "id": 21,
+  "state": "App: WhatsApp\nWindow: WhatsApp\nScreen text: Mom: did you eat? You: yes Priya: see you at 7? Type a message Chats Status Communities",
+  "answers": {
+   "category": {
+    "choice": "social",
+    "probabilities": {
+     "work": 0.0453,
+     "learning": 0.0461,
+     "social": 0.4342,
+     "entertainment": 0.1792,
+     "communication": 0.2394,
+     "other": 0.0558
+    },
+    "confidence": 0.1876
+   },
+   "activity": {
+    "choice": "chatting",
+    "probabilities": {
+     "coding": 0.011,
+     "writing": 0.0333,
+     "reading": 0.016,
+     "watching": 0.0632,
+     "scrolling": 0.1016,
+     "chatting": 0.5429,
+     "designing": 0.01,
+     "gaming": 0.0512,
+     "browsing": 0.0223,
+     "other": 0.1486
+    },
+    "confidence": 0.3339
+   },
+   "stuck": {
+    "score": 0.6702,
+    "probabilities": {
+     "0": 0.4581,
+     "1": 0.4136,
+     "2": 0.1283
+    },
+    "confidence": 0.1023
+   },
+   "distraction": {
+    "score": 0.9586,
+    "probabilities": {
+     "0": 0.3572,
+     "1": 0.3269,
+     "2": 0.3159
+    },
+    "confidence": 0.0012
+   }
+  }
+ },
+ {
+  "id": 22,
+  "state": "App: Google Chrome\nWindow: Facebook - Google Chrome\nScreen text: What's on your mind? Stories Reels Marketplace John shared a memory 5 years ago Like Comment Share",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0273,
+     "learning": 0.0473,
+     "social": 0.3003,
+     "entertainment": 0.5388,
+     "communication": 0.0491,
+     "other": 0.0372
+    },
+    "confidence": 0.3261
+   },
+   "activity": {
+    "choice": "chatting",
+    "probabilities": {
+     "coding": 0.0213,
+     "writing": 0.0186,
+     "reading": 0.0508,
+     "watching": 0.1253,
+     "scrolling": 0.0674,
+     "chatting": 0.2977,
+     "designing": 0.0062,
+     "gaming": 0.0505,
+     "browsing": 0.2332,
+     "other": 0.129
+    },
+    "confidence": 0.1765
+   },
+   "stuck": {
+    "score": 0.6364,
+    "probabilities": {
+     "0": 0.4829,
+     "1": 0.3979,
+     "2": 0.1193
+    },
+    "confidence": 0.1154
+   },
+   "distraction": {
+    "score": 1.186,
+    "probabilities": {
+     "0": 0.2407,
+     "1": 0.3325,
+     "2": 0.4267
+    },
+    "confidence": 0.0239
+   }
+  }
+ },
+ {
+  "id": 23,
+  "state": "App: Google Chrome\nWindow: TikTok - Make Your Day - Google Chrome\nScreen text: For You Following LIVE #fyp #funny 1.2M likes 8,402 comments original sound Share",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.035,
+     "learning": 0.0311,
+     "social": 0.1602,
+     "entertainment": 0.6937,
+     "communication": 0.0334,
+     "other": 0.0466
+    },
+    "confidence": 0.4258
+   },
+   "activity": {
+    "choice": "watching",
+    "probabilities": {
+     "coding": 0.0483,
+     "writing": 0.0219,
+     "reading": 0.0097,
+     "watching": 0.3892,
+     "scrolling": 0.074,
+     "chatting": 0.0613,
+     "designing": 0.0125,
+     "gaming": 0.0632,
+     "browsing": 0.1326,
+     "other": 0.1872
+    },
+    "confidence": 0.2109
+   },
+   "stuck": {
+    "score": 0.7201,
+    "probabilities": {
+     "0": 0.4679,
+     "1": 0.3442,
+     "2": 0.1879
+    },
+    "confidence": 0.0564
+   },
+   "distraction": {
+    "score": 1.1041,
+    "probabilities": {
+     "0": 0.2907,
+     "1": 0.3145,
+     "2": 0.3948
+    },
+    "confidence": 0.008
+   }
+  }
+ },
+ {
+  "id": 24,
+  "state": "App: Telegram Desktop\nWindow: Telegram\nScreen text: Crypto Chat 12,402 members Pinned message Saved Messages you: link here Write a message...",
+  "answers": {
+   "category": {
+    "choice": "social",
+    "probabilities": {
+     "work": 0.024,
+     "learning": 0.036,
+     "social": 0.5179,
+     "entertainment": 0.2159,
+     "communication": 0.1691,
+     "other": 0.0372
+    },
+    "confidence": 0.2724
+   },
+   "activity": {
+    "choice": "chatting",
+    "probabilities": {
+     "coding": 0.0462,
+     "writing": 0.093,
+     "reading": 0.0131,
+     "watching": 0.0506,
+     "scrolling": 0.0688,
+     "chatting": 0.5852,
+     "designing": 0.0139,
+     "gaming": 0.0213,
+     "browsing": 0.0378,
+     "other": 0.0701
+    },
+    "confidence": 0.3398
+   },
+   "stuck": {
+    "score": 0.5553,
+    "probabilities": {
+     "0": 0.5753,
+     "1": 0.294,
+     "2": 0.1307
+    },
+    "confidence": 0.1408
+   },
+   "distraction": {
+    "score": 1.2056,
+    "probabilities": {
+     "0": 0.2758,
+     "1": 0.2428,
+     "2": 0.4814
+    },
+    "confidence": 0.0435
+   }
+  }
+ },
+ {
+  "id": 25,
+  "state": "App: Google Chrome\nWindow: Minecraft but every block is random - YouTube - Google Chrome\nScreen text: Minecraft but every block is random 2.4M views Subscribe Up next Autoplay I survived 100 days in hardcore",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0377,
+     "learning": 0.0703,
+     "social": 0.156,
+     "entertainment": 0.6676,
+     "communication": 0.033,
+     "other": 0.0353
+    },
+    "confidence": 0.3858
+   },
+   "activity": {
+    "choice": "gaming",
+    "probabilities": {
+     "coding": 0.12,
+     "writing": 0.0151,
+     "reading": 0.0246,
+     "watching": 0.1647,
+     "scrolling": 0.0391,
+     "chatting": 0.0499,
+     "designing": 0.0552,
+     "gaming": 0.4674,
+     "browsing": 0.0217,
+     "other": 0.0424
+    },
+    "confidence": 0.2553
+   },
+   "stuck": {
+    "score": 0.8375,
+    "probabilities": {
+     "0": 0.3986,
+     "1": 0.3653,
+     "2": 0.2361
+    },
+    "confidence": 0.0212
+   },
+   "distraction": {
+    "score": 1.4145,
+    "probabilities": {
+     "0": 0.178,
+     "1": 0.2295,
+     "2": 0.5925
+    },
+    "confidence": 0.1306
+   }
+  }
+ },
+ {
+  "id": 26,
+  "state": "App: Steam Client WebHelper\nWindow: Steam\nScreen text: STORE LIBRARY COMMUNITY Elden Ring PLAY Last played today Achievements 34/42 Friends activity",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0254,
+     "learning": 0.0521,
+     "social": 0.1803,
+     "entertainment": 0.6143,
+     "communication": 0.0824,
+     "other": 0.0454
+    },
+    "confidence": 0.3293
+   },
+   "activity": {
+    "choice": "gaming",
+    "probabilities": {
+     "coding": 0.0107,
+     "writing": 0.0077,
+     "reading": 0.0064,
+     "watching": 0.056,
+     "scrolling": 0.0191,
+     "chatting": 0.0432,
+     "designing": 0.0041,
+     "gaming": 0.804,
+     "browsing": 0.0175,
+     "other": 0.0314
+    },
+    "confidence": 0.623
+   },
+   "stuck": {
+    "score": 0.684,
+    "probabilities": {
+     "0": 0.446,
+     "1": 0.424,
+     "2": 0.13
+    },
+    "confidence": 0.0997
+   },
+   "distraction": {
+    "score": 0.9628,
+    "probabilities": {
+     "0": 0.3353,
+     "1": 0.3666,
+     "2": 0.2981
+    },
+    "confidence": 0.0032
+   }
+  }
+ },
+ {
+  "id": 27,
+  "state": "App: Google Chrome\nWindow: Netflix - Google Chrome\nScreen text: Stranger Things Season 4 Episode 3 Skip intro Next episode Audio and subtitles Continue watching",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0128,
+     "learning": 0.012,
+     "social": 0.0216,
+     "entertainment": 0.9362,
+     "communication": 0.0075,
+     "other": 0.0099
+    },
+    "confidence": 0.8125
+   },
+   "activity": {
+    "choice": "watching",
+    "probabilities": {
+     "coding": 0.0026,
+     "writing": 0.0025,
+     "reading": 0.025,
+     "watching": 0.8573,
+     "scrolling": 0.0235,
+     "chatting": 0.0066,
+     "designing": 0.0025,
+     "gaming": 0.0053,
+     "browsing": 0.0383,
+     "other": 0.0363
+    },
+    "confidence": 0.7116
+   },
+   "stuck": {
+    "score": 0.6972,
+    "probabilities": {
+     "0": 0.4825,
+     "1": 0.3377,
+     "2": 0.1797
+    },
+    "confidence": 0.0655
+   },
+   "distraction": {
+    "score": 1.116,
+    "probabilities": {
+     "0": 0.2998,
+     "1": 0.2844,
+     "2": 0.4158
+    },
+    "confidence": 0.0136
+   }
+  }
+ },
+ {
+  "id": 28,
+  "state": "App: Spotify\nWindow: Spotify Premium\nScreen text: Liked Songs 482 songs Now playing Blinding Lights The Weeknd Shuffle Repeat Queue",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0326,
+     "learning": 0.024,
+     "social": 0.1286,
+     "entertainment": 0.7655,
+     "communication": 0.0256,
+     "other": 0.0237
+    },
+    "confidence": 0.5244
+   },
+   "activity": {
+    "choice": "watching",
+    "probabilities": {
+     "coding": 0.0063,
+     "writing": 0.0431,
+     "reading": 0.0485,
+     "watching": 0.4713,
+     "scrolling": 0.1054,
+     "chatting": 0.0905,
+     "designing": 0.0069,
+     "gaming": 0.0075,
+     "browsing": 0.063,
+     "other": 0.1576
+    },
+    "confidence": 0.2793
+   },
+   "stuck": {
+    "score": 0.7034,
+    "probabilities": {
+     "0": 0.4648,
+     "1": 0.3669,
+     "2": 0.1682
+    },
+    "confidence": 0.0681
+   },
+   "distraction": {
+    "score": 1.3093,
+    "probabilities": {
+     "0": 0.2103,
+     "1": 0.2701,
+     "2": 0.5196
+    },
+    "confidence": 0.0701
+   }
+  }
+ },
+ {
+  "id": 29,
+  "state": "App: Riot Client\nWindow: League of Legends\nScreen text: PLAY Ranked Solo/Duo Find match Champions Loot Store Honor Missions",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0368,
+     "learning": 0.1045,
+     "social": 0.095,
+     "entertainment": 0.6898,
+     "communication": 0.0349,
+     "other": 0.0391
+    },
+    "confidence": 0.3967
+   },
+   "activity": {
+    "choice": "gaming",
+    "probabilities": {
+     "coding": 0.013,
+     "writing": 0.0042,
+     "reading": 0.0037,
+     "watching": 0.0444,
+     "scrolling": 0.0272,
+     "chatting": 0.0215,
+     "designing": 0.0043,
+     "gaming": 0.8317,
+     "browsing": 0.0112,
+     "other": 0.039
+    },
+    "confidence": 0.6648
+   },
+   "stuck": {
+    "score": 0.6207,
+    "probabilities": {
+     "0": 0.5096,
+     "1": 0.3601,
+     "2": 0.1303
+    },
+    "confidence": 0.1108
+   },
+   "distraction": {
+    "score": 0.8844,
+    "probabilities": {
+     "0": 0.3876,
+     "1": 0.3404,
+     "2": 0.272
+    },
+    "confidence": 0.0094
+   }
+  }
+ },
+ {
+  "id": 30,
+  "state": "App: Google Chrome\nWindow: xQc - Twitch - Google Chrome\nScreen text: LIVE 84,212 viewers Just Chatting Chat PogChamp KEKW Subscribe with Prime Follow",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0374,
+     "learning": 0.0334,
+     "social": 0.3257,
+     "entertainment": 0.4945,
+     "communication": 0.0719,
+     "other": 0.0371
+    },
+    "confidence": 0.2959
+   },
+   "activity": {
+    "choice": "chatting",
+    "probabilities": {
+     "coding": 0.0161,
+     "writing": 0.0177,
+     "reading": 0.004,
+     "watching": 0.0691,
+     "scrolling": 0.0269,
+     "chatting": 0.74,
+     "designing": 0.0096,
+     "gaming": 0.0475,
+     "browsing": 0.0219,
+     "other": 0.0473
+    },
+    "confidence": 0.5302
+   },
+   "stuck": {
+    "score": 0.883,
+    "probabilities": {
+     "0": 0.3624,
+     "1": 0.3922,
+     "2": 0.2454
+    },
+    "confidence": 0.0172
+   },
+   "distraction": {
+    "score": 1.3921,
+    "probabilities": {
+     "0": 0.1852,
+     "1": 0.2375,
+     "2": 0.5773
+    },
+    "confidence": 0.1162
+   }
+  }
+ },
+ {
+  "id": 31,
+  "state": "App: Google Chrome\nWindow: 9GAG - Go Fun The World - Google Chrome\nScreen text: Hot Trending Fresh when the code works on the first try 12.4k points 402 comments Save",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.1403,
+     "learning": 0.119,
+     "social": 0.1711,
+     "entertainment": 0.4429,
+     "communication": 0.0283,
+     "other": 0.0983
+    },
+    "confidence": 0.1513
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.5136,
+     "writing": 0.0252,
+     "reading": 0.0072,
+     "watching": 0.0467,
+     "scrolling": 0.0456,
+     "chatting": 0.0291,
+     "designing": 0.0321,
+     "gaming": 0.207,
+     "browsing": 0.0314,
+     "other": 0.062
+    },
+    "confidence": 0.3159
+   },
+   "stuck": {
+    "score": 0.6974,
+    "probabilities": {
+     "0": 0.4827,
+     "1": 0.3372,
+     "2": 0.1801
+    },
+    "confidence": 0.0653
+   },
+   "distraction": {
+    "score": 0.9316,
+    "probabilities": {
+     "0": 0.384,
+     "1": 0.3003,
+     "2": 0.3157
+    },
+    "confidence": 0.0053
+   }
+  }
+ },
+ {
+  "id": 32,
+  "state": "App: deadlock.exe\nWindow: Deadlock\nScreen text: Match found Lane Yellow Souls 12,400 Abilities Shop Kill feed Respawn in 12",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.0443,
+     "learning": 0.0933,
+     "social": 0.0417,
+     "entertainment": 0.7604,
+     "communication": 0.0285,
+     "other": 0.0318
+    },
+    "confidence": 0.4914
+   },
+   "activity": {
+    "choice": "gaming",
+    "probabilities": {
+     "coding": 0.0789,
+     "writing": 0.012,
+     "reading": 0.0052,
+     "watching": 0.0262,
+     "scrolling": 0.026,
+     "chatting": 0.0126,
+     "designing": 0.038,
+     "gaming": 0.7648,
+     "browsing": 0.0056,
+     "other": 0.0307
+    },
+    "confidence": 0.5693
+   },
+   "stuck": {
+    "score": 1.1393,
+    "probabilities": {
+     "0": 0.256,
+     "1": 0.3487,
+     "2": 0.3953
+    },
+    "confidence": 0.0141
+   },
+   "distraction": {
+    "score": 1.3324,
+    "probabilities": {
+     "0": 0.1875,
+     "1": 0.2925,
+     "2": 0.52
+    },
+    "confidence": 0.0775
+   }
+  }
+ },
+ {
+  "id": 33,
+  "state": "App: Microsoft Outlook\nWindow: Inbox - aaron@company.com - Outlook\nScreen text: Focused Other Re: Invoice 2231 Hi Aaron, please find attached the updated invoice Reply Reply all Forward",
+  "answers": {
+   "category": {
+    "choice": "communication",
+    "probabilities": {
+     "work": 0.1166,
+     "learning": 0.0186,
+     "social": 0.0741,
+     "entertainment": 0.0123,
+     "communication": 0.7181,
+     "other": 0.0602
+    },
+    "confidence": 0.4537
+   },
+   "activity": {
+    "choice": "other",
+    "probabilities": {
+     "coding": 0.0153,
+     "writing": 0.0754,
+     "reading": 0.0519,
+     "watching": 0.0105,
+     "scrolling": 0.1186,
+     "chatting": 0.1183,
+     "designing": 0.0145,
+     "gaming": 0.0071,
+     "browsing": 0.022,
+     "other": 0.5665
+    },
+    "confidence": 0.3625
+   },
+   "stuck": {
+    "score": 0.702,
+    "probabilities": {
+     "0": 0.4415,
+     "1": 0.415,
+     "2": 0.1435
+    },
+    "confidence": 0.0857
+   },
+   "distraction": {
+    "score": 0.5444,
+    "probabilities": {
+     "0": 0.5723,
+     "1": 0.311,
+     "2": 0.1167
+    },
+    "confidence": 0.1505
+   }
+  }
+ },
+ {
+  "id": 34,
+  "state": "App: Slack\nWindow: #eng-standup (Channel) - Acme - Slack\nScreen text: Today: finish sync retry Blockers: none Thread 4 replies Message #eng-standup Huddle",
+  "answers": {
+   "category": {
+    "choice": "communication",
+    "probabilities": {
+     "work": 0.101,
+     "learning": 0.0965,
+     "social": 0.2285,
+     "entertainment": 0.0494,
+     "communication": 0.3159,
+     "other": 0.2087
+    },
+    "confidence": 0.088
+   },
+   "activity": {
+    "choice": "chatting",
+    "probabilities": {
+     "coding": 0.0781,
+     "writing": 0.0749,
+     "reading": 0.0384,
+     "watching": 0.0917,
+     "scrolling": 0.0964,
+     "chatting": 0.3534,
+     "designing": 0.0656,
+     "gaming": 0.0088,
+     "browsing": 0.0147,
+     "other": 0.178
+    },
+    "confidence": 0.1661
+   },
+   "stuck": {
+    "score": 1.062,
+    "probabilities": {
+     "0": 0.2846,
+     "1": 0.3688,
+     "2": 0.3466
+    },
+    "confidence": 0.0053
+   },
+   "distraction": {
+    "score": 0.7423,
+    "probabilities": {
+     "0": 0.4244,
+     "1": 0.409,
+     "2": 0.1667
+    },
+    "confidence": 0.0642
+   }
+  }
+ },
+ {
+  "id": 35,
+  "state": "App: Google Chrome\nWindow: Inbox (12) - Gmail - Google Chrome\nScreen text: Compose Inbox Starred Sent Stripe: Your invoice is ready Google Calendar: Invitation: Design review",
+  "answers": {
+   "category": {
+    "choice": "communication",
+    "probabilities": {
+     "work": 0.1216,
+     "learning": 0.0365,
+     "social": 0.0557,
+     "entertainment": 0.0147,
+     "communication": 0.7031,
+     "other": 0.0684
+    },
+    "confidence": 0.4246
+   },
+   "activity": {
+    "choice": "browsing",
+    "probabilities": {
+     "coding": 0.0572,
+     "writing": 0.0706,
+     "reading": 0.1027,
+     "watching": 0.0722,
+     "scrolling": 0.1274,
+     "chatting": 0.0824,
+     "designing": 0.1703,
+     "gaming": 0.0104,
+     "browsing": 0.1824,
+     "other": 0.1244
+    },
+    "confidence": 0.0615
+   },
+   "stuck": {
+    "score": 0.8749,
+    "probabilities": {
+     "0": 0.3586,
+     "1": 0.4079,
+     "2": 0.2335
+    },
+    "confidence": 0.0232
+   },
+   "distraction": {
+    "score": 0.7977,
+    "probabilities": {
+     "0": 0.3966,
+     "1": 0.409,
+     "2": 0.1943
+    },
+    "confidence": 0.0435
+   }
+  }
+ },
+ {
+  "id": 36,
+  "state": "App: Microsoft Teams\nWindow: Chat | Microsoft Teams\nScreen text: Meeting in 5 min Weekly planning Join Chat Files Priya: can you share the deck?",
+  "answers": {
+   "category": {
+    "choice": "communication",
+    "probabilities": {
+     "work": 0.1232,
+     "learning": 0.0284,
+     "social": 0.1459,
+     "entertainment": 0.0551,
+     "communication": 0.5394,
+     "other": 0.108
+    },
+    "confidence": 0.2337
+   },
+   "activity": {
+    "choice": "chatting",
+    "probabilities": {
+     "coding": 0.006,
+     "writing": 0.0275,
+     "reading": 0.0343,
+     "watching": 0.0709,
+     "scrolling": 0.0654,
+     "chatting": 0.6155,
+     "designing": 0.035,
+     "gaming": 0.0045,
+     "browsing": 0.0115,
+     "other": 0.1294
+    },
+    "confidence": 0.4062
+   },
+   "stuck": {
+    "score": 0.6141,
+    "probabilities": {
+     "0": 0.5008,
+     "1": 0.3844,
+     "2": 0.1149
+    },
+    "confidence": 0.1239
+   },
+   "distraction": {
+    "score": 0.8467,
+    "probabilities": {
+     "0": 0.4143,
+     "1": 0.3248,
+     "2": 0.261
+    },
+    "confidence": 0.0161
+   }
+  }
+ },
+ {
+  "id": 37,
+  "state": "App: Google Chrome\nWindow: Google Calendar - Week of September 21 - Google Chrome\nScreen text: Mon 22 Standup 9:30 Design review 14:00 Tue 23 1:1 with manager Create Today",
+  "answers": {
+   "category": {
+    "choice": "communication",
+    "probabilities": {
+     "work": 0.288,
+     "learning": 0.0523,
+     "social": 0.1224,
+     "entertainment": 0.0482,
+     "communication": 0.324,
+     "other": 0.1651
+    },
+    "confidence": 0.119
+   },
+   "activity": {
+    "choice": "designing",
+    "probabilities": {
+     "coding": 0.0822,
+     "writing": 0.0776,
+     "reading": 0.0413,
+     "watching": 0.1129,
+     "scrolling": 0.0407,
+     "chatting": 0.2159,
+     "designing": 0.277,
+     "gaming": 0.0134,
+     "browsing": 0.0313,
+     "other": 0.1077
+    },
+    "confidence": 0.1294
+   },
+   "stuck": {
+    "score": 0.6494,
+    "probabilities": {
+     "0": 0.474,
+     "1": 0.4025,
+     "2": 0.1235
+    },
+    "confidence": 0.1094
+   },
+   "distraction": {
+    "score": 0.5504,
+    "probabilities": {
+     "0": 0.5577,
+     "1": 0.3343,
+     "2": 0.1081
+    },
+    "confidence": 0.1513
+   }
+  }
+ },
+ {
+  "id": 38,
+  "state": "App: Zoom Workplace\nWindow: Zoom Meeting\nScreen text: Mute Stop Video Participants 6 Share Screen Recording Reactions Leave",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.1778,
+     "learning": 0.0464,
+     "social": 0.0633,
+     "entertainment": 0.4096,
+     "communication": 0.1315,
+     "other": 0.1714
+    },
+    "confidence": 0.13
+   },
+   "activity": {
+    "choice": "watching",
+    "probabilities": {
+     "coding": 0.022,
+     "writing": 0.0497,
+     "reading": 0.0224,
+     "watching": 0.4452,
+     "scrolling": 0.0582,
+     "chatting": 0.1429,
+     "designing": 0.1094,
+     "gaming": 0.0137,
+     "browsing": 0.0131,
+     "other": 0.1232
+    },
+    "confidence": 0.2451
+   },
+   "stuck": {
+    "score": 1.322,
+    "probabilities": {
+     "0": 0.1471,
+     "1": 0.3837,
+     "2": 0.4692
+    },
+    "confidence": 0.0856
+   },
+   "distraction": {
+    "score": 1.0095,
+    "probabilities": {
+     "0": 0.2716,
+     "1": 0.4473,
+     "2": 0.2811
+    },
+    "confidence": 0.0255
+   }
+  }
+ },
+ {
+  "id": 39,
+  "state": "App: Rocket.Chat\nWindow: Rocket.Chat\nScreen text: # support Channel user123: login page not loading agent: can you clear cache? Send",
+  "answers": {
+   "category": {
+    "choice": "social",
+    "probabilities": {
+     "work": 0.0508,
+     "learning": 0.0867,
+     "social": 0.3234,
+     "entertainment": 0.1,
+     "communication": 0.162,
+     "other": 0.2771
+    },
+    "confidence": 0.1019
+   },
+   "activity": {
+    "choice": "chatting",
+    "probabilities": {
+     "coding": 0.1004,
+     "writing": 0.0504,
+     "reading": 0.0279,
+     "watching": 0.0948,
+     "scrolling": 0.1138,
+     "chatting": 0.2385,
+     "designing": 0.0207,
+     "gaming": 0.0151,
+     "browsing": 0.1825,
+     "other": 0.1559
+    },
+    "confidence": 0.1151
+   },
+   "stuck": {
+    "score": 1.5757,
+    "probabilities": {
+     "0": 0.091,
+     "1": 0.2424,
+     "2": 0.6666
+    },
+    "confidence": 0.2428
+   },
+   "distraction": {
+    "score": 0.7981,
+    "probabilities": {
+     "0": 0.343,
+     "1": 0.5159,
+     "2": 0.1411
+    },
+    "confidence": 0.1036
+   }
+  }
+ },
+ {
+  "id": 40,
+  "state": "App: Google Chrome\nWindow: Meet - abc-defg-hij - Google Chrome\nScreen text: You are presenting 5 participants Raise hand Leave call Captions Turn off camera",
+  "answers": {
+   "category": {
+    "choice": "entertainment",
+    "probabilities": {
+     "work": 0.131,
+     "learning": 0.0445,
+     "social": 0.0721,
+     "entertainment": 0.2971,
+     "communication": 0.289,
+     "other": 0.1664
+    },
+    "confidence": 0.1004
+   },
+   "activity": {
+    "choice": "watching",
+    "probabilities": {
+     "coding": 0.0545,
+     "writing": 0.0684,
+     "reading": 0.0107,
+     "watching": 0.4537,
+     "scrolling": 0.0341,
+     "chatting": 0.1607,
+     "designing": 0.0322,
+     "gaming": 0.0142,
+     "browsing": 0.0637,
+     "other": 0.1078
+    },
+    "confidence": 0.2423
+   },
+   "stuck": {
+    "score": 0.7043,
+    "probabilities": {
+     "0": 0.4669,
+     "1": 0.3618,
+     "2": 0.1713
+    },
+    "confidence": 0.0664
+   },
+   "distraction": {
+    "score": 0.8972,
+    "probabilities": {
+     "0": 0.3302,
+     "1": 0.4425,
+     "2": 0.2273
+    },
+    "confidence": 0.032
+   }
+  }
+ },
+ {
+  "id": 41,
+  "state": "App: Windows Explorer\nWindow: Downloads - File Explorer\nScreen text: Name Date modified Type Size setup.exe Application 45 MB invoice.pdf screenshot_2026.png",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.2296,
+     "learning": 0.171,
+     "social": 0.055,
+     "entertainment": 0.0447,
+     "communication": 0.0889,
+     "other": 0.4107
+    },
+    "confidence": 0.1522
+   },
+   "activity": {
+    "choice": "other",
+    "probabilities": {
+     "coding": 0.1539,
+     "writing": 0.146,
+     "reading": 0.1418,
+     "watching": 0.0326,
+     "scrolling": 0.0797,
+     "chatting": 0.0124,
+     "designing": 0.1017,
+     "gaming": 0.0187,
+     "browsing": 0.1559,
+     "other": 0.1573
+    },
+    "confidence": 0.0875
+   },
+   "stuck": {
+    "score": 0.7636,
+    "probabilities": {
+     "0": 0.4033,
+     "1": 0.4298,
+     "2": 0.1669
+    },
+    "confidence": 0.0643
+   },
+   "distraction": {
+    "score": 0.8269,
+    "probabilities": {
+     "0": 0.3836,
+     "1": 0.4059,
+     "2": 0.2105
+    },
+    "confidence": 0.0338
+   }
+  }
+ },
+ {
+  "id": 42,
+  "state": "App: Settings\nWindow: Settings\nScreen text: System Display Sound Notifications Focus Power and battery Storage Nearby sharing",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.1359,
+     "learning": 0.1025,
+     "social": 0.1026,
+     "entertainment": 0.0599,
+     "communication": 0.1241,
+     "other": 0.4751
+    },
+    "confidence": 0.152
+   },
+   "activity": {
+    "choice": "other",
+    "probabilities": {
+     "coding": 0.0571,
+     "writing": 0.0354,
+     "reading": 0.0767,
+     "watching": 0.0864,
+     "scrolling": 0.1117,
+     "chatting": 0.0841,
+     "designing": 0.0553,
+     "gaming": 0.0306,
+     "browsing": 0.1613,
+     "other": 0.3014
+    },
+    "confidence": 0.1028
+   },
+   "stuck": {
+    "score": 0.9058,
+    "probabilities": {
+     "0": 0.3071,
+     "1": 0.4799,
+     "2": 0.2129
+    },
+    "confidence": 0.0495
+   },
+   "distraction": {
+    "score": 0.6779,
+    "probabilities": {
+     "0": 0.4404,
+     "1": 0.4413,
+     "2": 0.1183
+    },
+    "confidence": 0.1128
+   }
+  }
+ },
+ {
+  "id": 43,
+  "state": "App: Task Manager\nWindow: Task Manager\nScreen text: Processes Performance CPU 12% Memory 64% Disk 1% Google Chrome 1.2 GB End task",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.3098,
+     "learning": 0.0699,
+     "social": 0.0458,
+     "entertainment": 0.0507,
+     "communication": 0.0981,
+     "other": 0.4258
+    },
+    "confidence": 0.2004
+   },
+   "activity": {
+    "choice": "browsing",
+    "probabilities": {
+     "coding": 0.206,
+     "writing": 0.0165,
+     "reading": 0.0264,
+     "watching": 0.0739,
+     "scrolling": 0.0893,
+     "chatting": 0.0165,
+     "designing": 0.0294,
+     "gaming": 0.0769,
+     "browsing": 0.2637,
+     "other": 0.2014
+    },
+    "confidence": 0.1574
+   },
+   "stuck": {
+    "score": 1.1307,
+    "probabilities": {
+     "0": 0.2542,
+     "1": 0.3608,
+     "2": 0.385
+    },
+    "confidence": 0.0138
+   },
+   "distraction": {
+    "score": 0.761,
+    "probabilities": {
+     "0": 0.4377,
+     "1": 0.3635,
+     "2": 0.1987
+    },
+    "confidence": 0.0437
+   }
+  }
+ },
+ {
+  "id": 44,
+  "state": "App: Google Chrome\nWindow: Amazon.in: Wireless mouse - Google Chrome\nScreen text: Logitech M331 Silent Plus Rs 1,299 Add to Cart Buy Now Customer reviews 4.4 out of 5",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.1504,
+     "learning": 0.1503,
+     "social": 0.1009,
+     "entertainment": 0.2371,
+     "communication": 0.0636,
+     "other": 0.2975
+    },
+    "confidence": 0.0632
+   },
+   "activity": {
+    "choice": "gaming",
+    "probabilities": {
+     "coding": 0.0471,
+     "writing": 0.0096,
+     "reading": 0.0243,
+     "watching": 0.0542,
+     "scrolling": 0.0774,
+     "chatting": 0.0166,
+     "designing": 0.0697,
+     "gaming": 0.401,
+     "browsing": 0.2083,
+     "other": 0.0919
+    },
+    "confidence": 0.2179
+   },
+   "stuck": {
+    "score": 0.8358,
+    "probabilities": {
+     "0": 0.3855,
+     "1": 0.3932,
+     "2": 0.2213
+    },
+    "confidence": 0.0276
+   },
+   "distraction": {
+    "score": 1.2877,
+    "probabilities": {
+     "0": 0.166,
+     "1": 0.3802,
+     "2": 0.4538
+    },
+    "confidence": 0.0676
+   }
+  }
+ },
+ {
+  "id": 45,
+  "state": "App: Proton VPN\nWindow: Proton VPN\nScreen text: Connected India 12 Quick Connect Disconnect Secure Core NetShield",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.1603,
+     "learning": 0.2078,
+     "social": 0.0772,
+     "entertainment": 0.0622,
+     "communication": 0.0965,
+     "other": 0.3961
+    },
+    "confidence": 0.1166
+   },
+   "activity": {
+    "choice": "coding",
+    "probabilities": {
+     "coding": 0.382,
+     "writing": 0.0392,
+     "reading": 0.0184,
+     "watching": 0.0222,
+     "scrolling": 0.0361,
+     "chatting": 0.027,
+     "designing": 0.1482,
+     "gaming": 0.1768,
+     "browsing": 0.0365,
+     "other": 0.1136
+    },
+    "confidence": 0.2064
+   },
+   "stuck": {
+    "score": 0.934,
+    "probabilities": {
+     "0": 0.3425,
+     "1": 0.381,
+     "2": 0.2765
+    },
+    "confidence": 0.0078
+   },
+   "distraction": {
+    "score": 1.1549,
+    "probabilities": {
+     "0": 0.2165,
+     "1": 0.4122,
+     "2": 0.3714
+    },
+    "confidence": 0.0311
+   }
+  }
+ },
+ {
+  "id": 46,
+  "state": "App: Norton 360\nWindow: Norton 360\nScreen text: You are protected Device Security Scan now Last scan: 2 days ago",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.1665,
+     "learning": 0.0917,
+     "social": 0.0873,
+     "entertainment": 0.0629,
+     "communication": 0.1097,
+     "other": 0.4819
+    },
+    "confidence": 0.1636
+   },
+   "activity": {
+    "choice": "other",
+    "probabilities": {
+     "coding": 0.0652,
+     "writing": 0.0376,
+     "reading": 0.0459,
+     "watching": 0.0423,
+     "scrolling": 0.1149,
+     "chatting": 0.1091,
+     "designing": 0.0794,
+     "gaming": 0.0811,
+     "browsing": 0.1949,
+     "other": 0.2297
+    },
+    "confidence": 0.0757
+   },
+   "stuck": {
+    "score": 0.6047,
+    "probabilities": {
+     "0": 0.544,
+     "1": 0.3073,
+     "2": 0.1487
+    },
+    "confidence": 0.1105
+   },
+   "distraction": {
+    "score": 0.9585,
+    "probabilities": {
+     "0": 0.3727,
+     "1": 0.2961,
+     "2": 0.3312
+    },
+    "confidence": 0.004
+   }
+  }
+ },
+ {
+  "id": 47,
+  "state": "App: Google Chrome\nWindow: Google Maps - Google Chrome\nScreen text: Directions Your location to Phoenix Mall 24 min via Ring Road Traffic Start",
+  "answers": {
+   "category": {
+    "choice": "learning",
+    "probabilities": {
+     "work": 0.1145,
+     "learning": 0.3396,
+     "social": 0.1256,
+     "entertainment": 0.1414,
+     "communication": 0.0705,
+     "other": 0.2084
+    },
+    "confidence": 0.0702
+   },
+   "activity": {
+    "choice": "browsing",
+    "probabilities": {
+     "coding": 0.0447,
+     "writing": 0.0431,
+     "reading": 0.0584,
+     "watching": 0.0437,
+     "scrolling": 0.0832,
+     "chatting": 0.0291,
+     "designing": 0.0884,
+     "gaming": 0.0755,
+     "browsing": 0.2861,
+     "other": 0.2477
+    },
+    "confidence": 0.1312
+   },
+   "stuck": {
+    "score": 0.7441,
+    "probabilities": {
+     "0": 0.4252,
+     "1": 0.4054,
+     "2": 0.1693
+    },
+    "confidence": 0.0621
+   },
+   "distraction": {
+    "score": 1.0135,
+    "probabilities": {
+     "0": 0.2841,
+     "1": 0.4184,
+     "2": 0.2976
+    },
+    "confidence": 0.0144
+   }
+  }
+ },
+ {
+  "id": 48,
+  "state": "App: Settings\nWindow: Settings\nScreen text: Windows Update You're up to date Last checked: Today Pause updates Update history",
+  "answers": {
+   "category": {
+    "choice": "other",
+    "probabilities": {
+     "work": 0.0595,
+     "learning": 0.0566,
+     "social": 0.0595,
+     "entertainment": 0.0321,
+     "communication": 0.1249,
+     "other": 0.6675
+    },
+    "confidence": 0.3648
+   },
+   "activity": {
+    "choice": "other",
+    "probabilities": {
+     "coding": 0.0329,
+     "writing": 0.0458,
+     "reading": 0.0535,
+     "watching": 0.0485,
+     "scrolling": 0.1226,
+     "chatting": 0.0522,
+     "designing": 0.0361,
+     "gaming": 0.2379,
+     "browsing": 0.1207,
+     "other": 0.2497
+    },
+    "confidence": 0.1176
+   },
+   "stuck": {
+    "score": 0.7909,
+    "probabilities": {
+     "0": 0.3948,
+     "1": 0.4196,
+     "2": 0.1857
+    },
+    "confidence": 0.0498
+   },
+   "distraction": {
+    "score": 0.9534,
+    "probabilities": {
+     "0": 0.332,
+     "1": 0.3826,
+     "2": 0.2854
+    },
+    "confidence": 0.0065
+   }
+  }
+ }
+]

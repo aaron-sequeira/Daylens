@@ -1,0 +1,8 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.4
+transformers>=4.48
+safetensors
+huggingface_hub
+numpy
+onnx>=1.16
+onnxruntime>=1.19
