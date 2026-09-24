@@ -54,6 +54,8 @@ export function readProfile(s: DaylensSettings): Profile {
     start: TIME.test(s.profileStart) ? s.profileStart : DEFAULT_PROFILE.start,
     bed: TIME.test(s.windDownTime) ? s.windDownTime : DEFAULT_PROFILE.bed,
     days: parseList(s.profileDays, isDay, DEFAULT_PROFILE.days).sort((a, b) => a - b),
-    distractions: parseList(s.profileDistractions, isApp, []).slice(0, MAX_DISTRACTIONS)
+    distractions: parseList(s.profileDistractions, isApp, [])
+      .filter((d, i, all) => all.findIndex((x) => clean(x).toLowerCase() === clean(d).toLowerCase()) === i) // keep first of case-variants
+      .slice(0, MAX_DISTRACTIONS)
   };
 }

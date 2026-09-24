@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_PROFILE, GOALS, ROLES, type Profile } from '../../shared/profileOptions';
-import { addMinutes, bubbleFor, cardsFor, clock, MAX_ORBIT_CARDS, profileSummary, STEP_COUNT, summaryFor } from './onboardingContent';
+import { DEFAULT_PROFILE, GOALS, MAX_DISTRACTIONS, ROLES, type Profile } from '../../shared/profileOptions';
+import { addDistraction, addMinutes, bubbleFor, cardsFor, clock, MAX_ORBIT_CARDS, profileSummary, STEP_COUNT, summaryFor, toggleDistraction } from './onboardingContent';
 
 const p = (patch: Partial<Profile> = {}): Profile => ({ ...DEFAULT_PROFILE, ...patch });
 const titles = (step: number, prof: Profile): string[] => cardsFor(step, prof).map((c) => c.title);
@@ -58,6 +58,37 @@ describe('bubbleFor', () => {
     expect(bubbleFor(1, p({ name: 'Aaron' }))).toContain('Aaron');
     expect(bubbleFor(4, p({ distractions: ['Instagram', 'YouTube', 'Reddit'] }))).toBe("Noted. I'll keep a gentle eye on Instagram & YouTube and more.");
     for (let s = 0; s < STEP_COUNT; s++) expect(bubbleFor(s, p()).length).toBeGreaterThan(0);
+  });
+});
+
+describe('distraction list helpers', () => {
+  it('addDistraction trims, collapses whitespace and ignores empty input', () => {
+    expect(addDistraction([], '  my   game  ')).toEqual(['my game']);
+    expect(addDistraction(['Reddit'], ' \t\n ')).toEqual(['Reddit']);
+  });
+  it('addDistraction ignores case-insensitive duplicates', () => {
+    expect(addDistraction(['YouTube'], 'youtube')).toEqual(['YouTube']);
+    expect(addDistraction(['my game'], 'MY  GAME')).toEqual(['my game']);
+  });
+  it('addDistraction maps a typed preset to its preset label', () => {
+    expect(addDistraction([], 'youtube')).toEqual(['YouTube']);
+    expect(addDistraction([], 'x / twitter')).toEqual(['X / Twitter']);
+  });
+  it('addDistraction respects MAX_DISTRACTIONS', () => {
+    const full = Array.from({ length: MAX_DISTRACTIONS }, (_, i) => `app${i}`);
+    expect(addDistraction(full, 'one more')).toEqual(full);
+  });
+  it('toggleDistraction removes a case-variant instead of adding a duplicate', () => {
+    expect(toggleDistraction(['youtube', 'Reddit'], 'YouTube')).toEqual(['Reddit']);
+    expect(toggleDistraction(['Reddit'], 'YouTube')).toEqual(['Reddit', 'YouTube']);
+    const full = Array.from({ length: MAX_DISTRACTIONS }, (_, i) => `app${i}`);
+    expect(toggleDistraction(full, 'YouTube')).toEqual(full);
+  });
+  it('the typed-then-preset sequence always yields a list profileInput-style validation accepts', () => {
+    const list = toggleDistraction(addDistraction([], 'youtube'), 'YouTube');
+    expect(new Set(list.map((s) => s.toLowerCase())).size).toBe(list.length);
+    expect(list).toEqual([]);
+    expect(addDistraction(toggleDistraction([], 'YouTube'), 'youtube')).toEqual(['YouTube']);
   });
 });
 

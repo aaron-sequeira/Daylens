@@ -1,4 +1,4 @@
-import type { Goal, Profile, Role } from '../../shared/profileOptions';
+import { MAX_DISTRACTIONS, type Goal, type Profile, type Role } from '../../shared/profileOptions';
 
 export interface OrbitCard { icon: string; title: string; sub: string; color: string }
 export interface SummaryRow { icon: string; color: string; text: string; strong: string }
@@ -33,6 +33,20 @@ export const DISTRACTION_CHOICES: { emoji: string; label: string }[] = [
   { emoji: '👽', label: 'Reddit' }, { emoji: '✖️', label: 'X / Twitter' }, { emoji: '💬', label: 'Discord' },
   { emoji: '🍿', label: 'Netflix' }, { emoji: '🎮', label: 'Games' }, { emoji: '📰', label: 'News' }
 ];
+
+const sameText = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase();
+
+/** Add a typed distraction: whitespace-collapsed, case-insensitively unique, preset spelling when it names a preset, capped. */
+export function addDistraction(list: string[], raw: string): string[] {
+  const v = raw.replace(/\s+/g, ' ').trim();
+  if (!v || list.length >= MAX_DISTRACTIONS || list.some((d) => sameText(d, v))) return list;
+  return [...list, DISTRACTION_CHOICES.find((c) => sameText(c.label, v))?.label ?? v];
+}
+
+/** Toggle a preset chip; a case-variant already in the list counts as selected and is removed. */
+export function toggleDistraction(list: string[], label: string): string[] {
+  return list.some((d) => sameText(d, label)) ? list.filter((d) => !sameText(d, label)) : addDistraction(list, label);
+}
 
 const WELCOME: OrbitCard[] = [
   c('⏱', '6h 12m', 'on screen today', 'var(--lav)'), c('✦', '90-min focus', 'streak', 'var(--mint)'),

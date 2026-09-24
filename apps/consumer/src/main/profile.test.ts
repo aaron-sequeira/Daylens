@@ -65,6 +65,11 @@ describe('readProfile', () => {
     });
     expect(p).toEqual({ name: 'n'.repeat(40), roles: [], goals: ['focus'], start: '09:00', bed: '23:00', days: [1, 2, 3, 4, 5], distractions: ['ok'] });
   });
+  it('drops case-insensitive duplicate distractions (keeps the first) so a re-save validates', () => {
+    const p = readProfile({ ...DEFAULT_SETTINGS, profileDistractions: '["youtube","YouTube","Reddit","REDDIT"]' });
+    expect(p.distractions).toEqual(['youtube', 'Reddit']);
+    expect(profileInput.safeParse(p).success).toBe(true);
+  });
   it('does not alias or mutate DEFAULT_PROFILE.days when stored days are corrupt', () => {
     const corrupt = { ...DEFAULT_SETTINGS, profileDays: 'not json' };
     const p1 = readProfile(corrupt);
