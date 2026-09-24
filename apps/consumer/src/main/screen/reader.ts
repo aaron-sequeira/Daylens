@@ -27,16 +27,21 @@ export function createScreenReader(deps: {
       const now = deps.now();
       const title = s.captureWindowTitles ? fg.title : null;
       const last = deps.store.last();
-      if (last && last.appName === fg.appName && last.windowTitle === title && now - last.at < SAME_WINDOW_MS) return 'skipped-same';
+      if (last && last.appName === fg.appName && last.windowTitle === title && now >= last.at && now - last.at < SAME_WINDOW_MS) return 'skipped-same';
       const cap = await deps.ocr.capture();
       if (!cap) return 'no-capture';
+      // Settings may have changed during capture (up to 8 s): re-check before storing.
+      const s2 = deps.settings();
+      if (!s2.screenReading || !s2.consentGranted || s2.trackingPaused) return 'skipped-off';
+      const patterns2 = parseExclusions(s2.exclusions);
       // The window may have changed between the check above and the capture: never keep text from another
-      // process or from an excluded window.
-      if (cap.pid !== fg.pid || isExcluded(patterns, fg.appName, cap.title)) return 'discarded';
+      // process or from an excluded window (check both pre-capture and captured titles).
+      if (cap.pid !== fg.pid || isExcluded(patterns2, fg.appName, fg.title) || isExcluded(patterns2, fg.appName, cap.title)) return 'discarded';
+      const storedTitle = s2.captureWindowTitles ? cap.title : null;
       const text = redact(cap.text);
       const textHash = createHash('sha1').update(text).digest('hex');
       const dup = last?.textHash === textHash;
-      deps.store.insert({ at: now, date: localDate(now), appName: fg.appName, windowTitle: title, text: dup ? null : text, textHash });
+      deps.store.insert({ at: now, date: localDate(now), appName: fg.appName, windowTitle: storedTitle, text: dup ? null : text, textHash });
       return dup ? 'stored-dup' : 'stored';
     }
   };
@@ -44,5 +49,6 @@ export function createScreenReader(deps: {
 
 /** Erase stored text older than `days` (rows are kept for time accounting). Returns rows purged. */
 export function runRetention(store: ScreenStore, days: number, now: number): number {
+  if (days <= 0) return 0;
   return store.purgeTextBefore(now - days * 86_400_000);
 }

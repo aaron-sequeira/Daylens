@@ -30,7 +30,7 @@ export function createScreenStore(db: Database.Database): ScreenStore {
   const ins = db.prepare('INSERT INTO screen_reads (at, date, app_name, window_title, text, text_hash) VALUES (@at, @date, @appName, @windowTitle, @text, @textHash)');
   const lastQ = db.prepare(`SELECT ${COLS} FROM screen_reads ORDER BY at DESC, id DESC LIMIT 1`);
   const lastTextQ = db.prepare(`SELECT ${COLS} FROM screen_reads WHERE text IS NOT NULL ORDER BY at DESC, id DESC LIMIT 1`);
-  const purge = db.prepare('UPDATE screen_reads SET text = NULL WHERE at < ? AND text IS NOT NULL');
+  const purge = db.prepare('UPDATE screen_reads SET text = NULL, text_hash = \'\' WHERE at < ? AND text IS NOT NULL');
   return {
     insert: (r) => Number(ins.run(r).lastInsertRowid),
     last: () => (lastQ.get() as ScreenReadRow | undefined) ?? null,

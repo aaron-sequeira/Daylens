@@ -24,13 +24,15 @@ describe('screen store', () => {
     expect(s.last()).toBeNull();
     expect(s.lastWithText()).toBeNull();
   });
-  it('purges text older than a cutoff but keeps the rows', () => {
+  it('purges text older than a cutoff but keeps the rows, and blanks the hash', () => {
     const s = createScreenStore(db);
     s.insert(read(1000, 'old'));
     s.insert(read(5000, 'new'));
     expect(s.purgeTextBefore(3000)).toBe(1);
     expect(db.prepare('SELECT count(*) AS n FROM screen_reads').get()).toEqual({ n: 2 });
     expect(s.lastWithText()).toMatchObject({ text: 'new' });
+    const purged = db.prepare('SELECT text_hash AS textHash FROM screen_reads WHERE at = 1000').get();
+    expect(purged).toMatchObject({ textHash: '' });
   });
 });
 

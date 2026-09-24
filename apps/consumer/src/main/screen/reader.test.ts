@@ -90,6 +90,40 @@ describe('screen reader', () => {
     await expect(reader().tick()).resolves.toBe('no-capture');
     expect(store.last()).toBeNull();
   });
+
+  it('returns skipped-off when tracking is paused during the capture', async () => {
+    const r = createScreenReader({
+      ocr: { capture: async () => { settings.trackingPaused = true; return cap; } },
+      foreground: { get: async () => fg },
+      settings: () => settings, idleSec: () => idle, store, now: () => now
+    });
+    await expect(r.tick()).resolves.toBe('skipped-off');
+    expect(store.last()).toBeNull();
+  });
+
+  it('disables window title capture if captureWindowTitles changed during capture', async () => {
+    const r = createScreenReader({
+      ocr: { capture: async () => { settings.captureWindowTitles = false; return cap; } },
+      foreground: { get: async () => fg },
+      settings: () => settings, idleSec: () => idle, store, now: () => now
+    });
+    await expect(r.tick()).resolves.toBe('stored');
+    expect(store.last()).toMatchObject({ windowTitle: null });
+  });
+
+  it('stores the title actually captured, not the pre-capture foreground title', async () => {
+    cap = { ...cap!, title: 'new-window.ts - proj' };
+    await expect(reader().tick()).resolves.toBe('stored');
+    expect(store.last()).toMatchObject({ windowTitle: 'new-window.ts - proj' });
+  });
+
+  it('does not skip if clock moved backwards', async () => {
+    const r = reader();
+    await r.tick();
+    now -= 60_000;
+    const result = await r.tick();
+    expect(result).not.toBe('skipped-same');
+  });
 });
 
 describe('runRetention', () => {
@@ -99,5 +133,22 @@ describe('runRetention', () => {
     expect(runRetention(store, 1, now)).toBe(1);
     expect(store.lastWithText()).toBeNull();
     expect(store.last()).not.toBeNull();
+  });
+
+  it('does not purge if days <= 0', async () => {
+    await reader().tick();
+    now += 1000;
+    expect(runRetention(store, 0, now)).toBe(0);
+    expect(store.lastWithText()).not.toBeNull();
+  });
+
+  it('stores identical text after hash was purged', async () => {
+    const r = reader();
+    await r.tick();
+    now += 2 * 86_400_000;
+    runRetention(store, 1, now);
+    // Hash now blanked, so identical text should not be deduped
+    await expect(r.tick()).resolves.toBe('stored');
+    expect(store.last()).toMatchObject({ text: 'const x = 1 // mail [email]' });
   });
 });
