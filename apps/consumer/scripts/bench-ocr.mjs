@@ -12,7 +12,9 @@ if (process.argv[2] === 'capture') {
   const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helper], { stdio: ['pipe', 'pipe', 'inherit'] });
   const lines = createInterface({ input: p.stdout });
   const next = () => new Promise((res) => lines.once('line', (l) => res(JSON.parse(l))));
-  console.log('ready', await next());
+  const ready = await next();
+  console.log('ready', ready);
+  if (!ready.ready) process.exit(1);
   const walls = [];
   for (let i = 0; i < 10; i++) {
     const s = Date.now();
@@ -62,4 +64,4 @@ for (let i = 0; i < RUNS; i++) {
 p.stdin.end();
 wall.sort((a, b) => a - b);
 console.log(`median ${wall[Math.floor(RUNS / 2)]} ms, p90 ${wall[Math.floor(RUNS * 0.9)]} ms (target median < 400 ms)`);
-console.log(`text sample (${first.text.length} chars):\n${first.text.slice(0, 400)}`);
+console.log(`text metadata: ${first.text.length} chars, ${first.text.split('\n').length} lines`);
