@@ -12,11 +12,11 @@ const unique = <T>(a: T[]): boolean => new Set(a).size === a.length;
 /** IPC trust boundary for profile:save. */
 export const profileInput = z.object({
   name: text(0),
-  roles: z.array(z.enum(ROLES)).refine(unique, 'duplicate role'),
-  goals: z.array(z.enum(GOALS)).refine(unique, 'duplicate goal'),
+  roles: z.array(z.enum(ROLES)).max(ROLES.length).refine(unique, 'duplicate role'),
+  goals: z.array(z.enum(GOALS)).max(GOALS.length).refine(unique, 'duplicate goal'),
   start: z.string().regex(TIME),
   bed: z.string().regex(TIME),
-  days: z.array(z.number().int().min(1).max(7)).refine(unique, 'duplicate day'),
+  days: z.array(z.number().int().min(1).max(7)).max(7).refine(unique, 'duplicate day'),
   distractions: z.array(text(1)).max(MAX_DISTRACTIONS).refine((a) => unique(a.map((s) => s.toLowerCase())), 'duplicate distraction')
 }).strict();
 
@@ -35,9 +35,9 @@ export function toSettingsPatch(p: Profile): Partial<DaylensSettings> {
 function parseList<T>(raw: string, keep: (v: unknown) => v is T, fallback: T[]): T[] {
   try {
     const v: unknown = JSON.parse(raw);
-    return Array.isArray(v) ? [...new Set(v.filter(keep))] : fallback;
+    return Array.isArray(v) ? [...new Set(v.filter(keep))] : [...fallback];
   } catch {
-    return fallback;
+    return [...fallback];
   }
 }
 

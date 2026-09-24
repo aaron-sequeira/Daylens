@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_SETTINGS, settingsPatch } from './settings';
 import { profileInput, readProfile, toSettingsPatch } from './profile';
-import type { Profile } from '../shared/profileOptions';
+import { DEFAULT_PROFILE, ROLES, type Profile } from '../shared/profileOptions';
 
 const valid: Profile = {
   name: '  Aaron   S ', roles: ['dev', 'design'], goals: ['focus', 'sleep'],
@@ -25,6 +25,8 @@ describe('profileInput', () => {
     ['day 0', { days: [0] }],
     ['day 8', { days: [8] }],
     ['duplicate day', { days: [1, 1] }],
+    ['too many roles', { roles: [...ROLES, 'dev'] }],
+    ['too many days', { days: [1, 2, 3, 4, 5, 6, 7, 1] }],
     ['41-char name', { name: 'x'.repeat(41) }],
     ['control char in name', { name: 'Aa\u0007ron' }],
     ['newline in name', { name: 'Aa\nron' }],
@@ -62,6 +64,15 @@ describe('readProfile', () => {
       profileStart: '99:99', windDownTime: 'late', profileDistractions: '["ok", "", 7, "' + 'z'.repeat(60) + '"]', profileName: 'n'.repeat(80)
     });
     expect(p).toEqual({ name: 'n'.repeat(40), roles: [], goals: ['focus'], start: '09:00', bed: '23:00', days: [1, 2, 3, 4, 5], distractions: ['ok'] });
+  });
+  it('does not alias or mutate DEFAULT_PROFILE.days when stored days are corrupt', () => {
+    const corrupt = { ...DEFAULT_SETTINGS, profileDays: 'not json' };
+    const p1 = readProfile(corrupt);
+    p1.days.sort((a, b) => b - a);
+    const p2 = readProfile(corrupt);
+    expect(p1.days).not.toBe(DEFAULT_PROFILE.days);
+    expect(DEFAULT_PROFILE.days).toEqual([1, 2, 3, 4, 5]);
+    expect(p2.days).toEqual([1, 2, 3, 4, 5]);
   });
 });
 
