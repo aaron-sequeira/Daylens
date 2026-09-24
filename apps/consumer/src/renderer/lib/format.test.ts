@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatHm, formatClock, hourLabel, appInitials, appColor, joinApps, healthLabel } from './format';
+import { formatHm, formatClock, hourLabel, appInitials, appColor, joinApps, healthLabel, greeting } from './format';
 
 describe('format', () => {
   it('formatHm', () => {
@@ -34,5 +34,18 @@ describe('format', () => {
   });
   it('healthLabel', () => {
     expect([90, 75, 60, 10].map(healthLabel)).toEqual(['Pretty healthy', 'Pretty healthy', 'Could use a break', 'Rough day']);
+  });
+});
+
+describe('greeting', () => {
+  it('greets by time of day', () => {
+    expect([5, 11, 12, 17, 18, 23, 0, 4].map((h) => greeting(h, 'Aaron'))).toEqual([
+      'Good morning, Aaron', 'Good morning, Aaron', 'Good afternoon, Aaron', 'Good afternoon, Aaron',
+      'Good evening, Aaron', 'Good evening, Aaron', 'Good evening, Aaron', 'Good evening, Aaron'
+    ]);
+  });
+  it('is empty without a name', () => {
+    expect(greeting(9, '')).toBe('');
+    expect(greeting(9, '   ')).toBe('');
   });
 });

@@ -33,3 +33,10 @@ export function joinApps(names: string[]): string {
 export function healthLabel(score: number): string {
   return score >= 75 ? 'Pretty healthy' : score >= 50 ? 'Could use a break' : 'Rough day';
 }
+
+export function greeting(hour: number, name: string): string {
+  const n = name.trim();
+  if (!n) return '';
+  const part = hour >= 5 && hour < 12 ? 'morning' : hour >= 12 && hour < 18 ? 'afternoon' : 'evening';
+  return `Good ${part}, ${n}`;
+}
