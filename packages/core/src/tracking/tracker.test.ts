@@ -13,6 +13,7 @@ let drained: InputCounts;
 let alivePids: Set<number>;
 let systemIdleSec: number;
 let tracker: Tracker;
+let captureWindowTitles: boolean;
 
 const blank = (): InputCounts => ({ mouseMoves: 0, mouseDistancePx: 0, clicks: 0, scrolls: 0, keyEvents: 0 });
 
@@ -25,12 +26,13 @@ beforeEach(() => {
   drained = blank();
   alivePids = new Set([10, 20]);
   systemIdleSec = 0;
+  captureWindowTitles = true;
   tracker = createTracker({
     foreground: { get: async () => foreground },
     input: { start() {}, stop() {}, drain: () => drained },
     clock: { now: () => nowMs },
     repo,
-    getSettings: () => ({ idleThresholdSec: 60, captureWindowTitles: true, pollIntervalMs: 2000, bucketSizeSec: 60, trackingPaused: false }),
+    getSettings: () => ({ idleThresholdSec: 60, captureWindowTitles, pollIntervalMs: 2000, bucketSizeSec: 60, trackingPaused: false }),
     getSystemIdleSec: () => systemIdleSec,
     isPidAlive: (pid) => alivePids.has(pid)
   });
@@ -105,6 +107,7 @@ describe('tracker', () => {
 
   it('finalizes the open session and flushes a final bucket on stop', async () => {
     const day = localDate(nowMs);
+    tracker.start();
     foreground = { appName: 'Code', appPath: '/c', title: 'a.ts', pid: 10 };
     await tracker.tick();
     nowMs += 30000;
@@ -127,5 +130,33 @@ describe('tracker', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('stop() is idempotent: stopping a stopped tracker writes no sample covering the paused time', () => {
+    const day = localDate(nowMs);
+    drained = { ...blank(), keyEvents: 5 };
+    nowMs += 3_600_000;
+    tracker.stop(); // never started (e.g. before consent)
+    expect(repo.getActivitySamples(day)).toHaveLength(0);
+
+    tracker.start();
+    nowMs += 30000;
+    tracker.stop(); // pause: flushes the real in-progress bucket
+    expect(repo.getActivitySamples(day)).toHaveLength(1);
+    nowMs += 6 * 3_600_000;
+    tracker.stop(); // quit while paused must not write a 6 h active bucket
+    const samples = repo.getActivitySamples(day);
+    expect(samples).toHaveLength(1);
+    expect(samples[0].bucketEnd - samples[0].bucketStart).toBe(30000);
+  });
+
+  it('with window titles off, identical polls keep one focus session', async () => {
+    const day = localDate(nowMs);
+    captureWindowTitles = false;
+    foreground = { appName: 'Code', appPath: '/c', title: 'a.ts', pid: 10 };
+    for (let i = 0; i < 5; i++) { await tracker.tick(); nowMs += 2000; }
+    const rows = repo.getFocusSessions(day);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].windowTitle).toBeNull();
   });
 });

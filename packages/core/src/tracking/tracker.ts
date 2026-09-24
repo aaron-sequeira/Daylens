@@ -59,10 +59,10 @@ export function createTracker(deps: TrackerDeps): Tracker {
     }
     if (!fg) return;
 
-    if (changed(fg.appName, fg.pid, fg.title)) {
+    // Compare the title as stored: with titles off, current.title is null, so comparing the raw title would split every poll.
+    const title = deps.getSettings().captureWindowTitles ? fg.title : null;
+    if (changed(fg.appName, fg.pid, title)) {
       finalizeCurrent(now);
-      const settings = deps.getSettings();
-      const title = settings.captureWindowTitles ? fg.title : null;
       if (!alreadyOpened(fg.pid)) {
         deps.repo.insertAppEvent({ appName: fg.appName, appPath: fg.appPath, pid: fg.pid, type: 'opened', at: now, date: dateOf(now) });
       }
@@ -98,7 +98,8 @@ export function createTracker(deps: TrackerDeps): Tracker {
       bucketTimer = setInterval(() => flushBucket(), s.bucketSizeSec * 1000);
     },
     stop() {
-      if (pollTimer) clearInterval(pollTimer);
+      if (!pollTimer) return; // idempotent: a stopped tracker must not flush a bucket spanning the paused/pre-consent time
+      clearInterval(pollTimer);
       if (bucketTimer) clearInterval(bucketTimer);
       pollTimer = bucketTimer = null;
       if (deps.clock.now() > lastBucketEnd) flushBucket(); // capture the in-progress bucket so the last interval isn't lost
