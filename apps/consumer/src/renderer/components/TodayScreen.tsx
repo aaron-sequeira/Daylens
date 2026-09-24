@@ -4,7 +4,7 @@ import type { DaylensSettings } from '../../main/settings';
 import type { TodayView } from '../../main/day/today';
 import { CATEGORY_LABEL, displayAppName, type Category } from '../../shared/categories';
 import { api } from '../lib/api';
-import { appColor, appInitials, formatClock, formatHm, joinApps } from '../lib/format';
+import { appColor, appInitials, formatClock, formatHm, greeting, joinApps } from '../lib/format';
 import { Icon } from './Icon';
 import { Timeline } from './Timeline';
 import { HealthPanel } from './HealthPanel';
@@ -30,7 +30,10 @@ export function TodayScreen({ settings }: { settings: DaylensSettings }) {
   return (
     <>
       <main className="today">
-        <p className="date">{dateLabel}{view.firstSeenAt !== null && ` · first on screen at ${formatClock(view.firstSeenAt)}`}</p>
+        <p className="date">
+          {greeting(new Date(view.now).getHours(), settings.profileName) && `${greeting(new Date(view.now).getHours(), settings.profileName)} · `}
+          {dateLabel}{view.firstSeenAt !== null && ` · first on screen at ${formatClock(view.firstSeenAt)}`}
+        </p>
         <h1 className="headline">
           {view.screenSec > 0 ? <>You spent <b>{formatHm(view.screenSec)}</b><br />on screen today</> : <>No screen time<br />yet today</>}
         </h1>

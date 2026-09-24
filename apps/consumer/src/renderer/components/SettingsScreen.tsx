@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { DaylensSettings, SettingsPatch } from '../../main/settings';
 import { api } from '../lib/api';
 import { formatHm } from '../lib/format';
+import { MAX_TEXT, type Profile } from '../../shared/profileOptions';
+import { profileSummary } from '../lib/onboardingContent';
 
 const GOAL_DEBOUNCE_MS = 300;
 
-export function SettingsScreen({ settings, onChange }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void; onRedo: () => void }) {
+export function SettingsScreen({ settings, onChange, onRedo }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void; onRedo: () => void }) {
   const save = async (patch: SettingsPatch): Promise<void> => {
     try {
       onChange(await api.settings.set(patch));
@@ -21,6 +23,29 @@ export function SettingsScreen({ settings, onChange }: { settings: DaylensSettin
     } catch (err) {
       console.error(err);
       try { onChange(await api.settings.get()); } catch { /* stale UI beats a throw */ }
+    }
+  };
+
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api.profile.get()
+      .then((p) => { if (alive) { setProfile(p); setNameDraft(p.name); } })
+      .catch((e) => console.error('[renderer] profile.get failed:', e));
+    return () => { alive = false; };
+  }, [settings.profileName, settings.profileRoles, settings.profileGoals, settings.profileDistractions, settings.windDownTime]);
+
+  const saveName = async (): Promise<void> => {
+    if (!profile || nameDraft.trim().replace(/\s+/g, ' ') === profile.name) return;
+    try {
+      onChange(await api.profile.save({ ...profile, name: nameDraft }));
+      setNameError(null);
+    } catch (err) {
+      console.error(err);
+      setNameError('Names can be up to 40 characters, without special control characters.');
+      setNameDraft(profile.name);
     }
   };
 
@@ -61,6 +86,21 @@ export function SettingsScreen({ settings, onChange }: { settings: DaylensSettin
   return (
     <main className="settings">
       <h1>Settings</h1>
+
+      <div className="grp">
+        <h4>About you</h4>
+        <div className="srow">
+          <p>Your name<small>Used to greet you on the Today screen.</small></p>
+          <input type="text" aria-label="Your name" placeholder="Your first name" maxLength={MAX_TEXT} value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)} onBlur={() => { void saveName(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+        </div>
+        {nameError && <p className="srow-error" role="alert">{nameError}</p>}
+        <div className="srow">
+          <p>What Daylens knows about you<small>{profileSummary(profile)}</small></p>
+          <button className="btn s" onClick={onRedo}>Redo the questions</button>
+        </div>
+      </div>
 
       <div className="grp">
         <h4>Tracking</h4>
