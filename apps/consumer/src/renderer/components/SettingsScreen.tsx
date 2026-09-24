@@ -29,23 +29,27 @@ export function SettingsScreen({ settings, onChange, onRedo }: { settings: Dayle
   const [profile, setProfile] = useState<Profile | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
+  const nameFocused = useRef(false);
   useEffect(() => {
     let alive = true;
     api.profile.get()
-      .then((p) => { if (alive) { setProfile(p); setNameDraft(p.name); } })
+      .then((p) => { if (alive) { setProfile(p); if (!nameFocused.current) setNameDraft(p.name); } })
       .catch((e) => console.error('[renderer] profile.get failed:', e));
     return () => { alive = false; };
   }, [settings.profileName, settings.profileRoles, settings.profileGoals, settings.profileDistractions, settings.windDownTime]);
 
   const saveName = async (): Promise<void> => {
     if (!profile || nameDraft.trim().replace(/\s+/g, ' ') === profile.name) return;
+    let fresh: Profile | undefined;
     try {
-      onChange(await api.profile.save({ ...profile, name: nameDraft }));
+      fresh = await api.profile.get();
+      onChange(await api.profile.save({ ...fresh, name: nameDraft }));
+      setProfile(fresh);
       setNameError(null);
     } catch (err) {
       console.error(err);
       setNameError('Names can be up to 40 characters, without special control characters.');
-      setNameDraft(profile.name);
+      setNameDraft(fresh?.name ?? profile.name);
     }
   };
 
@@ -92,7 +96,8 @@ export function SettingsScreen({ settings, onChange, onRedo }: { settings: Dayle
         <div className="srow">
           <p>Your name<small>Used to greet you on the Today screen.</small></p>
           <input type="text" aria-label="Your name" placeholder="Your first name" maxLength={MAX_TEXT} value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)} onBlur={() => { void saveName(); }}
+            onChange={(e) => setNameDraft(e.target.value)} onFocus={() => { nameFocused.current = true; }}
+            onBlur={() => { nameFocused.current = false; void saveName(); }}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
         </div>
         {nameError && <p className="srow-error" role="alert">{nameError}</p>}
