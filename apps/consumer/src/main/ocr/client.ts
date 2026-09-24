@@ -3,9 +3,14 @@ import { createInterface } from 'node:readline';
 export type OcrStatus = 'off' | 'starting' | 'ready' | 'no-language' | 'restarting' | 'failed';
 export interface CaptureResult { text: string; ms: number; pid: number; title: string; w: number; h: number; }
 export interface ChildLike {
-  stdin: { write(s: string): unknown; end(): unknown };
+  stdin: {
+    write(s: string): unknown;
+    end(): unknown;
+    on(ev: 'error', cb: (err: Error) => void): unknown;
+  };
   stdout: NodeJS.ReadableStream;
   on(ev: 'exit', cb: (code: number | null) => void): unknown;
+  on(ev: 'error', cb: (err: Error) => void): unknown;
   kill(): unknown;
 }
 export interface OcrClient { start(): void; stop(): void; capture(): Promise<CaptureResult | null>; status(): OcrStatus; }
@@ -13,6 +18,7 @@ export interface OcrClient { start(): void; stop(): void; capture(): Promise<Cap
 export const RESTART_DELAYS_MS = [1000, 5000, 30000] as const;
 const CRASH_WINDOW_MS = 10 * 60_000;
 const MAX_CRASHES = 3; // more than this within the window → failed
+const NO_LANGUAGE_EXIT_CODE = 2;
 
 type Reply = { id?: string; ready?: boolean; error?: string; text?: string; ms?: number; pid?: number; title?: string; w?: number; h?: number };
 
@@ -37,6 +43,7 @@ export function createOcrClient(deps: { spawn: () => ChildLike; onStatus?: (s: O
   function onLine(line: string): void {
     let msg: Reply;
     try { msg = JSON.parse(line) as Reply; } catch { return; }
+    if (!msg || typeof msg !== 'object') return;
     if (msg.ready === true) { setStatus('ready'); return; }
     if (msg.ready === false) { setStatus('no-language'); return; }
     if (!pending || msg.id !== pending.id) return;
@@ -44,23 +51,42 @@ export function createOcrClient(deps: { spawn: () => ChildLike; onStatus?: (s: O
     settle({ text: msg.text, ms: msg.ms ?? 0, pid: msg.pid ?? -1, title: msg.title ?? '', w: msg.w ?? 0, h: msg.h ?? 0 });
   }
 
+  function scheduleRestart(): void {
+    const now = Date.now();
+    crashes = [...crashes.filter((t) => now - t < CRASH_WINDOW_MS), now];
+    if (crashes.length > MAX_CRASHES) { setStatus('failed'); return; }
+    setStatus('restarting');
+    restartTimer = setTimeout(spawnChild, RESTART_DELAYS_MS[Math.min(crashes.length, RESTART_DELAYS_MS.length) - 1]);
+  }
+
   function spawnChild(): void {
     restartTimer = null;
     setStatus('starting');
-    const c = deps.spawn();
+    let c: ChildLike;
+    try {
+      c = deps.spawn();
+    } catch {
+      // spawn() threw synchronously (e.g. ENOENT raised eagerly) — treat like a crash.
+      scheduleRestart();
+      return;
+    }
     child = c;
-    createInterface({ input: c.stdout }).on('line', onLine);
-    c.on('exit', () => {
-      if (child !== c) return; // an old, already-replaced child
+    let handled = false; // an 'error' and a subsequent 'exit' for the same child must count once
+    const down = (code: number | null): void => {
+      if (handled) return;
+      handled = true;
+      if (child !== c) return; // this child was already stopped/replaced
       child = null;
       settle(null);
-      if (status === 'off' || status === 'no-language') return;
-      const now = Date.now();
-      crashes = [...crashes.filter((t) => now - t < CRASH_WINDOW_MS), now];
-      if (crashes.length > MAX_CRASHES) { setStatus('failed'); return; }
-      setStatus('restarting');
-      restartTimer = setTimeout(spawnChild, RESTART_DELAYS_MS[Math.min(crashes.length, RESTART_DELAYS_MS.length) - 1]);
+      if (code === NO_LANGUAGE_EXIT_CODE) { setStatus('no-language'); return; }
+      scheduleRestart();
+    };
+    createInterface({ input: c.stdout }).on('line', (l) => {
+      if (child === c) onLine(l); // drop lines that arrive after this child was stopped/replaced
     });
+    c.stdin.on('error', () => {}); // dead pipe (e.g. write after a timeout kill); the exit/timeout path recovers
+    c.on('exit', (code) => down(code));
+    c.on('error', () => down(null));
   }
 
   return {
