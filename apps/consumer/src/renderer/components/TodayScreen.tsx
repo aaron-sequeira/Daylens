@@ -15,7 +15,7 @@ export function TodayScreen({ settings }: { settings: DaylensSettings }) {
 
   useEffect(() => {
     let alive = true;
-    const load = (): void => { void api.today(localDate(Date.now())).then((v) => { if (alive) setView(v); }); };
+    const load = (): void => { api.today(localDate(Date.now())).then((v) => { if (alive) setView(v); }).catch((e) => console.error('[renderer] today failed:', e)); };
     load();
     const off = api.onUpdate(load);
     const timer = setInterval(load, 30_000); // keeps the open session and "now" marker moving

@@ -9,6 +9,7 @@ export function Consent({ onAccept }: { onAccept: () => void }) {
           <div><i style={{ background: 'var(--lav)' }}>🪟</i><span>Records <b>which app and window</b> is in front, and for how long.</span></div>
           <div><i style={{ background: 'var(--pink)' }}>⌨️</i><span>Counts mouse and keyboard <b>activity</b> to tell active from idle. It <b>never records what you type</b>.</span></div>
           <div><i style={{ background: 'var(--peach)' }}>⏸</i><span>Pause any time from the tray icon.</span></div>
+          <div><i style={{ background: 'var(--mint)' }}>🚀</i><span><b>Starts with Windows</b> so your day is complete. You can turn this off in Settings.</span></div>
         </div>
         <button className="btn" onClick={onAccept}>Start tracking →</button>
       </div>

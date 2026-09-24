@@ -11,6 +11,7 @@ const startHidden = process.argv.includes('--hidden');
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let quitting = false;
+let stopTracking = (): void => {}; // set once the tracker exists
 
 function createWindow(): void {
   win = new BrowserWindow({
@@ -21,7 +22,15 @@ function createWindow(): void {
   win.on('ready-to-show', () => { if (!startHidden) win?.show(); });
   win.on('close', (e) => { if (!quitting) { e.preventDefault(); win?.hide(); } });
   win.on('closed', () => { win = null; });
-  if (process.env['ELECTRON_RENDERER_URL']) void win.loadURL(process.env['ELECTRON_RENDERER_URL']);
+  // Windows shutdown/logoff doesn't emit before-quit: close the open session and flush the last bucket here.
+  win.on('session-end', () => { quitting = true; stopTracking(); });
+  const devUrl = process.env['ELECTRON_RENDERER_URL'];
+  // The renderer never navigates or opens windows; allow only dev-server reloads (Vite HMR full reload).
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!devUrl || new URL(url).origin !== new URL(devUrl).origin) e.preventDefault();
+  });
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  if (devUrl) void win.loadURL(devUrl);
   else void win.loadFile(join(__dirname, '../renderer/index.html'));
 }
 
@@ -58,6 +67,7 @@ if (!app.requestSingleInstanceLock()) {
       getSystemIdleSec: () => powerMonitor.getSystemIdleTime(),
       onUpdate: pushUpdate
     });
+    stopTracking = () => tracker.stop();
 
     function refreshTray(): void {
       const paused = settings.get().trackingPaused;
@@ -98,6 +108,13 @@ if (!app.requestSingleInstanceLock()) {
     }
 
     app.on('before-quit', () => { quitting = true; tracker.stop(); });
+    // Sleep must not count as screen time: stop (closes the session, flushes the bucket) before suspend and
+    // restart on wake. tracker.stop() is idempotent, so suspending while paused writes nothing.
+    powerMonitor.on('suspend', () => tracker.stop());
+    powerMonitor.on('resume', () => {
+      const cur = settings.get();
+      if (cur.consentGranted && !cur.trackingPaused) tracker.start();
+    });
   });
 }
 

@@ -12,13 +12,14 @@ export default function App() {
   const [route, setRoute] = useState<Route>('today');
 
   useEffect(() => {
-    void api.settings.get().then(setSettings);
-    return api.onUpdate(() => void api.settings.get().then(setSettings)); // tray pause/resume
+    const load = (): void => { api.settings.get().then(setSettings).catch((e) => console.error('[renderer] settings.get failed:', e)); };
+    load();
+    return api.onUpdate(load); // tray pause/resume
   }, []);
 
   if (!settings) return <TitleBar tracking={null} />;
   if (!settings.consentGranted) {
-    return (<><TitleBar tracking={null} /><Consent onAccept={async () => setSettings(await api.consent.grant())} /></>);
+    return (<><TitleBar tracking={null} /><Consent onAccept={() => { api.consent.grant().then(setSettings).catch((e) => console.error('[renderer] consent.grant failed:', e)); }} /></>);
   }
   return (
     <>

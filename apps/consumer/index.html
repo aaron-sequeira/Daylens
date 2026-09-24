@@ -1,5 +1,11 @@
 <!doctype html>
 <html>
-  <head><meta charset="UTF-8" /><title>Daylens</title></head>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Production CSP. In `electron-vite dev` a serve-only plugin (electron.vite.config.ts) adds the inline
+         React-refresh preamble and the HMR websocket; the built file keeps exactly this policy. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:" />
+    <title>Daylens</title>
+  </head>
   <body><div id="root"></div><script type="module" src="/src/renderer/main.tsx"></script></body>
 </html>

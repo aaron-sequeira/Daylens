@@ -9,6 +9,7 @@
     "dev": "electron-vite dev",
     "pretest": "pnpm rebuild better-sqlite3",
     "test": "vitest run",
+    "test:parity": "vitest run src/main/brain/laya.parity.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
@@ -25,7 +26,7 @@
     "@types/react": "^19.0.4",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
-    "@worksight/core": "workspace:^",
+    "@worksight/core": "workspace:*",
     "electron": "^33.3.1",
     "electron-vite": "^2.3.0",
     "react": "^19.0.0",
