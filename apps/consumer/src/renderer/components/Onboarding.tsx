@@ -34,9 +34,12 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
     return () => clearTimeout(t);
   }, [step]);
 
-  useEffect(() => () => { // unmount (e.g. Cancel): stop the in-flight save from finishing onto a dead screen
-    cancelled.current = true;
-    if (doneTimer.current) clearTimeout(doneTimer.current);
+  useEffect(() => { // reset on (re)mount so StrictMode's dev-only mount→cleanup→mount doesn't wedge finish()
+    cancelled.current = false;
+    return () => { // unmount (e.g. Cancel): stop the in-flight save from finishing onto a dead screen
+      cancelled.current = true;
+      if (doneTimer.current) clearTimeout(doneTimer.current);
+    };
   }, []);
 
   const addOther = (): void => {

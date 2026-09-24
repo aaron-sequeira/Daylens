@@ -98,6 +98,8 @@ button { font: inherit; color: inherit; }
 .btn { border: 0; border-radius: 999px; padding: 12px 22px; font-weight: 600; font-size: 14px; cursor: pointer; background: var(--ink); color: #fff; transition: transform .25s var(--spring); width: max-content; }
 .btn:hover { transform: scale(1.04); }
 .btn.s { background: var(--white); color: var(--ink); border: 1px solid var(--line); }
+.btn:disabled, .ob-link:disabled { opacity: .5; cursor: default; }
+.btn:disabled:hover { transform: none; }
 
 /* settings */
 .settings { overflow-y: auto; padding: 6px 6px 20px; max-width: 760px; }
@@ -124,7 +126,7 @@ button { font: inherit; color: inherit; }
 .ob-stepno { font-size: 12px; color: var(--muted); font-weight: 500; }
 .ob-link { margin-left: auto; border: 0; background: none; font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; }
 .ob-link + .ob-link { margin-left: 14px; }
-.ob-link:hover { color: var(--ink); }
+.ob-link:hover:not(:disabled) { color: var(--ink); }
 .ob-step { display: flex; flex-direction: column; flex: 1; }
 .ob-step > * { animation: rise .6s var(--ease) both; }
 .ob-step > *:nth-child(2) { animation-delay: .07s; }
