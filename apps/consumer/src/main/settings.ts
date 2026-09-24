@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_EXCLUSIONS } from '../shared/exclusions';
 
 export const DEFAULT_SETTINGS = {
   consentGranted: false,
@@ -16,7 +17,11 @@ export const DEFAULT_SETTINGS = {
   profileGoals: '[]',
   profileStart: '09:00',
   profileDays: '[1,2,3,4,5]',
-  profileDistractions: '[]'
+  profileDistractions: '[]',
+  screenReading: false,
+  rawTextRetentionDays: 7,
+  readIntervalSec: 30,
+  exclusions: JSON.stringify(DEFAULT_EXCLUSIONS)
 };
 export type DaylensSettings = typeof DEFAULT_SETTINGS;
 
@@ -26,6 +31,8 @@ export const settingsPatch = z.object({
   windDownTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   breakIntervalMin: z.number().int().min(10).max(180),
   captureWindowTitles: z.boolean(),
-  openAtLogin: z.boolean()
+  openAtLogin: z.boolean(),
+  screenReading: z.boolean(),
+  rawTextRetentionDays: z.union([z.literal(1), z.literal(7), z.literal(30)])
 }).partial().strict();
 export type SettingsPatch = z.infer<typeof settingsPatch>;

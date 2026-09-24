@@ -16,3 +16,16 @@ describe('settingsPatch', () => {
     expect(DEFAULT_SETTINGS).toMatchObject({ consentGranted: false, dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 });
   });
 });
+
+describe('privacy settings', () => {
+  it('defaults screen reading off with 7-day retention', () => {
+    expect(DEFAULT_SETTINGS).toMatchObject({ screenReading: false, rawTextRetentionDays: 7, readIntervalSec: 30 });
+    expect(JSON.parse(DEFAULT_SETTINGS.exclusions)).toContain('1Password');
+  });
+  it('lets the renderer set screen reading and retention 1/7/30 only', () => {
+    expect(settingsPatch.parse({ screenReading: true, rawTextRetentionDays: 30 })).toEqual({ screenReading: true, rawTextRetentionDays: 30 });
+    expect(settingsPatch.safeParse({ rawTextRetentionDays: 2 }).success).toBe(false);
+    expect(settingsPatch.safeParse({ exclusions: '[]' }).success).toBe(false);
+    expect(settingsPatch.safeParse({ readIntervalSec: 5 }).success).toBe(false);
+  });
+});
