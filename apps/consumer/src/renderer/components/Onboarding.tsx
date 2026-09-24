@@ -18,6 +18,8 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
   const [saving, setSaving] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const stepRef = useRef<HTMLElement>(null);
+  const cancelled = useRef(false);
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const last = STEP_COUNT - 1;
   const isQuestion = step >= 1 && step < last;
   const shown = { ...a, name: a.name.trim() };
@@ -32,6 +34,11 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
     return () => clearTimeout(t);
   }, [step]);
 
+  useEffect(() => () => { // unmount (e.g. Cancel): stop the in-flight save from finishing onto a dead screen
+    cancelled.current = true;
+    if (doneTimer.current) clearTimeout(doneTimer.current);
+  }, []);
+
   const addOther = (): void => {
     const v = other.trim().replace(/\s+/g, ' ');
     setOther('');
@@ -41,7 +48,7 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     const t = e.target as HTMLElement;
-    if (e.key !== 'Enter' || step === last || t instanceof HTMLButtonElement || t.id === 'ob-other') return;
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing || e.keyCode === 229 || step === last || t instanceof HTMLButtonElement || t.id === 'ob-other') return;
     e.preventDefault();
     go(step + 1);
   };
@@ -52,10 +59,13 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
     setError(null);
     try {
       let s = await api.profile.save(a);
+      if (cancelled.current) return;
       if (mode === 'first') s = await api.consent.grant(); // consent only when onboarding is finished
+      if (cancelled.current) return;
       setCelebrate(true);
-      setTimeout(() => onDone(s), 1600);
+      doneTimer.current = setTimeout(() => onDone(s), 1600);
     } catch (e) {
+      if (cancelled.current) return;
       console.error('[renderer] onboarding save failed:', e);
       setError("Couldn't save that. Check your answers and try again.");
       setSaving(false);
@@ -64,7 +74,7 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
 
   const nav = (next: string, onNext: () => void = () => go(step + 1)) => (
     <div className="ob-nav">
-      {step > 0 && <button className="btn s" onClick={() => go(step - 1)}>Back</button>}
+      {step > 0 && <button className="btn s" onClick={() => go(step - 1)} disabled={saving}>Back</button>}
       <button className="btn" onClick={onNext} disabled={saving}>{next}</button>
     </div>
   );
@@ -161,7 +171,7 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
           <div className="ob-field small" style={{ maxWidth: 360 }}>
             <input id="ob-other" aria-label="Add another distraction" placeholder="Something else? Type and press Enter" maxLength={MAX_TEXT}
               disabled={a.distractions.length >= MAX_DISTRACTIONS} value={other} onChange={(e) => setOther(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOther(); } }} />
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); addOther(); } }} />
           </div>
           <p className="ob-why">💡 <span><b>Why I ask:</b> I'll flag long scrolls on these and can set soft limits later.</span></p>
           {nav('Continue →')}
@@ -189,7 +199,7 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
           <div className="ob-track"><div style={{ width: `${((step + 1) / STEP_COUNT) * 100}%` }} /></div>
           <span className="ob-stepno">{step + 1} of {STEP_COUNT}</span>
           {isQuestion && <button className="ob-link" onClick={() => go(step + 1)}>Skip this question</button>}
-          {mode === 'redo' && onCancel && <button className="ob-link" onClick={onCancel}>Cancel</button>}
+          {mode === 'redo' && onCancel && <button className="ob-link" onClick={onCancel} disabled={saving}>Cancel</button>}
         </div>
         <section className="ob-step" key={step} ref={stepRef}>{body()}</section>
       </div>
