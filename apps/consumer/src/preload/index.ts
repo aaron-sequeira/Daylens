@@ -4,6 +4,7 @@ import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
+import type { PrivacyView } from '../main/ipc';
 
 const api = {
   today: (date: string): Promise<TodayView> => ipcRenderer.invoke(CH.todayGet, { date }),
@@ -19,6 +20,13 @@ const api = {
   tracking: {
     status: (): Promise<TrackingStatus> => ipcRenderer.invoke(CH.trackingStatus),
     set: (on: boolean): Promise<TrackingStatus> => ipcRenderer.invoke(CH.trackingSet, on)
+  },
+  privacy: {
+    get: (): Promise<PrivacyView> => ipcRenderer.invoke(CH.privacyGet),
+    setExclusions: (list: string[]): Promise<PrivacyView> => ipcRenderer.invoke(CH.privacySetExclusions, list),
+    export: (): Promise<{ saved: boolean; path?: string }> => ipcRenderer.invoke(CH.privacyExport),
+    deleteActivity: (): Promise<{ deleted: boolean }> => ipcRenderer.invoke(CH.privacyDeleteActivity),
+    openLanguageSettings: (): Promise<void> => ipcRenderer.invoke(CH.privacyOpenLanguageSettings)
   },
   onUpdate: (cb: () => void): (() => void) => {
     const listener = (): void => cb();

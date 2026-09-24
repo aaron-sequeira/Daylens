@@ -1,10 +1,17 @@
-import { app, BrowserWindow, Menu, Tray, powerMonitor } from 'electron';
+import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell } from 'electron';
 import { join } from 'node:path';
+import { spawn } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
 import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
+import { localDate } from '@worksight/core/date';
 import { CH } from './channels';
 import { registerIpc } from './ipc';
 import { DEFAULT_SETTINGS } from './settings';
+import { createOcrClient } from './ocr/client';
+import { SCREEN_SCHEMA, createScreenStore, deleteActivity, exportAll } from './screen/store';
+import { createScreenReader, runRetention } from './screen/reader';
+import { readProfile } from './profile';
 
 app.setName('Daylens');
 const startHidden = process.argv.includes('--hidden');
@@ -48,6 +55,14 @@ if (!app.requestSingleInstanceLock()) {
     const db = openDatabase(join(app.getPath('userData'), 'daylens.sqlite'));
     const repo = createRepositories(db);
     const settings = createKvStore(db, DEFAULT_SETTINGS);
+    db.exec(SCREEN_SCHEMA);
+    const screenStore = createScreenStore(db);
+    // ponytail: dev path; Phase 7 packaging must ship resources/ocr-helper.ps1 via extraResources.
+    const helperPath = app.isPackaged ? join(process.resourcesPath, 'ocr-helper.ps1') : join(__dirname, '../../resources/ocr-helper.ps1');
+    const ocr = createOcrClient({
+      spawn: () => spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helperPath], { windowsHide: true }),
+      onStatus: () => win?.webContents.send(CH.eventsUpdate)
+    });
 
     let lastPush = 0;
     // ponytail: drop pushes closer than 2 s; the renderer also polls every 30 s, so a dropped push only delays by <30 s.
@@ -69,6 +84,24 @@ if (!app.requestSingleInstanceLock()) {
     });
     stopTracking = () => tracker.stop();
 
+    const reader = createScreenReader({
+      ocr, foreground: new ActiveWinForegroundSource(), settings: () => settings.get(),
+      idleSec: () => powerMonitor.getSystemIdleTime(), store: screenStore, now: () => Date.now()
+    });
+    // The helper process only exists while screen reading is allowed to run.
+    const syncOcr = (): void => {
+      const s = settings.get();
+      if (s.screenReading && s.consentGranted && !s.trackingPaused) ocr.start(); else ocr.stop();
+    };
+    const retention = (): void => { runRetention(screenStore, settings.get().rawTextRetentionDays, Date.now()); };
+    let reading = false;
+    setInterval(() => {
+      if (reading) return;
+      reading = true;
+      reader.tick().catch((e) => console.error('[screen] read failed:', e)).finally(() => { reading = false; });
+    }, settings.get().readIntervalSec * 1000);
+    setInterval(retention, 6 * 60 * 60 * 1000);
+
     function refreshTray(): void {
       const paused = settings.get().trackingPaused;
       tray?.setContextMenu(Menu.buildFromTemplate([
@@ -82,6 +115,7 @@ if (!app.requestSingleInstanceLock()) {
       settings.set({ trackingPaused: !on });
       if (on && settings.get().consentGranted) tracker.start(); else tracker.stop();
       refreshTray();
+      syncOcr();
       win?.webContents.send(CH.eventsUpdate);
     }
     const applyLoginItem = (): void => {
@@ -90,13 +124,51 @@ if (!app.requestSingleInstanceLock()) {
       if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: s.consentGranted && s.openAtLogin, args: ['--hidden'] });
     };
 
-    registerIpc({ repo, settings, tracker, setTracking, onSettingsChanged: applyLoginItem, now: () => Date.now() });
+    registerIpc({
+      repo, settings, tracker, setTracking,
+      onSettingsChanged: () => { applyLoginItem(); syncOcr(); retention(); },
+      now: () => Date.now(),
+      privacy: {
+        ocrStatus: () => ocr.status(),
+        lastRead: () => screenStore.lastWithText(),
+        exportData: async () => {
+          const r = await dialog.showSaveDialog(win!, {
+            title: 'Export your Daylens data', defaultPath: `daylens-export-${localDate(Date.now())}.json`,
+            filters: [{ name: 'JSON', extensions: ['json'] }]
+          });
+          if (r.canceled || !r.filePath) return { saved: false };
+          const s = settings.get();
+          writeFileSync(r.filePath, JSON.stringify(exportAll(db, s, readProfile(s), Date.now()), null, 2), 'utf8');
+          return { saved: true, path: r.filePath };
+        },
+        deleteActivity: async () => {
+          const r = await dialog.showMessageBox(win!, {
+            type: 'warning', buttons: ['Delete', 'Cancel'], defaultId: 1, cancelId: 1, title: 'Delete my activity',
+            message: 'Delete all your activity and screen text?',
+            detail: "Screen time, app history and screen reads will be erased from this PC. Your settings and answers are kept. This can't be undone."
+          });
+          if (r.response !== 0) return { deleted: false };
+          const s = settings.get();
+          const wasRunning = s.consentGranted && !s.trackingPaused;
+          tracker.stop();
+          ocr.stop();
+          deleteActivity(db);
+          if (wasRunning) tracker.start();
+          syncOcr();
+          win?.webContents.send(CH.eventsUpdate);
+          return { deleted: true };
+        },
+        openLanguageSettings: () => { void shell.openExternal('ms-settings:regionlanguage'); }
+      }
+    });
     createWindow();
 
     // Start tracking BEFORE the tray: a tray failure must never prevent tracking.
     const s = settings.get();
     if (s.consentGranted && !s.trackingPaused) tracker.start();
     applyLoginItem();
+    syncOcr();
+    retention();
 
     try {
       tray = new Tray(app.isPackaged ? join(process.resourcesPath, 'tray.png') : join(__dirname, '../../resources/tray.png'));
@@ -107,7 +179,7 @@ if (!app.requestSingleInstanceLock()) {
       console.error('[main] tray setup failed (tracking unaffected):', e);
     }
 
-    app.on('before-quit', () => { quitting = true; tracker.stop(); });
+    app.on('before-quit', () => { quitting = true; tracker.stop(); ocr.stop(); });
     // Sleep must not count as screen time: stop (closes the session, flushes the bucket) before suspend and
     // restart on wake. tracker.stop() is idempotent, so suspending while paused writes nothing.
     powerMonitor.on('suspend', () => tracker.stop());

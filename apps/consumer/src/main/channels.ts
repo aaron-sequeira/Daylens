@@ -7,5 +7,10 @@ export const CH = {
   profileSave: 'profile:save',
   trackingStatus: 'tracking:status',
   trackingSet: 'tracking:set',
-  eventsUpdate: 'events:update'
+  eventsUpdate: 'events:update',
+  privacyGet: 'privacy:get',
+  privacySetExclusions: 'privacy:setExclusions',
+  privacyExport: 'privacy:export',
+  privacyDeleteActivity: 'privacy:deleteActivity',
+  privacyOpenLanguageSettings: 'privacy:openLanguageSettings'
 } as const;
