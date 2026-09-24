@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daylens — Onboarding v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --win:#FBF8F4; --panel:#F2EBE6; --ink:#171717; --muted:#77716C; --line:#E7DFD8; --white:#fff;
+    --lav:#D8D2FC; --mint:#BFEBD3; --pink:#F4C6C8; --peach:#F9DDB9; --sky:#CFE6FB;
+    --spring:cubic-bezier(.2,1.3,.35,1); --ease:cubic-bezier(.22,.8,.26,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:#BFEBD9;color:var(--ink);display:flex;justify-content:center;padding:36px 20px 60px;overflow-x:hidden}
+  .stage{width:100%;max-width:1280px}
+  .caption{font-size:13px;color:#2d6b54;margin:0 0 12px 4px}
+  .win{background:var(--win);border-radius:28px;box-shadow:0 40px 80px -30px rgba(20,60,45,.45);overflow:hidden}
+  .titlebar{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 18px;border-bottom:1px solid var(--line);font-size:13px;font-weight:600}
+  .wc{display:flex;color:#555;font-weight:400}.wc span{width:44px;height:32px;display:grid;place-items:center}
+  .ob{display:grid;grid-template-columns:1.02fr 1fr;height:720px}
+
+  /* ---------- left: steps ---------- */
+  .left{padding:40px 52px 36px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+  .progress{display:flex;align-items:center;gap:10px;margin-bottom:30px}
+  .track{flex:1;height:6px;border-radius:6px;background:var(--line);overflow:hidden;max-width:260px}
+  .track div{height:100%;border-radius:6px;background:linear-gradient(90deg,#9ADBB9,#B6A8FA,#F4A9AE,#F7C98F);background-size:300% 100%;animation:shine 6s linear infinite;transition:width .7s var(--spring)}
+  @keyframes shine{to{background-position:300% 0}}
+  .stepno{font-size:12px;color:var(--muted);font-weight:500}
+  .skip{margin-left:auto;font-size:13px;color:var(--muted);cursor:pointer;border:0;background:none;font:inherit}
+  .skip:hover{color:var(--ink)}
+  .step{display:none;flex-direction:column;flex:1;min-height:0}
+  .step.on{display:flex}
+  .step.on > *{animation:rise .6s var(--ease) both}
+  .step.on > *:nth-child(2){animation-delay:.07s}.step.on > *:nth-child(3){animation-delay:.14s}.step.on > *:nth-child(4){animation-delay:.21s}.step.on > *:nth-child(5){animation-delay:.28s}.step.on > *:nth-child(6){animation-delay:.35s}
+  @keyframes rise{from{opacity:0;transform:translateY(18px)}}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .kicker i{font-style:normal;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:12px}
+  h1{font-weight:400;font-size:46px;letter-spacing:-.025em;line-height:1.06;margin-bottom:12px}
+  h1 b{font-weight:600}
+  h1 .wave{display:inline-block;animation:wave 2.2s ease-in-out infinite;transform-origin:70% 70%}
+  @keyframes wave{0%,60%,100%{transform:rotate(0)}10%,30%{transform:rotate(14deg)}20%{transform:rotate(-8deg)}40%{transform:rotate(-4deg)}}
+  .lead{font-size:15px;color:#4B4642;line-height:1.55;margin-bottom:22px;max-width:470px}
+  .why{font-size:12.5px;color:var(--muted);display:flex;gap:8px;align-items:flex-start;margin-top:auto;padding-top:14px;max-width:470px;line-height:1.45}
+  .why b{color:var(--ink);font-weight:600}
+  .promise{display:flex;flex-direction:column;gap:11px;margin-bottom:22px}
+  .promise div{display:flex;gap:12px;align-items:center;font-size:14px;line-height:1.4}
+  .promise i{flex:none;width:34px;height:34px;border-radius:12px;display:grid;place-items:center;font-style:normal;transition:transform .35s var(--spring)}
+  .promise div:hover i{transform:rotate(-8deg) scale(1.12)}
+  /* inputs */
+  .field{position:relative;margin-bottom:18px;max-width:420px}
+  .field input{width:100%;font:500 20px 'DM Sans';padding:16px 18px;border-radius:18px;border:2px solid var(--line);background:#fff;outline:none;transition:border-color .25s,box-shadow .25s}
+  .field input:focus{border-color:#B6A8FA;box-shadow:0 0 0 6px rgba(182,168,250,.25)}
+  .label{font-size:13px;font-weight:600;margin:4px 0 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:16px;max-width:520px}
+  .chip{display:flex;align-items:center;gap:8px;border:2px solid var(--line);background:#fff;border-radius:999px;padding:9px 16px 9px 12px;font:500 14px 'DM Sans';cursor:pointer;transition:transform .35s var(--spring),background .25s,border-color .25s,box-shadow .25s;user-select:none}
+  .chip:hover{transform:translateY(-2px)}
+  .chip .e{font-size:16px;transition:transform .4s var(--spring)}
+  .chip[aria-pressed="true"]{background:var(--c,var(--lav));border-color:transparent;box-shadow:0 10px 20px -12px rgba(0,0,0,.35)}
+  .chip[aria-pressed="true"] .e{transform:scale(1.25) rotate(-8deg)}
+  .chip.pop{animation:pop .45s var(--spring)}
+  @keyframes pop{40%{transform:scale(1.12)}}
+  .goals{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:520px;margin-bottom:10px}
+  .goal{border:2px solid var(--line);background:#fff;border-radius:20px;padding:14px 14px 13px;cursor:pointer;text-align:left;font:inherit;transition:transform .35s var(--spring),background .3s,border-color .3s,box-shadow .3s;position:relative;overflow:hidden}
+  .goal:hover{transform:translateY(-3px)}
+  .goal .e{font-size:22px;display:block;margin-bottom:6px;transition:transform .45s var(--spring)}
+  .goal b{display:block;font-size:14.5px;font-weight:600}
+  .goal small{font-size:12px;color:var(--muted);line-height:1.35;display:block;margin-top:2px}
+  .goal[aria-pressed="true"]{background:var(--c);border-color:transparent;box-shadow:0 14px 26px -16px rgba(0,0,0,.4)}
+  .goal[aria-pressed="true"] .e{transform:scale(1.2) rotate(-10deg)}
+  .goal[aria-pressed="true"]::after{content:"✓";position:absolute;top:10px;right:12px;width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;display:grid;place-items:center;animation:pop .45s var(--spring)}
+  /* schedule */
+  .sched{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:520px;margin-bottom:14px}
+  .tcard{border-radius:22px;padding:16px 18px;position:relative;overflow:hidden}
+  .tcard .e{font-size:22px}
+  .tcard label{display:block;font-size:13px;font-weight:600;margin:8px 0 8px}
+  .tcard input[type=time]{font:600 22px 'DM Sans';border:0;background:rgba(255,255,255,.7);border-radius:12px;padding:8px 10px;width:100%;color:var(--ink)}
+  .arc{max-width:520px;height:74px;position:relative;margin:2px 0 8px}
+  .arc svg{width:100%;height:100%;overflow:visible}
+  .arc .sun{animation:sunmove 6s ease-in-out infinite alternate}
+  @keyframes sunmove{from{offset-distance:8%}to{offset-distance:92%}}
+  .days{display:flex;gap:6px;margin-bottom:6px}
+  .day{width:40px;height:40px;border-radius:12px;border:2px solid var(--line);background:#fff;font:600 13px 'DM Sans';cursor:pointer;transition:all .3s var(--spring)}
+  .day[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink);transform:translateY(-2px)}
+  /* nav */
+  .nav{display:flex;gap:10px;align-items:center;margin-top:18px}
+  .btn{border:0;border-radius:999px;padding:13px 24px;font:600 14px 'DM Sans';cursor:pointer;background:var(--ink);color:#fff;transition:transform .25s var(--spring),box-shadow .25s;position:relative;overflow:hidden}
+  .btn:hover{transform:scale(1.04);box-shadow:0 12px 24px -12px rgba(0,0,0,.5)}
+  .btn::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-100%);animation:sheen 3.2s ease-in-out infinite}
+  @keyframes sheen{60%,100%{transform:translateX(100%)}}
+  .btn.s{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .btn.s::after{display:none}
+  .summary{display:flex;flex-direction:column;gap:9px;max-width:500px;margin-bottom:6px}
+  .sum{display:flex;gap:12px;align-items:center;background:#fff;border-radius:16px;padding:11px 14px;font-size:13.5px;line-height:1.4;box-shadow:0 8px 18px -14px rgba(0,0,0,.3)}
+  .sum i{flex:none;width:32px;height:32px;border-radius:11px;display:grid;place-items:center;font-style:normal}
+  .sum b{font-weight:600}
+
+  /* ---------- right: living art ---------- */
+  .art{margin:14px;border-radius:24px;position:relative;overflow:hidden;background:var(--bg,var(--mint));transition:background 1s var(--ease)}
+  .blob{position:absolute;border-radius:50%;filter:blur(40px);opacity:.75;animation:drift 14s ease-in-out infinite alternate}
+  .blob.b1{width:260px;height:260px;left:-60px;top:-40px;background:var(--lav)}
+  .blob.b2{width:300px;height:300px;right:-80px;bottom:-60px;background:var(--peach);animation-duration:17s}
+  .blob.b3{width:200px;height:200px;right:40px;top:30px;background:var(--pink);animation-duration:12s}
+  .blob.b4{width:220px;height:220px;left:30px;bottom:10px;background:var(--sky);animation-duration:19s}
+  @keyframes drift{to{transform:translate(40px,30px) scale(1.15)}}
+  .center{position:absolute;left:50%;top:50%;width:0;height:0}
+  .ring{position:absolute;left:50%;top:50%;border-radius:50%;border:1.5px dashed rgba(23,23,23,.12);transform:translate(-50%,-50%);animation:spin 80s linear infinite}
+  .ring.r1{width:380px;height:380px}.ring.r2{width:560px;height:560px;animation-direction:reverse;animation-duration:120s}
+  .orbwrap{position:absolute;left:50%;top:50%;width:230px;height:230px;transform:translate(-50%,-50%);filter:hue-rotate(var(--hue,0deg));transition:filter 1.2s var(--ease)}
+  .glow{position:absolute;inset:-28px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.85),rgba(255,255,255,0) 65%);animation:breathe 5s ease-in-out infinite}
+  .orb{position:absolute;inset:0;background:radial-gradient(circle at 35% 30%,#fff 0,rgba(255,255,255,0) 45%),conic-gradient(from 0deg,#C9BEFF,#9FE3C0,#FFD19A,#FFB4BA,#A9D3FA,#C9BEFF);animation:spin 16s linear infinite,morph 9s ease-in-out infinite;box-shadow:inset -18px -24px 50px rgba(0,0,0,.08),0 30px 60px -20px rgba(80,60,160,.35)}
+  .orb::after{content:"";position:absolute;inset:18%;border-radius:inherit;background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.7),rgba(255,255,255,0) 60%);animation:spin 10s linear infinite reverse}
+  @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+  .orb{transform-origin:center}
+  .orb{animation:orbspin 16s linear infinite,morph 9s ease-in-out infinite}
+  @keyframes orbspin{to{rotate:360deg}}
+  @keyframes morph{0%,100%{border-radius:50% 50% 50% 50%/50% 50% 50% 50%}25%{border-radius:58% 42% 55% 45%/45% 55% 45% 55%}50%{border-radius:45% 55% 42% 58%/55% 45% 58% 42%}75%{border-radius:53% 47% 60% 40%/40% 60% 47% 53%}}
+  @keyframes breathe{50%{transform:scale(1.12);opacity:.6}}
+  .face{position:absolute;inset:0;display:grid;place-items:center;font-size:44px;animation:bob 4s ease-in-out infinite;pointer-events:none}
+  .face span{transition:transform .5s var(--spring);display:inline-block}
+  @keyframes bob{50%{transform:translateY(-8px)}}
+  /* orbiting cards */
+  .orbit{position:absolute;left:0;top:0;animation:orbit var(--d,70s) linear infinite;animation-delay:var(--delay,0s)}
+  @keyframes orbit{from{transform:rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a)))}to{transform:rotate(calc(var(--a) + 360deg)) translateX(var(--r)) rotate(calc(-1 * var(--a) - 360deg))}}
+  .fcard{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;background:#fff;border-radius:16px;padding:9px 13px;font-size:12.5px;box-shadow:0 16px 30px -18px rgba(0,0,0,.35);display:flex;align-items:center;gap:8px;animation:cardin .7s var(--spring) both,float 5s ease-in-out infinite;animation-delay:var(--in,0s),var(--fl,0s)}
+  .fcard.tint{background:var(--c)}
+  .fcard i{font-style:normal;width:26px;height:26px;border-radius:9px;display:grid;place-items:center;background:rgba(255,255,255,.75);font-size:13px}
+  .fcard.plain i{background:var(--c,var(--panel))}
+  .fcard b{display:block;font-size:13.5px;line-height:1.1}
+  .fcard small{display:block;color:var(--muted);font-size:11px}
+  .fcard.out{animation:cardout .35s var(--ease) forwards}
+  @keyframes cardin{from{opacity:0;transform:translate(-50%,-50%) scale(.4)}}
+  @keyframes cardout{to{opacity:0;transform:translate(-50%,-50%) scale(.5)}}
+  @keyframes float{50%{margin-top:-8px}}
+  .spark{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;opacity:0;animation:sparkle var(--t,6s) ease-in infinite;animation-delay:var(--dl,0s);box-shadow:0 0 10px 2px rgba(255,255,255,.8)}
+  @keyframes sparkle{0%{opacity:0;transform:translateY(0) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translateY(-220px) scale(1.2)}}
+  .bubble{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);background:rgba(23,23,23,.88);color:#fff;border-radius:18px;padding:11px 16px;font-size:13px;max-width:80%;text-align:center;line-height:1.4;box-shadow:0 18px 30px -16px rgba(0,0,0,.5);transition:opacity .3s}
+  .bubble::before{content:"✦ ";color:#C9BEFF}
+  .bubble.swap{animation:bubbleswap .55s var(--spring)}
+  @keyframes bubbleswap{0%{transform:translateX(-50%) scale(.9);opacity:.2}100%{transform:translateX(-50%) scale(1);opacity:1}}
+  .confetti{position:absolute;width:9px;height:14px;border-radius:3px;top:-20px;animation:fall 2.8s ease-in forwards}
+  @keyframes fall{to{transform:translateY(780px) rotate(720deg);opacity:.2}}
+  .note{font-size:13px;color:#2d6b54;margin:16px 4px 0;line-height:1.5}
+  @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <p class="caption">Onboarding v2 · <b>fully clickable</b>: answer the questions and watch the right side react. 6 steps, every question skippable.</p>
+  <div class="win">
+    <div class="titlebar"><span>☀ Daylens</span><div class="wc"><span>&#x2014;</span><span>&#x2610;</span><span>&#x2715;</span></div></div>
+    <div class="ob">
+      <div class="left">
+        <div class="progress"><div class="track"><div id="bar" style="width:16%"></div></div><span class="stepno" id="stepno">1 of 6</span><button class="skip" id="skip" style="visibility:hidden">Skip this question</button></div>
+
+        <!-- 1 welcome -->
+        <section class="step on" data-step="0">
+          <p class="kicker"><i style="background:var(--mint)">☀</i>Welcome</p>
+          <h1>See your day<br><b>clearly.</b></h1>
+          <p class="lead">Daylens quietly notices how you use your PC, writes you a daily story of your day, and nudges you toward healthier habits. First, a few quick questions so it can get to know you.</p>
+          <div class="promise">
+            <div><i style="background:var(--mint)">🔒</i><span><b>Everything stays on this PC.</b> No account, no cloud, no uploads.</span></div>
+            <div><i style="background:var(--lav)">🪟</i><span>Records <b>which app and window</b> is in front, and for how long.</span></div>
+            <div><i style="background:var(--pink)">⌨️</i><span>Counts activity, <b>never what you type</b>.</span></div>
+            <div><i style="background:var(--peach)">🚀</i><span>Starts with Windows. Pause or turn it off any time.</span></div>
+          </div>
+          <div class="nav"><button class="btn" data-next>Let's get started →</button></div>
+        </section>
+
+        <!-- 2 name + role -->
+        <section class="step" data-step="1" data-q>
+          <p class="kicker"><i style="background:var(--lav)">👋</i>About you</p>
+          <h1 id="hello">What should I<br><b>call you?</b></h1>
+          <div class="field"><input id="name" placeholder="Your first name" maxlength="24" autocomplete="off"></div>
+          <p class="label">What do you mostly use this PC for? <span style="color:var(--muted);font-weight:400">Pick any</span></p>
+          <div class="chips" id="roles">
+            <button class="chip" data-v="student" style="--c:var(--mint)" aria-pressed="false"><span class="e">🎓</span>Studying</button>
+            <button class="chip" data-v="dev" style="--c:var(--lav)" aria-pressed="false"><span class="e">💻</span>Coding</button>
+            <button class="chip" data-v="design" style="--c:var(--pink)" aria-pressed="false"><span class="e">🎨</span>Design</button>
+            <button class="chip" data-v="office" style="--c:var(--sky)" aria-pressed="false"><span class="e">📊</span>Office work</button>
+            <button class="chip" data-v="create" style="--c:var(--peach)" aria-pressed="false"><span class="e">🎬</span>Creating content</button>
+            <button class="chip" data-v="game" style="--c:var(--pink)" aria-pressed="false"><span class="e">🎮</span>Gaming</button>
+            <button class="chip" data-v="browse" style="--c:var(--mint)" aria-pressed="false"><span class="e">🌐</span>Browsing & chilling</button>
+          </div>
+          <p class="why">💡 <span><b>Why I ask:</b> the same app means different things for different people. YouTube is <i>learning</i> for a student and <i>a break</i> for a developer.</span></p>
+          <div class="nav"><button class="btn s" data-back>Back</button><button class="btn" data-next>Continue →</button></div>
+        </section>
+
+        <!-- 3 goals -->
+        <section class="step" data-step="2" data-q>
+          <p class="kicker"><i style="background:var(--peach)">🎯</i>Your goals</p>
+          <h1>What should I<br><b>help you with?</b></h1>
+          <div class="goals" id="goals">
+            <button class="goal" data-v="less" style="--c:var(--mint)" aria-pressed="false"><span class="e">⏳</span><b>Less screen time</b><small>Stay under a daily goal</small></button>
+            <button class="goal" data-v="focus" style="--c:var(--lav)" aria-pressed="false"><span class="e">🧠</span><b>Deeper focus</b><small>Longer stretches, fewer switches</small></button>
+            <button class="goal" data-v="sleep" style="--c:var(--sky)" aria-pressed="false"><span class="e">🌙</span><b>Better sleep</b><small>Log off on time</small></button>
+            <button class="goal" data-v="breaks" style="--c:var(--peach)" aria-pressed="false"><span class="e">👀</span><b>Healthier breaks</b><small>Eyes, posture, movement</small></button>
+            <button class="goal" data-v="distract" style="--c:var(--pink)" aria-pressed="false"><span class="e">📵</span><b>Fewer distractions</b><small>Catch doomscrolling early</small></button>
+            <button class="goal" data-v="better" style="--c:var(--mint)" aria-pressed="false"><span class="e">🛠</span><b>Work smarter</b><small>Tips when I'm stuck</small></button>
+          </div>
+          <p class="why">💡 <span><b>Why I ask:</b> I'll nudge you most about what matters to you, and stay quiet about the rest.</span></p>
+          <div class="nav"><button class="btn s" data-back>Back</button><button class="btn" data-next>Continue →</button></div>
+        </section>
+
+        <!-- 4 schedule -->
+        <section class="step" data-step="3" data-q>
+          <p class="kicker"><i style="background:var(--sky)">🗓</i>Your rhythm</p>
+          <h1>When are you<br><b>at your desk?</b></h1>
+          <div class="arc"><svg viewBox="0 0 520 74" preserveAspectRatio="none">
+            <path id="arcpath" d="M10 70 Q260 -40 510 70" fill="none" stroke="rgba(23,23,23,.15)" stroke-width="2" stroke-dasharray="5 6"/>
+            <text x="6" y="66" font-size="11" fill="#77716C">🌅</text><text x="498" y="66" font-size="11" fill="#77716C">🌙</text>
+            <g class="sun" style="offset-path:path('M10 70 Q260 -40 510 70')"><circle r="11" fill="#FFD19A"/><circle r="17" fill="rgba(255,209,154,.35)"/></g>
+          </svg></div>
+          <div class="sched">
+            <div class="tcard" style="background:var(--peach)"><span class="e">☀️</span><label for="start">I usually start at</label><input id="start" type="time" value="09:00"></div>
+            <div class="tcard" style="background:var(--lav)"><span class="e">🌙</span><label for="bed">I'd like to log off by</label><input id="bed" type="time" value="23:00"></div>
+          </div>
+          <p class="label">Days I'm usually on</p>
+          <div class="days" id="days">
+            <button class="day" aria-pressed="true">M</button><button class="day" aria-pressed="true">T</button><button class="day" aria-pressed="true">W</button><button class="day" aria-pressed="true">T</button><button class="day" aria-pressed="true">F</button><button class="day" aria-pressed="false">S</button><button class="day" aria-pressed="false">S</button>
+          </div>
+          <p class="why">💡 <span><b>Why I ask:</b> sets your wind-down reminder and tells me when focus matters most.</span></p>
+          <div class="nav"><button class="btn s" data-back>Back</button><button class="btn" data-next>Continue →</button></div>
+        </section>
+
+        <!-- 5 distractions -->
+        <section class="step" data-step="4" data-q>
+          <p class="kicker"><i style="background:var(--pink)">🧲</i>Honest moment</p>
+          <h1>What pulls you<br><b>away the most?</b></h1>
+          <p class="lead" style="margin-bottom:14px">No judgement. I'll just keep a gentle eye on these for you.</p>
+          <div class="chips" id="dist">
+            <button class="chip" data-v="Instagram" style="--c:var(--pink)" aria-pressed="false"><span class="e">📸</span>Instagram</button>
+            <button class="chip" data-v="YouTube" style="--c:var(--pink)" aria-pressed="false"><span class="e">▶️</span>YouTube</button>
+            <button class="chip" data-v="TikTok" style="--c:var(--pink)" aria-pressed="false"><span class="e">🎵</span>TikTok</button>
+            <button class="chip" data-v="Reddit" style="--c:var(--pink)" aria-pressed="false"><span class="e">👽</span>Reddit</button>
+            <button class="chip" data-v="X" style="--c:var(--pink)" aria-pressed="false"><span class="e">✖️</span>X / Twitter</button>
+            <button class="chip" data-v="Discord" style="--c:var(--pink)" aria-pressed="false"><span class="e">💬</span>Discord</button>
+            <button class="chip" data-v="Netflix" style="--c:var(--pink)" aria-pressed="false"><span class="e">🍿</span>Netflix</button>
+            <button class="chip" data-v="Games" style="--c:var(--pink)" aria-pressed="false"><span class="e">🎮</span>Games</button>
+            <button class="chip" data-v="News" style="--c:var(--pink)" aria-pressed="false"><span class="e">📰</span>News</button>
+          </div>
+          <div class="field" style="max-width:360px"><input id="other" placeholder="Something else? Type and press Enter" style="font-size:15px;padding:12px 16px"></div>
+          <p class="why">💡 <span><b>Why I ask:</b> I'll flag long scrolls on these and can set soft limits later.</span></p>
+          <div class="nav"><button class="btn s" data-back>Back</button><button class="btn" data-next>Continue →</button></div>
+        </section>
+
+        <!-- 6 ready -->
+        <section class="step" data-step="5">
+          <p class="kicker"><i style="background:var(--mint)">✨</i>All set</p>
+          <h1 id="readyh">You're all set,<br><b>friend.</b></h1>
+          <p class="lead" style="margin-bottom:14px">Here's what I learned about you. You can change any of this in Settings.</p>
+          <div class="summary" id="summary"></div>
+          <div class="nav"><button class="btn s" data-back>Back</button><button class="btn" id="finish">Start my day ✨</button></div>
+        </section>
+      </div>
+
+      <div class="art" id="art">
+        <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div>
+        <div class="ring r1"></div><div class="ring r2"></div>
+        <div class="orbwrap" id="orbwrap"><div class="glow"></div><div class="orb"></div><div class="face"><span id="face">☀️</span></div></div>
+        <div class="center" id="cards"></div>
+        <div id="sparks"></div>
+        <div class="bubble" id="bubble">Hi! I'm Daylens. Let's get to know each other.</div>
+      </div>
+    </div>
+  </div>
+  <p class="note">What changes vs. today's consent screen: a living orb (morphs, breathes, changes colour per step), <b>8–10 cards orbiting it</b> that react to your answers, drifting colour blobs, sparkles, a "coach" speech bubble, springy chips, and confetti at the end. Everything respects "reduced motion" in Windows settings.</p>
+</div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const steps = $$('.step'), N = steps.length;
+const state = { name: '', roles: new Set(), goals: new Set(), start: '09:00', bed: '23:00', dist: new Set() };
+let cur = 0;
+
+// ----- sparkles
+for (let i = 0; i < 16; i++) {
+  const s = document.createElement('span'); s.className = 'spark';
+  s.style.left = (10 + Math.random() * 80) + '%'; s.style.top = (40 + Math.random() * 55) + '%';
+  s.style.setProperty('--t', (4 + Math.random() * 5) + 's'); s.style.setProperty('--dl', (Math.random() * 6) + 's');
+  $('#sparks').appendChild(s);
+}
+
+// ----- per-step look
+const LOOK = [
+  { bg: 'var(--mint)', hue: '0deg', face: '☀️' },
+  { bg: 'var(--lav)', hue: '40deg', face: '👋' },
+  { bg: 'var(--peach)', hue: '-30deg', face: '🎯' },
+  { bg: 'var(--sky)', hue: '80deg', face: '🗓️' },
+  { bg: 'var(--pink)', hue: '-60deg', face: '🧲' },
+  { bg: 'linear-gradient(135deg,#BFEBD3,#D8D2FC 50%,#F9DDB9)', hue: '0deg', face: '✨' }
+];
+
+// ----- floating card sets
+const ROLE_CARDS = {
+  student: [['🎓', 'YouTube lectures', 'counts as Learning', 'var(--mint)'], ['📓', 'Notion', 'counts as Study', 'var(--mint)']],
+  dev: [['💻', 'VS Code', 'counts as Work', 'var(--lav)'], ['🧩', 'Stack Overflow', 'counts as Learning', 'var(--mint)']],
+  design: [['🎨', 'Figma', 'counts as Work', 'var(--pink)'], ['✨', 'Dribbble', 'counts as Inspiration', 'var(--peach)']],
+  office: [['📊', 'Excel', 'counts as Work', 'var(--sky)'], ['📧', 'Outlook', 'counts as Comms', 'var(--sky)']],
+  create: [['🎬', 'Premiere Pro', 'counts as Creating', 'var(--peach)'], ['📺', 'YouTube Studio', 'counts as Work', 'var(--peach)']],
+  game: [['🎮', 'Steam', 'counts as Play', 'var(--pink)'], ['💬', 'Discord', 'counts as Social', 'var(--lav)']],
+  browse: [['🌐', 'Chrome', 'sorted by what you read', 'var(--mint)']]
+};
+const GOAL_CARDS = {
+  less: ['⏳', 'Daily goal', 'under 6h, gentle reminders', 'var(--mint)'],
+  focus: ['🧠', 'Focus streaks', 'I celebrate 60+ min', 'var(--lav)'],
+  sleep: ['🌙', 'Wind-down', 'nudge before bedtime', 'var(--sky)'],
+  breaks: ['👀', '20-20-20', 'eye breaks every 50 min', 'var(--peach)'],
+  distract: ['📵', 'Scroll alerts', 'after 20 min of feeds', 'var(--pink)'],
+  better: ['🛠', 'Stuck tips', 'when errors repeat', 'var(--mint)']
+};
+const BASE = [
+  ['⏱', '6h 12m', 'on screen today'], ['✦', '90-min focus', 'streak'], ['☀', 'Daily report', 'ready at 9 pm'],
+  ['💚', 'Health 72', 'pretty healthy'], ['👀', 'Eye break', 'in 12 min'], ['🎧', 'Spotify', '39m · background'],
+  ['📚', 'Learning', '48m today'], ['🌙', 'Wind-down', '11:00 pm']
+];
+function cardsFor(step) {
+  const name = state.name || 'you';
+  if (step === 0) return BASE.map(([i, b, s], k) => [i, b, s, ['var(--lav)', 'var(--mint)', 'var(--peach)', 'var(--pink)', 'var(--sky)'][k % 5]]);
+  if (step === 1) {
+    const r = [...state.roles].flatMap((v) => ROLE_CARDS[v]);
+    return [['👋', state.name ? `Hi ${state.name}!` : 'Hi there!', 'nice to meet you', 'var(--lav)'], ...(r.length ? r : [['🤔', 'Pick what you do', 'I learn from it', 'var(--panel)']])];
+  }
+  if (step === 2) {
+    const g = [...state.goals].map((v) => GOAL_CARDS[v]);
+    return g.length ? g : [['🎯', 'Choose a goal', 'or two, or all', 'var(--panel)']];
+  }
+  if (step === 3) return [
+    ['☀️', `Day starts ${fmt(state.start)}`, 'deep work 1–3h after', 'var(--peach)'], ['🧠', `Focus ${fmt(addH(state.start, 1))}–${fmt(addH(state.start, 3))}`, 'your best hours', 'var(--lav)'],
+    ['🌙', `Wind down ${fmt(addH(state.bed, -0.5))}`, 'soft nudge', 'var(--sky)'], ['🛌', `Offline by ${fmt(state.bed)}`, 'sleep protected', 'var(--lav)'],
+    ['📅', `${$$('#days .day[aria-pressed="true"]').length} days a week`, 'weekends stay gentle', 'var(--mint)']
+  ];
+  if (step === 4) {
+    const d = [...state.dist].map((v) => ['👀', v, 'gentle eye on it', 'var(--pink)']);
+    return d.length ? d : [['🧲', 'Nothing? Lucky you', 'or pick a few', 'var(--panel)']];
+  }
+  return [
+    ['👋', state.name || 'Friend', [...state.roles].length ? `${state.roles.size} kinds of work` : 'all-rounder', 'var(--lav)'],
+    ...[...state.goals].slice(0, 3).map((v) => GOAL_CARDS[v]),
+    ['🌙', `Offline by ${fmt(state.bed)}`, 'wind-down on', 'var(--sky)'],
+    ...[...state.dist].slice(0, 3).map((v) => ['👀', v, 'watching gently', 'var(--pink)']),
+    ['🔒', 'All on this PC', 'always private', 'var(--mint)']
+  ];
+}
+const fmt = (t) => { let [h, m] = t.split(':').map(Number); const ap = h < 12 || h === 24 ? 'am' : 'pm'; h = ((h + 11) % 12) + 1; return `${h}:${String(m).padStart(2, '0')} ${ap}`; };
+const addH = (t, dh) => { let [h, m] = t.split(':').map(Number); let mins = (h * 60 + m + dh * 60 + 1440) % 1440; return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(Math.round(mins % 60)).padStart(2, '0')}`; };
+
+let lastKey = '';
+function renderCards() {
+  const list = cardsFor(cur);
+  const key = JSON.stringify(list);
+  if (key === lastKey) return; lastKey = key;
+  const wrap = $('#cards');
+  $$('.orbit', wrap).forEach((o) => { o.querySelector('.fcard').classList.add('out'); setTimeout(() => o.remove(), 350); });
+  const n = list.length;
+  list.forEach(([i, b, s, c], k) => {
+    const o = document.createElement('div'); o.className = 'orbit';
+    const ring = n > 6 && k % 2 ? 250 : 185; // two orbits when there are many cards
+    o.style.setProperty('--a', (k * 360 / n - 90) + 'deg'); o.style.setProperty('--r', ring + 'px');
+    o.style.setProperty('--d', (ring > 200 ? 110 : 80) + 's');
+    o.innerHTML = `<div class="fcard ${k % 3 === 0 ? 'tint' : 'plain'}" style="--c:${c};--in:${.15 + k * .07}s;--fl:${-k * .6}s"><i>${i}</i><div><b>${esc(b)}</b><small>${esc(s)}</small></div></div>`;
+    wrap.appendChild(o);
+  });
+}
+const esc = (t) => String(t).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+const BUBBLES = [
+  () => "Hi! I'm Daylens. Let's get to know each other.",
+  () => state.name ? `Lovely to meet you, ${state.name}. What do you do here?` : 'What should I call you?',
+  () => state.goals.size ? `Got it: ${state.goals.size} goal${state.goals.size > 1 ? 's' : ''}. I'll focus on those.` : 'Pick what you want help with. I won\'t nag about the rest.',
+  () => `I'll protect ${fmt(addH(state.start, 1))}–${fmt(addH(state.start, 3))} for deep work and nudge you before ${fmt(state.bed)}.`,
+  () => state.dist.size ? `Noted. I'll keep a gentle eye on ${[...state.dist].slice(0, 2).join(' & ')}${state.dist.size > 2 ? ' and more' : ''}.` : 'Anything that steals your time? Totally optional.',
+  () => `Ready when you are${state.name ? ', ' + state.name : ''}! Your first report arrives tonight.`
+];
+let lastBubble = '';
+function renderBubble() {
+  const t = BUBBLES[cur](); if (t === lastBubble) return; lastBubble = t;
+  const b = $('#bubble'); b.textContent = t; b.classList.remove('swap'); void b.offsetWidth; b.classList.add('swap');
+}
+
+function go(n) {
+  cur = Math.max(0, Math.min(N - 1, n));
+  steps.forEach((s, i) => s.classList.toggle('on', i === cur));
+  $('#bar').style.width = ((cur + 1) / N * 100) + '%';
+  $('#stepno').textContent = `${cur + 1} of ${N}`;
+  $('#skip').style.visibility = steps[cur].hasAttribute('data-q') ? 'visible' : 'hidden';
+  const L = LOOK[cur]; $('#art').style.setProperty('--bg', L.bg); $('#orbwrap').style.setProperty('--hue', L.hue);
+  const f = $('#face'); f.style.transform = 'scale(0) rotate(-40deg)'; setTimeout(() => { f.textContent = L.face; f.style.transform = ''; }, 250);
+  if (cur === 5) buildSummary();
+  renderCards(); renderBubble();
+  const focus = steps[cur].querySelector('input'); if (focus) setTimeout(() => focus.focus(), 400);
+}
+$$('[data-next]').forEach((b) => b.onclick = () => go(cur + 1));
+$$('[data-back]').forEach((b) => b.onclick = () => go(cur - 1));
+$('#skip').onclick = () => go(cur + 1);
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id !== 'other') go(cur + 1); });
+
+// ----- inputs
+$('#name').oninput = (e) => {
+  state.name = e.target.value.trim().replace(/\s+/g, ' ');
+  $('#hello').innerHTML = state.name ? `Nice to meet you,<br><b>${esc(state.name)}</b> <span class="wave">👋</span>` : 'What should I<br><b>call you?</b>';
+  renderCards(); renderBubble();
+};
+function toggler(sel, set, after) {
+  $$(sel).forEach((b) => b.onclick = () => {
+    const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on);
+    b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+    const v = b.dataset.v; if (set) { on ? set.add(v) : set.delete(v); }
+    (after || (() => {}))(); renderCards(); renderBubble();
+  });
+}
+toggler('#roles .chip', state.roles);
+toggler('#goals .goal', state.goals);
+toggler('#dist .chip', state.dist);
+toggler('#days .day', null);
+$('#start').oninput = (e) => { state.start = e.target.value || '09:00'; renderCards(); renderBubble(); };
+$('#bed').oninput = (e) => { state.bed = e.target.value || '23:00'; renderCards(); renderBubble(); };
+$('#other').onkeydown = (e) => {
+  if (e.key !== 'Enter') return; const v = e.target.value.trim(); if (!v) return;
+  const b = document.createElement('button'); b.className = 'chip'; b.dataset.v = v; b.style.setProperty('--c', 'var(--pink)');
+  b.setAttribute('aria-pressed', 'true'); b.innerHTML = `<span class="e">✳️</span>${esc(v)}`; $('#dist').appendChild(b);
+  state.dist.add(v); e.target.value = ''; toggler('#dist .chip', state.dist); b.classList.add('pop'); renderCards(); renderBubble();
+};
+
+function buildSummary() {
+  $('#readyh').innerHTML = `You're all set,<br><b>${esc(state.name || 'friend')}.</b>`;
+  const rows = [
+    ['🧑‍💻', 'var(--lav)', state.roles.size ? `You use this PC for <b>${[...state.roles].map((r) => $(`#roles [data-v="${r}"]`).textContent.trim()).join(', ')}</b>` : 'You do <b>a bit of everything</b>'],
+    ['🎯', 'var(--peach)', state.goals.size ? `I'll help with <b>${[...state.goals].map((g) => $(`#goals [data-v="${g}"] b`).textContent).join(', ')}</b>` : "I'll give <b>balanced</b> nudges"],
+    ['🌙', 'var(--sky)', `Deep work <b>${fmt(addH(state.start, 1))}–${fmt(addH(state.start, 3))}</b>, wind-down before <b>${fmt(state.bed)}</b>`],
+    ['👀', 'var(--pink)', state.dist.size ? `Gentle eye on <b>${[...state.dist].join(', ')}</b>` : 'No distraction watch-list (you can add one later)']
+  ];
+  $('#summary').innerHTML = rows.map(([i, c, t], k) => `<div class="sum" style="animation:rise .5s ${.1 + k * .08}s var(--ease) both"><i style="background:${c}">${i}</i><span>${t}</span></div>`).join('');
+}
+$('#finish').onclick = () => {
+  const colors = ['#C9BEFF', '#9FE3C0', '#FFD19A', '#FFB4BA', '#A9D3FA', '#171717'];
+  for (let i = 0; i < 70; i++) {
+    const c = document.createElement('span'); c.className = 'confetti';
+    c.style.left = Math.random() * 100 + '%'; c.style.background = colors[i % colors.length];
+    c.style.animationDelay = Math.random() * .6 + 's'; c.style.animationDuration = (2 + Math.random() * 1.6) + 's';
+    $('#art').appendChild(c); setTimeout(() => c.remove(), 4200);
+  }
+  $('#bubble').textContent = `Welcome aboard${state.name ? ', ' + state.name : ''}! Opening your dashboard…`;
+};
+
+go(0);
+</script>
+</body>
+</html>
