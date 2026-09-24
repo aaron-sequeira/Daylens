@@ -5,6 +5,7 @@ import { TitleBar } from './components/TitleBar';
 import { Rail, type Route } from './components/Rail';
 import { Consent } from './components/Consent';
 import { TodayScreen } from './components/TodayScreen';
+import { SettingsScreen } from './components/SettingsScreen';
 
 export default function App() {
   const [settings, setSettings] = useState<DaylensSettings | null>(null);
@@ -24,7 +25,7 @@ export default function App() {
       <TitleBar tracking={!settings.trackingPaused} />
       <div className={`shell${route === 'settings' ? ' wide' : ''}`}>
         <Rail route={route} onNavigate={setRoute} />
-        {route === 'today' ? <TodayScreen settings={settings} /> : <main />}
+        {route === 'today' ? <TodayScreen settings={settings} /> : <SettingsScreen settings={settings} onChange={setSettings} />}
       </div>
     </>
   );
