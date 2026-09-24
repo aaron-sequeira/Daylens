@@ -39,12 +39,13 @@ export function SettingsScreen({ settings, onChange, onRedo }: { settings: Dayle
   }, [settings.profileName, settings.profileRoles, settings.profileGoals, settings.profileDistractions, settings.windDownTime]);
 
   const saveName = async (): Promise<void> => {
-    if (!profile || nameDraft.trim().replace(/\s+/g, ' ') === profile.name) return;
+    const cleaned = nameDraft.replace(/\s+/g, ' ').trim(); // a pasted tab/newline would otherwise fail validation
+    if (!profile || cleaned === profile.name) return;
     let fresh: Profile | undefined;
     try {
       fresh = await api.profile.get();
-      onChange(await api.profile.save({ ...fresh, name: nameDraft }));
-      setProfile(fresh);
+      onChange(await api.profile.save({ ...fresh, name: cleaned }));
+      setProfile({ ...fresh, name: cleaned });
       setNameError(null);
     } catch (err) {
       console.error(err);
@@ -98,7 +99,7 @@ export function SettingsScreen({ settings, onChange, onRedo }: { settings: Dayle
           <input type="text" aria-label="Your name" placeholder="Your first name" maxLength={MAX_TEXT} value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)} onFocus={() => { nameFocused.current = true; }}
             onBlur={() => { nameFocused.current = false; void saveName(); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) (e.target as HTMLInputElement).blur(); }} />
         </div>
         {nameError && <p className="srow-error" role="alert">{nameError}</p>}
         <div className="srow">

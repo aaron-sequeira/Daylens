@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, type JSX, type KeyboardEvent } from 'react
 import type { DaylensSettings } from '../../main/settings';
 import { GOALS, MAX_DISTRACTIONS, MAX_TEXT, ROLES, type Profile } from '../../shared/profileOptions';
 import { api } from '../lib/api';
-import { bubbleFor, cardsFor, DISTRACTION_CHOICES, GOAL_INFO, ROLE_INFO, STEP_COUNT, summaryFor } from '../lib/onboardingContent';
+import { addDistraction, bubbleFor, cardsFor, DISTRACTION_CHOICES, GOAL_INFO, ROLE_INFO, STEP_COUNT, summaryFor, toggleDistraction } from '../lib/onboardingContent';
 import { OnboardingArt } from './OnboardingArt';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+const cleanName = (s: string): string => s.replace(/\s+/g, ' ').trim(); // a pasted tab/newline would fail validation
+const hasText = (list: string[], v: string): boolean => list.some((x) => x.toLowerCase() === v.toLowerCase());
 
 export function Onboarding({ mode, initial, onDone, onCancel }: {
   mode: 'first' | 'redo'; initial: Profile; onDone: (s: DaylensSettings) => void; onCancel?: () => void;
@@ -23,13 +25,18 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
   const last = STEP_COUNT - 1;
   const isQuestion = step >= 1 && step < last;
   const shown = { ...a, name: a.name.trim() };
+  // The coach bubble is aria-live: feed it the name only once it's committed (blur / step change / Enter),
+  // so screen readers don't re-announce it on every keystroke.
+  const [committedName, setCommittedName] = useState(() => cleanName(initial.name));
+  const commitName = (): void => setCommittedName(cleanName(a.name));
+  const art = step === 1 ? { ...shown, name: committedName } : shown;
 
-  const go = (n: number): void => { setError(null); setStep(Math.max(0, Math.min(last, n))); };
+  const go = (n: number): void => { commitName(); setError(null); setStep(Math.max(0, Math.min(last, n))); };
 
-  useEffect(() => { // move focus into the new step (first input, else its heading)
+  useEffect(() => { // move focus into the new step (first enabled input, else its heading)
     const el = stepRef.current;
     if (!el) return;
-    const target = el.querySelector<HTMLElement>('input') ?? el.querySelector<HTMLElement>('h1');
+    const target = el.querySelector<HTMLElement>('input:not([disabled])') ?? el.querySelector<HTMLElement>('h1');
     const t = setTimeout(() => target?.focus(), 350);
     return () => clearTimeout(t);
   }, [step]);
@@ -43,11 +50,21 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
   }, []);
 
   const addOther = (): void => {
-    const v = other.trim().replace(/\s+/g, ' ');
+    const v = other;
     setOther('');
-    if (!v || a.distractions.length >= MAX_DISTRACTIONS || a.distractions.some((d) => d.toLowerCase() === v.toLowerCase())) return;
-    setA({ ...a, distractions: [...a.distractions, v] });
+    setA((p) => ({ ...p, distractions: addDistraction(p.distractions, v) }));
   };
+
+  useEffect(() => { // Escape backs out of redo mode (never mid-save)
+    if (mode !== 'redo' || !onCancel) return;
+    const onEsc = (e: globalThis.KeyboardEvent): void => {
+      if (e.key !== 'Escape' || e.isComposing || saving) return;
+      e.preventDefault();
+      onCancel();
+    };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [mode, onCancel, saving]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     const t = e.target as HTMLElement;
@@ -61,7 +78,7 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
     setSaving(true);
     setError(null);
     try {
-      let s = await api.profile.save(a);
+      let s = await api.profile.save({ ...a, name: cleanName(a.name) });
       if (cancelled.current) return;
       if (mode === 'first') s = await api.consent.grant(); // consent only when onboarding is finished
       if (cancelled.current) return;
@@ -101,11 +118,12 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
         return (<>
           <p className="ob-kicker"><i style={{ background: 'var(--lav)' }}>👋</i>About you</p>
           <h1 tabIndex={-1}>{shown.name ? <>Nice to meet you,<br /><b>{shown.name}</b> <span className="ob-wave">👋</span></> : <>What should I<br /><b>call you?</b></>}</h1>
-          <div className="ob-field"><input aria-label="Your name" placeholder="Your first name" maxLength={MAX_TEXT} autoComplete="off" value={a.name} onChange={(e) => setA({ ...a, name: e.target.value })} /></div>
+          <div className="ob-field"><input aria-label="Your name" placeholder="Your first name" maxLength={MAX_TEXT} autoComplete="off" value={a.name}
+            onChange={(e) => { const v = e.target.value; setA((p) => ({ ...p, name: v })); }} onBlur={commitName} /></div>
           <p className="ob-label">What do you mostly use this PC for? <span>Pick any</span></p>
           <div className="ob-chips">
             {ROLES.map((r) => (
-              <button key={r} className="ob-chip" style={{ ['--c' as string]: ROLE_INFO[r].color }} aria-pressed={a.roles.includes(r)} onClick={() => setA({ ...a, roles: toggle(a.roles, r) })}>
+              <button key={r} className="ob-chip" style={{ ['--c' as string]: ROLE_INFO[r].color }} aria-pressed={a.roles.includes(r)} onClick={() => setA((p) => ({ ...p, roles: toggle(p.roles, r) }))}>
                 <span className="e">{ROLE_INFO[r].emoji}</span>{ROLE_INFO[r].label}
               </button>
             ))}
@@ -119,7 +137,7 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
           <h1 tabIndex={-1}>What should I<br /><b>help you with?</b></h1>
           <div className="ob-goals">
             {GOALS.map((g) => (
-              <button key={g} className="ob-goal" style={{ ['--c' as string]: GOAL_INFO[g].color }} aria-pressed={a.goals.includes(g)} onClick={() => setA({ ...a, goals: toggle(a.goals, g) })}>
+              <button key={g} className="ob-goal" style={{ ['--c' as string]: GOAL_INFO[g].color }} aria-pressed={a.goals.includes(g)} onClick={() => setA((p) => ({ ...p, goals: toggle(p.goals, g) }))}>
                 <span className="e">{GOAL_INFO[g].emoji}</span><b>{GOAL_INFO[g].title}</b><small>{GOAL_INFO[g].sub}</small>
               </button>
             ))}
@@ -139,14 +157,14 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
           </div>
           <div className="ob-sched">
             <div className="ob-tcard" style={{ background: 'var(--peach)' }}><span className="e">☀️</span><label htmlFor="ob-start">I usually start at</label>
-              <input id="ob-start" type="time" value={a.start} onChange={(e) => { if (e.target.value) setA({ ...a, start: e.target.value }); }} /></div>
+              <input id="ob-start" type="time" value={a.start} onChange={(e) => { const v = e.target.value; if (v) setA((p) => ({ ...p, start: v })); }} /></div>
             <div className="ob-tcard" style={{ background: 'var(--lav)' }}><span className="e">🌙</span><label htmlFor="ob-bed">I'd like to log off by</label>
-              <input id="ob-bed" type="time" value={a.bed} onChange={(e) => { if (e.target.value) setA({ ...a, bed: e.target.value }); }} /></div>
+              <input id="ob-bed" type="time" value={a.bed} onChange={(e) => { const v = e.target.value; if (v) setA((p) => ({ ...p, bed: v })); }} /></div>
           </div>
           <p className="ob-label">Days I'm usually on</p>
           <div className="ob-days">
             {DAYS.map((d, i) => (
-              <button key={d} className="ob-day" aria-label={d} aria-pressed={a.days.includes(i + 1)} onClick={() => setA({ ...a, days: toggle(a.days, i + 1).sort((x, y) => x - y) })}>{d[0]}</button>
+              <button key={d} className="ob-day" aria-label={d} aria-pressed={a.days.includes(i + 1)} onClick={() => setA((p) => ({ ...p, days: toggle(p.days, i + 1).sort((x, y) => x - y) }))}>{d[0]}</button>
             ))}
           </div>
           <p className="ob-why">💡 <span><b>Why I ask:</b> sets your wind-down reminder and tells me when focus matters most.</span></p>
@@ -159,14 +177,14 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
           <p className="lead" style={{ marginBottom: 14 }}>No judgement. I'll just keep a gentle eye on these for you.</p>
           <div className="ob-chips">
             {DISTRACTION_CHOICES.map((d) => (
-              <button key={d.label} className="ob-chip" style={{ ['--c' as string]: 'var(--pink)' }} aria-pressed={a.distractions.includes(d.label)}
-                disabled={!a.distractions.includes(d.label) && a.distractions.length >= MAX_DISTRACTIONS}
-                onClick={() => setA({ ...a, distractions: toggle(a.distractions, d.label) })}>
+              <button key={d.label} className="ob-chip" style={{ ['--c' as string]: 'var(--pink)' }} aria-pressed={hasText(a.distractions, d.label)}
+                disabled={!hasText(a.distractions, d.label) && a.distractions.length >= MAX_DISTRACTIONS}
+                onClick={() => setA((p) => ({ ...p, distractions: toggleDistraction(p.distractions, d.label) }))}>
                 <span className="e">{d.emoji}</span>{d.label}
               </button>
             ))}
-            {a.distractions.filter((d) => !DISTRACTION_CHOICES.some((c) => c.label === d)).map((d) => (
-              <button key={d} className="ob-chip" style={{ ['--c' as string]: 'var(--pink)' }} aria-pressed onClick={() => setA({ ...a, distractions: a.distractions.filter((x) => x !== d) })}>
+            {a.distractions.filter((d) => !hasText(DISTRACTION_CHOICES.map((c) => c.label), d)).map((d) => (
+              <button key={d} className="ob-chip" style={{ ['--c' as string]: 'var(--pink)' }} aria-pressed onClick={() => setA((p) => ({ ...p, distractions: p.distractions.filter((x) => x !== d) }))}>
                 <span className="e">✳️</span>{d}
               </button>
             ))}
@@ -206,7 +224,7 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
         </div>
         <section className="ob-step" key={step} ref={stepRef}>{body()}</section>
       </div>
-      <OnboardingArt step={step} cards={cardsFor(step, shown)} bubble={bubbleFor(step, shown)} celebrate={celebrate} />
+      <OnboardingArt step={step} cards={cardsFor(step, art)} bubble={bubbleFor(step, art)} celebrate={celebrate} />
     </div>
   );
 }
