@@ -37,9 +37,9 @@ export function TodayScreen({ settings }: { settings: DaylensSettings }) {
 
         {view.cards.length > 0 && (
           <div className="pills">
-            <button className={`pill${filter === 'all' ? ' on' : ''}`} onClick={() => setFilter('all')}><i><Icon name="all" /></i>All</button>
+            <button className={`pill${filter === 'all' ? ' on' : ''}`} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}><i><Icon name="all" /></i>All</button>
             {view.cards.map((c) => (
-              <button key={c.category} className={`pill${filter === c.category ? ' on' : ''}`} onClick={() => setFilter(c.category)}>
+              <button key={c.category} className={`pill${filter === c.category ? ' on' : ''}`} aria-pressed={filter === c.category} onClick={() => setFilter(c.category)}>
                 <i><Icon name={c.category} /></i>{CATEGORY_LABEL[c.category]}
               </button>
             ))}
