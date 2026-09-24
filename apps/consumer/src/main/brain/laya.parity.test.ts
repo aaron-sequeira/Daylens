@@ -8,7 +8,10 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const MODEL_DIR = process.env.LAYA_DIR ?? join(here, '../../../.models/laya');
 const ONNX = process.env.LAYA_ONNX ?? 'laya.onnx';
 const TOOLS = join(here, '../../../../../tools/laya');
-const have = existsSync(join(MODEL_DIR, ONNX)) && existsSync(join(TOOLS, 'golden.json'));
+// Opt-in: loads the 1.7 GB model. Runs only via `pnpm --filter @worksight/consumer test:parity` (pnpm sets
+// npm_lifecycle_event, so it works in cmd, PowerShell and Git Bash) or with LAYA_PARITY set; never in plain `pnpm test`.
+const optedIn = !!process.env.LAYA_PARITY || process.env.npm_lifecycle_event === 'test:parity';
+const have = optedIn && existsSync(join(MODEL_DIR, ONNX)) && existsSync(join(TOOLS, 'golden.json'));
 const json = <T>(p: string): T => JSON.parse(readFileSync(p, 'utf8')) as T;
 
 describe.skipIf(!have)(`Laya ONNX parity (${ONNX})`, () => {
