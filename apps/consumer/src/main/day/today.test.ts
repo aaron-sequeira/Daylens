@@ -90,6 +90,20 @@ describe('buildTodayView', () => {
     const v = view({ sessions: [session('Visual Studio Code', T(23, 50, 22), T(9), '2026-09-22')], samples: run(T(8), 60, 1) });
     expect(v.screenSec).toBe(3600);
   });
+
+  it('does not count sleep as screen time (lid closed 22:59 with a session open, opened 07:00)', () => {
+    const lidClosed = T(22, 59, 22);
+    // what the tracker wrote on wake: one "active" bucket spanning the whole night, dated today
+    const overnight = { ...run(lidClosed, 1, 1)[0], bucketEnd: T(7) };
+    const days = emptyWeek();
+    const vscode = session('Visual Studio Code', T(22, 30, 22), null, '2026-09-22');
+    days[5] = { date: '2026-09-22', sessions: [vscode], samples: run(T(22, 30, 22), 29, 1).map((x) => ({ ...x, date: '2026-09-22' })) };
+    const v = buildTodayView([...days, { date: DATE, sessions: [vscode], samples: [overnight, ...run(T(7), 5, 1)] }], settings, T(7, 5));
+    expect(v.screenSec).toBe(5 * 60);
+    expect(v.activeSec).toBe(5 * 60);
+    expect(v.health.score).toBe(100);
+    expect(v.week[5].seconds).toBe(29 * 60); // yesterday: 22:30 -> 22:59, not up to midnight
+  });
 });
 
 describe('loadTodayView', () => {

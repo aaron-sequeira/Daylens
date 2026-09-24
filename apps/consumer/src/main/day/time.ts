@@ -3,8 +3,14 @@ import { localDate } from '@worksight/core/date';
 
 export interface Interval { start: number; end: number; }
 export const GAP_TOLERANCE_MS = 5_000; // buckets closer than this are contiguous
+/** A real bucket is ~60 s. One longer than 3 buckets is a flush that spanned sleep/suspend (or a
+ * missed suspend event): it says nothing about the time it covers, so it counts as rest, never as active. */
+export const MAX_SAMPLE_MS = 3 * 60_000;
+export const isOversized = (s: ActivitySampleRow): boolean => s.bucketEnd - s.bucketStart > MAX_SAMPLE_MS;
+/** Bucket that really had input: active and not an oversized sleep-spanning flush. */
+export const isActiveSample = (s: ActivitySampleRow): boolean => s.active === 1 && !isOversized(s);
 
-/** Periods without input: inactive buckets plus gaps between buckets (PC asleep / tracker off), merged. */
+/** Periods without input: inactive or oversized buckets plus gaps between buckets (PC asleep / tracker off), merged. */
 export function restPeriods(samples: ActivitySampleRow[]): Interval[] {
   const out: Interval[] = [];
   const push = (r: Interval): void => {
@@ -15,7 +21,7 @@ export function restPeriods(samples: ActivitySampleRow[]): Interval[] {
   let prevEnd: number | null = null;
   for (const s of [...samples].sort((a, b) => a.bucketStart - b.bucketStart)) {
     if (prevEnd !== null && s.bucketStart - prevEnd > GAP_TOLERANCE_MS) push({ start: prevEnd, end: s.bucketStart });
-    if (s.active === 0) push({ start: s.bucketStart, end: s.bucketEnd });
+    if (!isActiveSample(s)) push({ start: s.bucketStart, end: s.bucketEnd });
     prevEnd = Math.max(prevEnd ?? s.bucketEnd, s.bucketEnd);
   }
   return out;

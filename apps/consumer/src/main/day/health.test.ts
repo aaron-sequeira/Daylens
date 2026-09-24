@@ -35,6 +35,18 @@ describe('computeHealth', () => {
     expect(computeHealth({ ...base, samples: run(T(23, 30), 10, 0), screenSec: 0 }).lateNight).toBe(false);
     expect(computeHealth({ ...base, samples: run(T(21), 10, 1), screenSec: 600 }).lateNight).toBe(false);
   });
+  it('treats a wind-down time after midnight as the start of late night, not the whole day', () => {
+    const late = { ...base, windDownTime: '00:30' };
+    expect(computeHealth({ ...late, samples: run(T(14), 10, 1), screenSec: 600 }).lateNight).toBe(false);
+    expect(computeHealth({ ...late, samples: run(T(23, 30), 10, 1), screenSec: 600 }).lateNight).toBe(false);
+    expect(computeHealth({ ...late, samples: run(T(1), 10, 1), screenSec: 600 }).lateNight).toBe(true);
+    expect(computeHealth({ ...late, samples: run(T(0, 10), 10, 1), screenSec: 600 }).lateNight).toBe(false);
+  });
+  it('does not let an overnight sleep bucket wreck health (lid closed 22:59, opened 07:00)', () => {
+    const overnight = { ...run(new Date(2026, 8, 22, 22, 59).getTime(), 1, 1)[0], bucketEnd: T(7) };
+    const h = computeHealth({ ...base, samples: [overnight, ...run(T(7), 5, 1)], screenSec: 300 });
+    expect(h).toEqual({ score: 100, breaks: 1, expectedBreaks: 0, longestStretchSec: 300, lateNight: false });
+  });
   it('caps the over-goal penalty at 20 points', () => {
     const h = computeHealth({ ...base, dailyGoalMin: 60, samples: run(T(10), 30, 1), screenSec: 5 * 3600 });
     expect(h.score).toBe(80);

@@ -1,7 +1,7 @@
 import type { Repositories } from '@worksight/core';
 import type { ActivitySampleRow, FocusSessionRow, ISODate } from '@worksight/core/types';
 import { CATEGORIES, categoryForApp, type Category } from '../../shared/categories';
-import { atLeast, clip, dayBounds, restPeriods, sessionInterval, shiftDate, subtract, type Interval } from './time';
+import { atLeast, clip, dayBounds, isActiveSample, restPeriods, sessionInterval, shiftDate, subtract, type Interval } from './time';
 import { computeHealth, type Health } from './health';
 
 // ponytail: no input for >= 10 min counts as "away" even with a window focused (also drops input-free video).
@@ -35,7 +35,11 @@ function dayPieces(day: DayInput, currentId: number | null, now: number): Piece[
   // Rest before the day's first sample is invisible to restPeriods (it only sees gaps between
   // samples) — add it explicitly so a session open overnight doesn't count that dead stretch.
   const lead = day.samples.length ? { start: bounds.start, end: Math.min(...day.samples.map((s) => s.bucketStart)) } : null;
-  const away = atLeast(lead && lead.end > lead.start ? [...rest, lead] : rest, AWAY_MS);
+  // Same after the last sample: no buckets means the tracker wasn't running (asleep/off), e.g. a session left
+  // open when the lid closed before midnight. Capped at `now`, so today's in-progress bucket is unaffected.
+  const trail = day.samples.length ? { start: Math.max(...day.samples.map((s) => s.bucketEnd)), end: Math.min(bounds.end, now) } : null;
+  const edges = [lead, trail].filter((e): e is Interval => !!e && e.end > e.start);
+  const away = atLeast([...rest, ...edges], AWAY_MS);
   const sorted = [...day.sessions].sort((a, b) => a.startedAt - b.startedAt);
   const pieces: Piece[] = [];
   sorted.forEach((s) => {
@@ -94,7 +98,7 @@ export function buildTodayView(days: DayInput[], settings: ViewSettings, now: nu
     : null;
   const pieces = dayPieces(today, currentId, now);
   const screenSec = sec(totalMs(pieces));
-  const activeSec = sec(today.samples.filter((s) => s.active === 1).reduce((a, s) => a + (s.bucketEnd - s.bucketStart), 0));
+  const activeSec = sec(today.samples.filter(isActiveSample).reduce((a, s) => a + (s.bucketEnd - s.bucketStart), 0));
   return {
     date: today.date, now, screenSec, activeSec, goalSec: settings.dailyGoalMin * 60,
     firstSeenAt: pieces.length ? Math.min(...pieces.map((p) => p.start)) : null,

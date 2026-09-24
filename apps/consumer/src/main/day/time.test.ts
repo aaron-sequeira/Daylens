@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ActivitySampleRow, FocusSessionRow } from '@worksight/core/types';
-import { restPeriods, atLeast, subtract, clip, dayBounds, shiftDate, sessionInterval } from './time';
+import { restPeriods, MAX_SAMPLE_MS, atLeast, subtract, clip, dayBounds, shiftDate, sessionInterval } from './time';
 
 const MIN = 60_000;
 const T = (h: number, m = 0): number => new Date(2026, 8, 23, h, m).getTime();
@@ -18,6 +18,15 @@ describe('restPeriods', () => {
   it('treats a gap between buckets (PC asleep, tracker off) as rest and merges it with adjacent inactivity', () => {
     const s = [...run(T(10), 2, 1), ...run(T(10, 2), 1, 0), ...run(T(11), 2, 1)];
     expect(restPeriods(s)).toEqual([{ start: T(10, 2), end: T(11) }]);
+  });
+  it('treats an oversized "active" bucket (one flush spanning sleep) as rest', () => {
+    expect(MAX_SAMPLE_MS).toBe(3 * MIN);
+    const lidClosed = new Date(2026, 8, 22, 22, 59).getTime();
+    const overnight: ActivitySampleRow = { ...sample(lidClosed, 1), bucketEnd: T(7) };
+    const s = [...run(lidClosed - 5 * MIN, 5, 1), overnight, ...run(T(7), 5, 1)];
+    expect(restPeriods(s)).toEqual([{ start: lidClosed, end: T(7) }]);
+    // a bucket of exactly 3 minutes is still a real (slightly late) bucket
+    expect(restPeriods([{ ...sample(T(10), 1), bucketEnd: T(10, 3) }])).toEqual([]);
   });
   it('is order-independent and empty for no samples', () => {
     expect(restPeriods([])).toEqual([]);
