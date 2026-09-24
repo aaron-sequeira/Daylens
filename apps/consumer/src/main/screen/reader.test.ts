@@ -124,6 +124,16 @@ describe('screen reader', () => {
     const result = await r.tick();
     expect(result).not.toBe('skipped-same');
   });
+
+  it('discards a capture when exclusion is added during capture', async () => {
+    const r = createScreenReader({
+      ocr: { capture: async () => { settings = { ...settings, exclusions: JSON.stringify([...JSON.parse(settings.exclusions), 'Visual Studio Code']) }; return cap; } },
+      foreground: { get: async () => fg },
+      settings: () => settings, idleSec: () => idle, store, now: () => now
+    });
+    await expect(r.tick()).resolves.toBe('discarded');
+    expect(store.last()).toBeNull();
+  });
 });
 
 describe('runRetention', () => {
