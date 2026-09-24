@@ -14,8 +14,6 @@ button { font: inherit; color: inherit; }
 @keyframes grow { from { transform: scaleX(0); } }
 @keyframes growy { from { transform: scaleY(0); } }
 @keyframes ring { from { stroke-dashoffset: 201px; } to { stroke-dashoffset: var(--to); } }
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes bob { 50% { transform: translateY(-10px); } }
 
 /* title bar: the right ~140px belongs to the native Windows buttons (titleBarOverlay) */
 .titlebar { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 150px 0 18px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--line); -webkit-app-region: drag; user-select: none; }
@@ -93,12 +91,6 @@ button { font: inherit; color: inherit; }
 .bar.today .stack { outline: 2px solid var(--ink); outline-offset: 2px; }
 .bar.today span { background: var(--ink); color: #fff; border-radius: 5px; padding: 1px 6px; }
 
-/* consent (onboarding step 1 look) */
-.consent { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - 40px); }
-.consent-l { padding: 56px 56px 44px; display: flex; flex-direction: column; overflow-y: auto; }
-.consent-l > * { animation: rise .55s var(--ease) both; }
-.consent-l h1 { font-weight: 400; font-size: 52px; letter-spacing: -.025em; line-height: 1.05; margin: 20px 0 14px; }
-.consent-l h1 b { font-weight: 600; }
 .lead { font-size: 15px; color: #4B4642; line-height: 1.55; margin-bottom: 22px; max-width: 460px; }
 .promise { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
 .promise div { display: flex; gap: 12px; align-items: center; font-size: 14px; line-height: 1.4; }
@@ -106,10 +98,6 @@ button { font: inherit; color: inherit; }
 .btn { border: 0; border-radius: 999px; padding: 12px 22px; font-weight: 600; font-size: 14px; cursor: pointer; background: var(--ink); color: #fff; transition: transform .25s var(--spring); width: max-content; }
 .btn:hover { transform: scale(1.04); }
 .btn.s { background: var(--white); color: var(--ink); border: 1px solid var(--line); }
-.consent-r { margin: 14px; border-radius: 22px; position: relative; overflow: hidden; display: grid; place-items: center; background: var(--mint); }
-.orb { width: 260px; height: 260px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, rgba(255, 255, 255, 0) 60%), conic-gradient(from 0deg, var(--lav), var(--mint), var(--peach), var(--pink), var(--lav)); animation: spin 18s linear infinite; }
-.float { position: absolute; background: var(--white); border-radius: 16px; padding: 10px 14px; font-size: 12.5px; box-shadow: 0 14px 30px -16px rgba(0, 0, 0, .3); animation: bob 5s ease-in-out infinite; }
-.float b { display: block; font-size: 15px; }
 
 /* settings */
 .settings { overflow-y: auto; padding: 6px 6px 20px; max-width: 760px; }

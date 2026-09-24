@@ -5,7 +5,7 @@ import { formatHm } from '../lib/format';
 
 const GOAL_DEBOUNCE_MS = 300;
 
-export function SettingsScreen({ settings, onChange }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void }) {
+export function SettingsScreen({ settings, onChange }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void; onRedo: () => void }) {
   const save = async (patch: SettingsPatch): Promise<void> => {
     try {
       onChange(await api.settings.set(patch));
