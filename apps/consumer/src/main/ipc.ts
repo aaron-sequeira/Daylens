@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { KvStore, Repositories, Tracker } from '@worksight/core';
 import { CH } from './channels';
 import { settingsPatch, type DaylensSettings } from './settings';
+import { profileInput, readProfile, toSettingsPatch } from './profile';
 import { loadTodayView } from './day/today';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
@@ -29,6 +30,12 @@ export function registerIpc(d: IpcDeps): void {
     d.onSettingsChanged();
     if (!d.settings.get().trackingPaused) d.tracker.start();
     return d.settings.get();
+  });
+  ipcMain.handle(CH.profileGet, () => readProfile(d.settings.get()));
+  ipcMain.handle(CH.profileSave, (_e, raw) => {
+    const next = d.settings.set(toSettingsPatch(profileInput.parse(raw)));
+    d.onSettingsChanged();
+    return next;
   });
   ipcMain.handle(CH.trackingStatus, () => d.tracker.status());
   ipcMain.handle(CH.trackingSet, (_e, raw) => { d.setTracking(z.boolean().parse(raw)); return d.tracker.status(); });

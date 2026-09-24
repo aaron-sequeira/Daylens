@@ -10,7 +10,13 @@ export const DEFAULT_SETTINGS = {
   dailyGoalMin: 420,
   windDownTime: '23:00',
   breakIntervalMin: 50,
-  openAtLogin: true
+  openAtLogin: true,
+  profileName: '',
+  profileRoles: '[]',
+  profileGoals: '[]',
+  profileStart: '09:00',
+  profileDays: '[1,2,3,4,5]',
+  profileDistractions: '[]'
 };
 export type DaylensSettings = typeof DEFAULT_SETTINGS;
 
