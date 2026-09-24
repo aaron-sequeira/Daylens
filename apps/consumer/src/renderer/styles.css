@@ -169,7 +169,7 @@ button { font: inherit; color: inherit; }
 .ob-goal[aria-pressed="true"]::after { content: "✓"; position: absolute; top: 10px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; display: grid; place-items: center; animation: ob-pop .45s var(--spring); }
 .ob-arc { max-width: 520px; height: 74px; margin: 2px 0 8px; }
 .ob-arc svg { width: 100%; height: 100%; overflow: visible; }
-.ob-sun { animation: ob-sun 6s ease-in-out infinite alternate; }
+.ob-sun { offset-distance: 50%; animation: ob-sun 6s ease-in-out infinite alternate; }
 .ob-sched { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 520px; margin-bottom: 14px; }
 .ob-tcard { border-radius: 22px; padding: 16px 18px; }
 .ob-tcard .e { font-size: 22px; }
@@ -195,7 +195,7 @@ button { font: inherit; color: inherit; }
 .ob-blob.b2 { width: 300px; height: 300px; right: -80px; bottom: -60px; background: var(--peach); animation-duration: 17s; }
 .ob-blob.b3 { width: 200px; height: 200px; right: 40px; top: 30px; background: var(--pink); animation-duration: 12s; }
 .ob-blob.b4 { width: 220px; height: 220px; left: 30px; bottom: 10px; background: var(--sky); animation-duration: 19s; }
-.ob-ring { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1.5px dashed rgba(23, 23, 23, .12); animation: ob-ringspin 80s linear infinite; }
+.ob-ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; border: 1.5px dashed rgba(23, 23, 23, .12); animation: ob-ringspin 80s linear infinite; }
 .ob-ring.r1 { width: 380px; height: 380px; }
 .ob-ring.r2 { width: 560px; height: 560px; animation-direction: reverse; animation-duration: 120s; }
 .ob-orbwrap { position: absolute; left: 50%; top: 50%; width: 230px; height: 230px; transform: translate(-50%, -50%); filter: hue-rotate(var(--hue, 0deg)); transition: filter 1.2s var(--ease); }
@@ -204,7 +204,7 @@ button { font: inherit; color: inherit; }
 .ob-face { position: absolute; inset: 0; display: grid; place-items: center; font-size: 44px; animation: ob-bob 4s ease-in-out infinite; }
 .ob-face span { display: inline-block; animation: ob-facein .5s var(--spring) both; }
 .ob-center { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
-.ob-orbit { position: absolute; left: 0; top: 0; animation: ob-orbit var(--d, 80s) linear infinite; }
+.ob-orbit { position: absolute; left: 0; top: 0; transform: rotate(var(--a)) translateX(var(--r)) rotate(calc(-1 * var(--a))); animation: ob-orbit var(--d, 80s) linear infinite; }
 .ob-fcard { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; background: #fff; border-radius: 16px; padding: 9px 13px; font-size: 12.5px; box-shadow: 0 16px 30px -18px rgba(0, 0, 0, .35); display: flex; align-items: center; gap: 8px; animation: ob-cardin .7s var(--spring) both, ob-float 5s ease-in-out infinite; animation-delay: var(--in, 0s), var(--fl, 0s); }
 .ob-fcard i { font-style: normal; width: 26px; height: 26px; border-radius: 9px; display: grid; place-items: center; background: var(--c, var(--panel)); font-size: 13px; }
 .ob-fcard.tint { background: var(--c); }
