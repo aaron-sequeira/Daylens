@@ -1,12 +1,61 @@
+import { useEffect, useRef, useState } from 'react';
 import type { DaylensSettings, SettingsPatch } from '../../main/settings';
 import { api } from '../lib/api';
 import { formatHm } from '../lib/format';
 
+const GOAL_DEBOUNCE_MS = 300;
+
 export function SettingsScreen({ settings, onChange }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void }) {
-  const save = async (patch: SettingsPatch): Promise<void> => onChange(await api.settings.set(patch));
+  const save = async (patch: SettingsPatch): Promise<void> => {
+    try {
+      onChange(await api.settings.set(patch));
+    } catch (err) {
+      console.error(err);
+      try { onChange(await api.settings.get()); } catch { /* stale UI beats a throw */ }
+    }
+  };
   const toggleTracking = async (): Promise<void> => {
-    await api.tracking.set(settings.trackingPaused);
-    onChange(await api.settings.get());
+    try {
+      await api.tracking.set(settings.trackingPaused);
+      onChange(await api.settings.get());
+    } catch (err) {
+      console.error(err);
+      try { onChange(await api.settings.get()); } catch { /* stale UI beats a throw */ }
+    }
+  };
+
+  // Local draft for the goal slider: updates live while dragging, and only
+  // reaches disk (via `save`, which round-trips IPC + SQLite) after a short
+  // pause, so dragging doesn't flood the main process with writes.
+  const [goalHours, setGoalHours] = useState(settings.dailyGoalMin / 60);
+  const goalHoursRef = useRef(goalHours);
+  goalHoursRef.current = goalHours;
+  const goalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const goalPending = useRef(false);
+
+  useEffect(() => {
+    if (!goalPending.current) setGoalHours(settings.dailyGoalMin / 60);
+  }, [settings.dailyGoalMin]);
+
+  useEffect(() => () => {
+    if (goalTimer.current) {
+      clearTimeout(goalTimer.current);
+      goalTimer.current = null;
+      goalPending.current = false;
+      void save({ dailyGoalMin: Math.round(goalHoursRef.current * 60) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const commitGoal = (hours: number): void => {
+    setGoalHours(hours);
+    goalPending.current = true;
+    if (goalTimer.current) clearTimeout(goalTimer.current);
+    goalTimer.current = setTimeout(() => {
+      goalTimer.current = null;
+      goalPending.current = false;
+      void save({ dailyGoalMin: Math.round(hours * 60) });
+    }, GOAL_DEBOUNCE_MS);
   };
 
   return (
@@ -32,9 +81,9 @@ export function SettingsScreen({ settings, onChange }: { settings: DaylensSettin
       <div className="grp" style={{ animationDelay: '.08s' }}>
         <h4>Goals & health</h4>
         <div className="srow">
-          <p>Daily screen-time goal: <b>{formatHm(settings.dailyGoalMin * 60)}</b><small>Your health score drops as you go past it.</small></p>
-          <input type="range" min={2} max={12} step={0.5} value={settings.dailyGoalMin / 60} aria-label="Daily screen-time goal in hours"
-            onChange={(e) => void save({ dailyGoalMin: Math.round(Number(e.target.value) * 60) })} />
+          <p>Daily screen-time goal: <b>{formatHm(Math.round(goalHours * 60) * 60)}</b><small>Your health score drops as you go past it.</small></p>
+          <input type="range" min={2} max={12} step={0.5} value={goalHours} aria-label="Daily screen-time goal in hours"
+            onChange={(e) => commitGoal(Number(e.target.value))} />
         </div>
         <div className="srow">
           <p>Wind down after<small>Screen use after this time (or before 5 am) counts as late-night use.</small></p>
