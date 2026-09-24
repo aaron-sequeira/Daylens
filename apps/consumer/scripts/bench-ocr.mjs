@@ -6,6 +6,27 @@ import { fileURLToPath } from 'node:url';
 
 const RUNS = 20;
 const helper = fileURLToPath(new URL('../resources/ocr-helper.ps1', import.meta.url));
+
+if (process.argv[2] === 'capture') {
+  // Captures whatever window is in front. Prints METADATA ONLY (never the OCR text: it may be private).
+  const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helper], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const lines = createInterface({ input: p.stdout });
+  const next = () => new Promise((res) => lines.once('line', (l) => res(JSON.parse(l))));
+  console.log('ready', await next());
+  const walls = [];
+  for (let i = 0; i < 10; i++) {
+    const s = Date.now();
+    p.stdin.write(`${i} CAPTURE\n`);
+    const r = await next();
+    walls.push(Date.now() - s);
+    console.log(r.error ? `#${i} error=${r.error}` : `#${i} pid=${r.pid} ${r.w}x${r.h} chars=${r.text.length} titleChars=${r.title.length} helperMs=${r.ms}`);
+  }
+  p.stdin.end();
+  walls.sort((a, b) => a - b);
+  console.log(`median ${walls[5]} ms, max ${walls[9]} ms`);
+  process.exit(0);
+}
+
 const capture = [
   'Add-Type -AssemblyName System.Windows.Forms,System.Drawing',
   '$b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds',
