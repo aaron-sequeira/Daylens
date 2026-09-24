@@ -26,6 +26,7 @@ export function registerIpc(d: IpcDeps): void {
   });
   ipcMain.handle(CH.consentGrant, () => {
     d.settings.set({ consentGranted: true });
+    d.onSettingsChanged();
     if (!d.settings.get().trackingPaused) d.tracker.start();
     return d.settings.get();
   });

@@ -76,7 +76,8 @@ if (!app.requestSingleInstanceLock()) {
     }
     const applyLoginItem = (): void => {
       // Only the packaged app registers itself; in dev this would register electron.exe.
-      if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: settings.get().openAtLogin, args: ['--hidden'] });
+      const s = settings.get();
+      if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: s.consentGranted && s.openAtLogin, args: ['--hidden'] });
     };
 
     registerIpc({ repo, settings, tracker, setTracking, onSettingsChanged: applyLoginItem, now: () => Date.now() });
