@@ -93,9 +93,18 @@ function init(pillApi: PillApi): void {
     cards.forEach((c) => {
       const r = byId.get(c.n.id);
       if (!r) return; // fading (done) card: leave its classes alone
+      const wasOpen = c.el.classList.contains('open');
       c.el.classList.toggle('behind', r.depth > 0);
       c.el.classList.toggle('b2', r.depth > 1);
       c.el.classList.toggle('open', r.open);
+      if (r.open && !wasOpen && c.openReady) {
+        // Newly open (promoted to front, or just opened): repaint the bar from the
+        // CURRENT remaining time, not the stale --left/--dur from its last arm/pause.
+        // If it's running, pause+resume to fold the elapsed time in first — otherwise
+        // its already-frozen remainingMs is current as-is.
+        if (c.autoHide.running) { pauseAutoHide(c); resumeAutoHide(c); }
+        else paintBar(c);
+      }
     });
     const live = cards.filter((c) => !c.done);
     const front = live[live.length - 1];
