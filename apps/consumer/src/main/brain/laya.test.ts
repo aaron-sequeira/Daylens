@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderOptions, buildSequence, tempBucket, toAnswer, layaState, type LayaMeta, type TokenEncoder } from './laya';
+import { renderOptions, buildSequence, tempBucket, toAnswer, layaState, sessionOptions, type LayaMeta, type TokenEncoder } from './laya';
 
 const meta: LayaMeta = {
   max_len: 40, head_max_len: 24, temperature: [1, 1, 1], temperature_by_options: {},
@@ -73,5 +73,14 @@ describe('layaState', () => {
     expect(layaState('Code', null, null)).toBe('App: Code\nWindow: \nScreen text: ');
     expect(layaState('C', 't', 'x'.repeat(2000)).endsWith('x'.repeat(1500))).toBe(true);
     expect(layaState('C', 't', 'x'.repeat(2000))).toHaveLength('App: C\nWindow: t\nScreen text: '.length + 1500);
+  });
+});
+
+describe('sessionOptions', () => {
+  it('uses half the logical CPUs (at least 1) for intra-op work and a single inter-op thread', () => {
+    expect(sessionOptions(8)).toEqual({ intraOpNumThreads: 4, interOpNumThreads: 1 });
+    expect(sessionOptions(7)).toEqual({ intraOpNumThreads: 3, interOpNumThreads: 1 });
+    expect(sessionOptions(1)).toEqual({ intraOpNumThreads: 1, interOpNumThreads: 1 });
+    expect(sessionOptions(0)).toEqual({ intraOpNumThreads: 1, interOpNumThreads: 1 });
   });
 });

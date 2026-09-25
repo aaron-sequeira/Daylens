@@ -3,6 +3,7 @@
 // laya.parity.test.ts checks it against tools/laya/{sequences,golden}.json.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { cpus } from 'node:os';
 
 export type LayaQuestion =
   | { type: 'choice'; instructions: string; criteria: Record<string, string | null> | string[] }
@@ -87,6 +88,11 @@ export function layaState(app: string, title: string | null, text: string | null
   return `App: ${app}\nWindow: ${title ?? ''}\nScreen text: ${(text ?? '').slice(0, 1500)}`;
 }
 
+/** Leave half the CPUs to the user: labelling is background work. */
+export function sessionOptions(cpuCount = cpus().length): { intraOpNumThreads: number; interOpNumThreads: number } {
+  return { intraOpNumThreads: Math.max(1, Math.floor(cpuCount / 2)), interOpNumThreads: 1 };
+}
+
 export interface LayaRunner { ask(state: string, questions: Record<string, LayaQuestion>): Promise<Record<string, LayaAnswer>> }
 
 export async function loadLaya(dir: string, onnxFile = 'laya.onnx'): Promise<LayaRunner> {
@@ -95,7 +101,7 @@ export async function loadLaya(dir: string, onnxFile = 'laya.onnx'): Promise<Lay
   const tok = new PreTrainedTokenizer(read('tokenizer.json') as object, read('tokenizer_config.json') as object);
   const enc: TokenEncoder = { encode: (t) => tok.encode(t, { add_special_tokens: false }) as number[] };
   const meta = read('laya-meta.json') as LayaMeta;
-  const session = await ort.InferenceSession.create(join(dir, onnxFile));
+  const session = await ort.InferenceSession.create(join(dir, onnxFile), sessionOptions());
 
   return {
     async ask(state, questions) {
