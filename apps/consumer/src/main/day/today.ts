@@ -1,6 +1,7 @@
 import type { Repositories } from '@worksight/core';
 import type { ActivitySampleRow, FocusSessionRow, ISODate } from '@worksight/core/types';
 import { CATEGORIES, categoryForApp, type Category } from '../../shared/categories';
+import type { DayLabel } from '../screen/labels';
 import { atLeast, clip, dayBounds, isActiveSample, restPeriods, sessionInterval, shiftDate, subtract, type Interval } from './time';
 import { computeHealth, type Health } from './health';
 
@@ -10,7 +11,7 @@ export const AWAY_MS = 10 * 60_000;
 const NOT_SCREEN = /^lockapp(\.exe)?$/i; // Windows lock screen
 const TIMELINE_JOIN_MS = 60_000;
 
-export interface DayInput { date: ISODate; sessions: FocusSessionRow[]; samples: ActivitySampleRow[]; }
+export interface DayInput { date: ISODate; sessions: FocusSessionRow[]; samples: ActivitySampleRow[]; labels?: DayLabel[]; }
 export interface ViewSettings { dailyGoalMin: number; windDownTime: string; breakIntervalMin: number; }
 export interface AppTime { appName: string; seconds: number; }
 export interface CategoryCard { category: Category; seconds: number; apps: AppTime[]; }
@@ -25,6 +26,20 @@ interface Piece extends Interval { appName: string; category: Category; }
 
 const sec = (ms: number): number => Math.round(ms / 1000);
 const zeroByCategory = (): Record<Category, number> => Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<Category, number>;
+
+/** Most frequent confident Laya category among this app's reads inside [start, end); null when there are none. */
+function labelCategory(labels: DayLabel[] | undefined, appName: string, start: number, end: number): Category | null {
+  if (!labels?.length) return null;
+  const counts = new Map<Category, number>();
+  for (const l of labels) {
+    if (l.appName !== appName || l.at < start || l.at >= end || !(CATEGORIES as readonly string[]).includes(l.category)) continue;
+    counts.set(l.category as Category, (counts.get(l.category as Category) ?? 0) + 1);
+  }
+  let best: Category | null = null;
+  let n = 0;
+  for (const c of CATEGORIES) { const k = counts.get(c) ?? 0; if (k > n) { best = c; n = k; } }
+  return best;
+}
 
 /** On-screen pieces of the day: sessions clipped to the day, minus lock screen and away periods.
  * `currentId` is the id of the single globally-latest session (across the shown day only) — only
@@ -46,8 +61,8 @@ function dayPieces(day: DayInput, currentId: number | null, now: number): Piece[
     if (NOT_SCREEN.test(s.appName.trim())) return;
     const iv = clip(sessionInterval(s, s.id === currentId, now), bounds.start, bounds.end);
     if (!iv) return;
-    const category = categoryForApp(s.appName);
-    for (const p of subtract(iv, away)) pieces.push({ ...p, appName: s.appName, category });
+    const fallback = categoryForApp(s.appName);
+    for (const p of subtract(iv, away)) pieces.push({ ...p, appName: s.appName, category: labelCategory(day.labels, s.appName, p.start, p.end) ?? fallback });
   });
   return pieces;
 }
@@ -109,11 +124,11 @@ export function buildTodayView(days: DayInput[], settings: ViewSettings, now: nu
   };
 }
 
-export function loadTodayView(repo: Repositories, settings: ViewSettings, date: ISODate, now: number): TodayView {
+export function loadTodayView(repo: Repositories, settings: ViewSettings, date: ISODate, now: number, labelsFor: (date: ISODate) => DayLabel[] = () => []): TodayView {
   const days: DayInput[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = shiftDate(date, -i);
-    days.push({ date: d, sessions: [...repo.getFocusSessions(shiftDate(d, -1)), ...repo.getFocusSessions(d)], samples: repo.getActivitySamples(d) });
+    days.push({ date: d, sessions: [...repo.getFocusSessions(shiftDate(d, -1)), ...repo.getFocusSessions(d)], samples: repo.getActivitySamples(d), labels: labelsFor(d) });
   }
   return buildTodayView(days, settings, now);
 }

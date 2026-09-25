@@ -17,8 +17,8 @@ const run = (from: number, minutes: number, active: 0 | 1): ActivitySampleRow[] 
   Array.from({ length: minutes }, (_, i) => ({
     id: 0, bucketStart: from + i * MIN, bucketEnd: from + (i + 1) * MIN, mouseMoves: 0, mouseDistancePx: 0, clicks: 0, scrolls: 0, keyEvents: 0, active, appName: null, date: DATE
   }));
-const emptyWeek = (): DayInput[] => ['17', '18', '19', '20', '21', '22'].map((d) => ({ date: `2026-09-${d}`, sessions: [], samples: [] }));
-const view = (today: Omit<DayInput, 'date'>, now = T(18)) => buildTodayView([...emptyWeek(), { date: DATE, ...today }], settings, now);
+const emptyWeek = (): DayInput[] => ['17', '18', '19', '20', '21', '22'].map((d) => ({ date: `2026-09-${d}`, sessions: [], samples: [], labels: [] }));
+const view = (today: Omit<DayInput, 'date'>, now = T(18)) => buildTodayView([...emptyWeek(), { date: DATE, ...today, labels: today.labels ?? [] }], settings, now);
 
 describe('buildTodayView', () => {
   it('renders an empty first day as zeros with no NaN', () => {
@@ -103,6 +103,30 @@ describe('buildTodayView', () => {
     expect(v.activeSec).toBe(5 * 60);
     expect(v.health.score).toBe(100);
     expect(v.week[5].seconds).toBe(29 * 60); // yesterday: 22:30 -> 22:59, not up to midnight
+  });
+
+  it('uses the most frequent confident Laya category for a session piece', () => {
+    const v = view({
+      sessions: [session('Google Chrome', T(9), T(10))],
+      samples: run(T(9), 60, 1),
+      labels: [
+        { at: T(9, 5), appName: 'Google Chrome', category: 'social' },
+        { at: T(9, 20), appName: 'Google Chrome', category: 'social' },
+        { at: T(9, 40), appName: 'Google Chrome', category: 'learning' },
+        { at: T(9, 50), appName: 'Discord', category: 'entertainment' }
+      ]
+    });
+    expect(v.cards.map((c) => c.category)).toEqual(['social']);
+    expect(v.timeline.map((s) => s.category)).toEqual(['social']);
+  });
+
+  it('falls back to the app-name rule without labels in the piece', () => {
+    const v = view({
+      sessions: [session('Microsoft Teams', T(9), T(10))],
+      samples: run(T(9), 60, 1),
+      labels: [{ at: T(11), appName: 'Microsoft Teams', category: 'social' }]
+    });
+    expect(v.cards.map((c) => c.category)).toEqual(['communication']);
   });
 });
 
