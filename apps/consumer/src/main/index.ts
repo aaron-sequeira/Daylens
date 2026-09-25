@@ -38,6 +38,7 @@ let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let quitting = false;
 let stopTracking = (): void => {}; // set once the tracker exists
+const DISMISS_ALL_KEY = 'Control+Alt+D';
 
 function createWindow(): void {
   win = new BrowserWindow({
@@ -167,6 +168,13 @@ if (!app.requestSingleInstanceLock()) {
       placement: () => {
         const wa = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
         return { x: wa.x + wa.width - PILL_W - PILL_MARGIN, y: wa.y + PILL_MARGIN };
+      },
+      // Ctrl+Alt+D is AltGr+D on many Windows layouts: hold it only while pills are on screen.
+      onVisible: (visible) => {
+        if (!visible) { globalShortcut.unregister(DISMISS_ALL_KEY); return; }
+        if (!globalShortcut.isRegistered(DISMISS_ALL_KEY) && !globalShortcut.register(DISMISS_ALL_KEY, () => pill.dismissAll())) {
+          console.warn('[coach] Ctrl+Alt+D is taken by another app');
+        }
       },
       onAction: (id, action) => {
         if (id < 0) return; // "Test a pop-up"
@@ -425,7 +433,6 @@ if (!app.requestSingleInstanceLock()) {
     });
     createWindow();
 
-    if (!globalShortcut.register('Control+Alt+D', () => pill.dismissAll())) console.warn('[coach] Ctrl+Alt+D is taken by another app');
     app.on('will-quit', () => globalShortcut.unregisterAll());
 
     // Start tracking BEFORE the tray: a tray failure must never prevent tracking.

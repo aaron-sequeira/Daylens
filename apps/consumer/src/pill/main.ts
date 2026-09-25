@@ -203,7 +203,9 @@ function init(pillApi: PillApi): void {
   }
 
   pillApi.onShow(show);
-  pillApi.onDismissAll(() => [...cards].forEach((c) => finish(c, 'dismiss')));
+  // Bulk dismiss (Ctrl+Alt+D, "Delete my activity") is not a per-nudge dismissal: report 'expired' so it
+  // never counts toward the dismissal back-off.
+  pillApi.onDismissAll(() => [...cards].forEach((c) => finish(c, 'expired')));
 }
 
 if (window.pill) init(window.pill);

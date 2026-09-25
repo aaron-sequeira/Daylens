@@ -27,6 +27,7 @@ export function electronPillWindow(preload: string, load: (w: BrowserWindow) => 
     setPosition: (x, y) => { if (!w.isDestroyed()) w.setBounds({ x: Math.round(x), y: Math.round(y), width: PILL_W, height: PILL_H }); },
     destroy: () => { if (!w.isDestroyed()) w.destroy(); },
     isDestroyed: () => w.isDestroyed(),
-    onReady: (cb) => { w.webContents.once('did-finish-load', cb); }
+    onReady: (cb) => { w.webContents.once('did-finish-load', cb); },
+    onClosed: (cb) => { w.once('closed', cb); }
   };
 }

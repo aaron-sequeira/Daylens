@@ -9,6 +9,8 @@ export interface PillWindowLike {
   destroy(): void;
   isDestroyed(): boolean;
   onReady(cb: () => void): void;
+  /** Fires once when the window is destroyed (by us, or after a failed load / renderer crash). */
+  onClosed(cb: () => void): void;
 }
 
 export const pillMessage = z.discriminatedUnion('type', [
@@ -18,10 +20,20 @@ export const pillMessage = z.discriminatedUnion('type', [
 ]);
 export type PillMessage = z.infer<typeof pillMessage>;
 
-export function createPillManager(deps: { makeWindow(): PillWindowLike; placement(): { x: number; y: number }; onAction(id: number, action: PillAction): void }) {
+export function createPillManager(deps: {
+  makeWindow(): PillWindowLike; placement(): { x: number; y: number }; onAction(id: number, action: PillAction): void;
+  /** true when a window first shows, false when it is destroyed (index.ts holds Ctrl+Alt+D only while visible). */
+  onVisible?(visible: boolean): void;
+}) {
   let win: PillWindowLike | null = null;
   let ready = false;
+  let visible = false;
   let queue: PillNudge[] = [];
+  const setVisible = (v: boolean): void => {
+    if (visible === v) return;
+    visible = v;
+    deps.onVisible?.(v);
+  };
   // Ids sent to the renderer ('pill:show') that haven't yet come back as a terminal
   // 'action' message. Guards against the race where the renderer's 'empty' (sent when
   // its own card list drains to zero) crosses in flight with a fresh 'pill:show' this
@@ -36,6 +48,7 @@ export function createPillManager(deps: { makeWindow(): PillWindowLike; placemen
     }
     queue = [];
     win.showInactive();
+    setVisible(true);
   };
 
   return {
@@ -47,18 +60,22 @@ export function createPillManager(deps: { makeWindow(): PillWindowLike; placemen
           // expired instead of leaving them stuck in `outstanding` forever — that
           // would strand the replacement window, since 'empty' is ignored while
           // outstanding is non-empty.
-          if (outstanding.size) {
-            const stale = [...outstanding];
-            outstanding.clear();
-            for (const id of stale) deps.onAction(id, 'expired');
-          }
+          // Same for nudges still queued for a window whose page never loaded: they were
+          // never seen, so report them expired rather than surfacing them late.
+          const stale = [...outstanding, ...queue.map((q) => q.id)];
+          outstanding.clear();
+          queue = [];
+          for (const id of stale) deps.onAction(id, 'expired');
+          setVisible(false);
           ready = false;
-          win = deps.makeWindow();
+          const w = deps.makeWindow();
+          win = w;
+          w.onClosed(() => { if (win === w) setVisible(false); });
           // Placed once, right when the window is created — not on every flush.
           const p = deps.placement();
-          win.setPosition(p.x, p.y);
-          win.setIgnoreMouseEvents(true);
-          win.onReady(() => { ready = true; flush(); });
+          w.setPosition(p.x, p.y);
+          w.setIgnoreMouseEvents(true);
+          w.onReady(() => { ready = true; flush(); });
         }
         queue.push(n);
         flush();
@@ -70,12 +87,13 @@ export function createPillManager(deps: { makeWindow(): PillWindowLike; placemen
       }
     },
     dismissAll(): void {
-      // Nudges still queued (window not ready yet) never reached the renderer, so it
-      // can't report them dismissed — report them ourselves and drop them here.
+      // Nudges still queued (window not ready yet) never reached the renderer, so report
+      // them ourselves and drop them here. A bulk dismiss (Ctrl+Alt+D, "Delete my activity")
+      // is not a per-nudge dismissal, so it must not feed the dismissal back-off: 'expired'.
       if (queue.length) {
         const dropped = queue;
         queue = [];
-        for (const n of dropped) deps.onAction(n.id, 'dismiss');
+        for (const n of dropped) deps.onAction(n.id, 'expired');
       }
       if (win && !win.isDestroyed()) win.send('pill:dismissAll');
     },
@@ -87,9 +105,11 @@ export function createPillManager(deps: { makeWindow(): PillWindowLike; placemen
         deps.onAction(msg.id, msg.action);
       } else {
         if (outstanding.size > 0 || queue.length > 0) return; // stale 'empty': ignore
-        win?.destroy();
+        const w = win;
         win = null;
         ready = false;
+        w?.destroy();
+        setVisible(false);
       }
     }
   };
