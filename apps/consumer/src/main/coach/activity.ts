@@ -1,0 +1,38 @@
+import type { ActivitySampleRow, FocusSessionRow } from '@worksight/core/types';
+import { atLeast, restPeriods } from '../day/time';
+import { BREAK_MS } from '../day/health';
+
+const RECENT_MS = 2 * 60_000; // the user counts as "at it" if the latest bucket ended this recently
+
+export function currentStretch(samples: ActivitySampleRow[], now: number, lastBreakAt: number | null): { start: number; ms: number } | null {
+  if (!samples.length) return null;
+  const sorted = [...samples].sort((a, b) => a.bucketStart - b.bucketStart);
+  if (now - sorted[sorted.length - 1].bucketEnd > RECENT_MS) return null;
+  const rests = atLeast(restPeriods(sorted), BREAK_MS);
+  let start = rests.length ? rests[rests.length - 1].end : sorted[0].bucketStart;
+  if (lastBreakAt !== null && lastBreakAt > start) start = lastBreakAt;
+  return { start, ms: now - start };
+}
+
+export const hm = (minutes: number): string => (minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`);
+
+export function clock(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+}
+
+export const switchesBetween = (sessions: FocusSessionRow[], from: number, to: number): number =>
+  sessions.filter((s) => s.startedAt > from && s.startedAt <= to).length;
+
+const BROWSER_SUFFIX = /\s[-—–]\s(Google Chrome|Microsoft​? Edge|Mozilla Firefox|Brave|Opera|Vivaldi)$/i;
+const ENGINES = [/^(.+?)\s-\sGoogle Search$/i, /^(.+?)\s-\sBing$/i, /^(.+?)\sat DuckDuckGo$/i];
+
+/** 'react hooks - Google Search - Google Chrome' → 'react hooks'; null when the title isn't a search. */
+export function normaliseSearch(title: string): string | null {
+  const t = title.replace(BROWSER_SUFFIX, '').trim();
+  for (const re of ENGINES) {
+    const m = re.exec(t);
+    if (m) { const q = m[1].toLowerCase().replace(/\s+/g, ' ').trim(); return q || null; }
+  }
+  return null;
+}
