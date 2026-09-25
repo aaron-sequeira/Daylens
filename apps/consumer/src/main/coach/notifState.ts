@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process';
 
 // One PowerShell: SHQueryUserNotificationState, then whether any microphone is in use right now (a consent-store
-// entry, packaged or NonPackaged, with LastUsedTimeStart > 0 and LastUsedTimeStop == 0). Prints "<state> <0|1>".
-// Nothing but those two numbers is ever printed: no app registry paths.
-const SCRIPT = String.raw`Add-Type -Namespace D -Name Q -MemberDefinition '[DllImport("shell32.dll")] public static extern int SHQueryUserNotificationState(out int s);'; $s = 0; [void][D.Q]::SHQueryUserNotificationState([ref]$s); $m = 0; $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone'; foreach ($p in @(Get-ChildItem -LiteralPath $k -ErrorAction SilentlyContinue) + @(Get-ChildItem -LiteralPath ($k + '\NonPackaged') -ErrorAction SilentlyContinue)) { $v = Get-ItemProperty -LiteralPath $p.PSPath -ErrorAction SilentlyContinue; if ($v.LastUsedTimeStart -gt 0 -and $v.LastUsedTimeStop -eq 0) { $m = 1 } }; '{0} {1}' -f $s, $m`;
+// entry with LastUsedTimeStart > 0 and LastUsedTimeStop == 0). Packaged entries count as they are. A NonPackaged
+// entry counts only if a running process has its path (key name with '#' for '\', case-insensitive): an app that
+// exited mid-call can leave LastUsedTimeStop == 0 behind forever. Running paths are listed at most once, and only
+// if some NonPackaged entry looks in use. Prints "<state> <0|1>" — nothing else, no app registry paths.
+export const SCRIPT = String.raw`Add-Type -Namespace D -Name Q -MemberDefinition '[DllImport("shell32.dll")] public static extern int SHQueryUserNotificationState(out int s);'; $s = 0; [void][D.Q]::SHQueryUserNotificationState([ref]$s); $m = 0; $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone'; $inUse = { param($p) $v = Get-ItemProperty -LiteralPath $p.PSPath -ErrorAction SilentlyContinue; $v.LastUsedTimeStart -gt 0 -and $v.LastUsedTimeStop -eq 0 }; foreach ($p in @(Get-ChildItem -LiteralPath $k -ErrorAction SilentlyContinue)) { if ($p.PSChildName -ne 'NonPackaged' -and (& $inUse $p)) { $m = 1 } }; if ($m -eq 0) { $run = $null; foreach ($p in @(Get-ChildItem -LiteralPath ($k + '\NonPackaged') -ErrorAction SilentlyContinue)) { if (& $inUse $p) { if ($null -eq $run) { $run = @{}; Get-Process | Where-Object Path | ForEach-Object { $run[$_.Path] = 1 } }; if ($run.ContainsKey($p.PSChildName.Replace('#', '\'))) { $m = 1 } } } }; '{0} {1}' -f $s, $m`;
 
 export interface HoldSignals { state: number | null; micInUse: boolean; }
 const UNKNOWN: HoldSignals = { state: null, micInUse: false };
