@@ -35,10 +35,10 @@ describe('parseHoldSignals', () => {
 });
 
 describe('queryNotificationState', () => {
-  it('runs one PowerShell with a 2 s timeout and parses both fields', async () => {
+  it('runs one PowerShell with a 5 s timeout and parses both fields', async () => {
     const calls: [string, number][] = [];
     expect(await queryNotificationState(async (cmd, _args, t) => { calls.push([cmd, t]); return '5 1\r\n'; })).toEqual({ state: 5, micInUse: true });
-    expect(calls).toEqual([['powershell.exe', 2000]]);
+    expect(calls).toEqual([['powershell.exe', 5000]]);
   });
   it('returns state null, mic false on failure or garbage', async () => {
     expect(await queryNotificationState(async () => { throw new Error('timeout'); })).toEqual({ state: null, micInUse: false });

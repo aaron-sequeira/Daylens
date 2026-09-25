@@ -24,7 +24,7 @@ export function parseHoldSignals(out: string): HoldSignals {
  * a pop-up is about to show. */
 export async function queryNotificationState(run = defaultRun): Promise<HoldSignals> {
   try {
-    return parseHoldSignals(await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', SCRIPT], 2000));
+    return parseHoldSignals(await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', SCRIPT], 5000));
   } catch {
     return UNKNOWN;
   }
