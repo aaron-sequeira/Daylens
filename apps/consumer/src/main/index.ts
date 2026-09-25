@@ -25,6 +25,8 @@ import { ruleWeight } from './coach/weights';
 import { holdReason, type Rect } from './coach/gate';
 import { queryNotificationState } from './coach/notifState';
 import { parseFewer, parseKinds, parseLimits } from './coach/settings';
+import { searchTitlesFrom } from './coach/activity';
+import { parseExclusions } from './screen/exclusions';
 import { createPillManager, pillMessage, PILL_W, PILL_MARGIN } from './windows/pill';
 import { electronPillWindow } from './windows/pillElectron';
 import { createBreakOverlay, breakMessage } from './windows/breakOverlay';
@@ -198,8 +200,7 @@ if (!app.requestSingleInstanceLock()) {
       const s = settings.get();
       const date = localDate(now);
       const view = loadTodayView(repo, s, date, now, (d) => labelStore.labelsForDay(d), (d) => coachStore.completedBreaksForDay(d));
-      const searchTitles = Array.from({ length: 7 }, (_, i) => repo.getFocusSessions(shiftDate(date, -i))).flat()
-        .filter((x) => x.windowTitle).map((x) => ({ at: x.startedAt, title: x.windowTitle as string }));
+      const searchTitles = searchTitlesFrom(Array.from({ length: 7 }, (_, i) => repo.getFocusSessions(shiftDate(date, -i))).flat(), parseExclusions(s.exclusions));
       const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
       return {
         now, date, settings: s, profile: readProfile(s), samples: repo.getActivitySamples(date), sessions: repo.getFocusSessions(date),

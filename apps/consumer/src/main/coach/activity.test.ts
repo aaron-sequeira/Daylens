@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { active, MIN, sess, T } from './fixtures';
-import { clock, currentStretch, hm, normaliseSearch, switchesBetween } from './activity';
+import { clock, currentStretch, hm, normaliseSearch, searchTitlesFrom, switchesBetween } from './activity';
 
 describe('currentStretch', () => {
   it('measures time since the last 2-minute rest', () => {
@@ -31,6 +31,14 @@ describe('switchesBetween', () => {
   it('does not count title-only changes inside one app as switches', () => {
     const s = [sess('Code', T(9), null, 'a.ts'), sess('Code', T(9, 2), null, 'b.ts'), sess('Code', T(9, 4), null, 'c.ts'), sess('Chrome', T(9, 6)), sess('Chrome', T(9, 7), null, 'x')];
     expect(switchesBetween(s, T(9, 1), T(9, 15))).toBe(1);
+  });
+});
+
+describe('searchTitlesFrom', () => {
+  it('keeps titled sessions and drops excluded apps/titles before rules see them', () => {
+    const s = [sess('Google Chrome', T(9), null, 'react hooks - Google Search - Google Chrome'), sess('Code', T(9, 5)),
+      sess('Google Chrome', T(9, 10), null, 'my bank login - Google Search - Google Chrome'), sess('Secret App', T(9, 20), null, 'x - Google Search')];
+    expect(searchTitlesFrom(s, ['bank', 'Secret App'])).toEqual([{ at: T(9), title: 'react hooks - Google Search - Google Chrome' }]);
   });
 });
 

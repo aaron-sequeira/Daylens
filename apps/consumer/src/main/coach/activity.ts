@@ -2,6 +2,7 @@ import type { ActivitySampleRow, FocusSessionRow } from '@worksight/core/types';
 import { atLeast, restPeriods } from '../day/time';
 import { BREAK_MS } from '../day/health';
 import { displayAppName } from '../../shared/categories';
+import { isExcluded } from '../screen/exclusions';
 
 const RECENT_MS = 2 * 60_000; // the user counts as "at it" if the latest bucket ended this recently
 
@@ -42,6 +43,11 @@ export function stillIn(sessions: FocusSessionRow[], appName: string): boolean {
   let last: FocusSessionRow | null = null;
   for (const s of sessions) if (!last || s.startedAt >= last.startedAt) last = s;
   return last !== null && appKey(last.appName) === appKey(appName);
+}
+
+/** Titled focus sessions as search candidates, minus anything the user's privacy exclusions cover. */
+export function searchTitlesFrom(sessions: FocusSessionRow[], exclusions: string[]): { at: number; title: string }[] {
+  return sessions.flatMap((x) => (x.windowTitle && !isExcluded(exclusions, x.appName, x.windowTitle) ? [{ at: x.startedAt, title: x.windowTitle }] : []));
 }
 
 // Note: Microsoft Edge window titles contain a zero-width space (​) after "Microsoft", so the regex includes ​? to match it.
