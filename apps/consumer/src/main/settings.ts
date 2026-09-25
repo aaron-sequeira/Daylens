@@ -21,7 +21,8 @@ export const DEFAULT_SETTINGS = {
   screenReading: false,
   rawTextRetentionDays: 7,
   readIntervalSec: 30,
-  exclusions: JSON.stringify(DEFAULT_EXCLUSIONS)
+  exclusions: JSON.stringify(DEFAULT_EXCLUSIONS),
+  screenReadingAsked: false
 };
 export type DaylensSettings = typeof DEFAULT_SETTINGS;
 
@@ -33,6 +34,7 @@ export const settingsPatch = z.object({
   captureWindowTitles: z.boolean(),
   openAtLogin: z.boolean(),
   screenReading: z.boolean(),
-  rawTextRetentionDays: z.union([z.literal(1), z.literal(7), z.literal(30)])
+  rawTextRetentionDays: z.union([z.literal(1), z.literal(7), z.literal(30)]),
+  screenReadingAsked: z.boolean()
 }).partial().strict();
 export type SettingsPatch = z.infer<typeof settingsPatch>;

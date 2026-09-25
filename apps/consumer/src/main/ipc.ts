@@ -8,6 +8,9 @@ import { loadTodayView } from './day/today';
 import type { OcrStatus } from './ocr/client';
 import type { ScreenReadRow } from './screen/store';
 import { exclusionsInput, parseExclusions } from './screen/exclusions';
+import type { ModelStatus } from './models/downloader';
+import type { LabellingStatus } from './brain/scheduler';
+import type { DayLabel } from './screen/labels';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 
@@ -27,6 +30,14 @@ export interface PrivacyDeps {
   openLanguageSettings(): void;
 }
 
+export interface ModelsView { model: ModelStatus; labelling: LabellingStatus; }
+export interface ModelsDeps {
+  view(): ModelsView;
+  redownload(): Promise<ModelsView>;
+  remove(): Promise<{ deleted: boolean }>;
+  retryLabelling(): ModelsView;
+}
+
 export interface IpcDeps {
   repo: Repositories;
   settings: KvStore<DaylensSettings>;
@@ -35,13 +46,16 @@ export interface IpcDeps {
   onSettingsChanged(): void;
   now(): number;
   privacy: PrivacyDeps;
+  models: ModelsDeps;
+  labelsFor(date: string): DayLabel[];
 }
 
 export function registerIpc(d: IpcDeps): void {
-  ipcMain.handle(CH.todayGet, (_e, raw) => loadTodayView(d.repo, d.settings.get(), dateArg.parse(raw).date, d.now()));
+  ipcMain.handle(CH.todayGet, (_e, raw) => loadTodayView(d.repo, d.settings.get(), dateArg.parse(raw).date, d.now(), d.labelsFor));
   ipcMain.handle(CH.settingsGet, () => d.settings.get());
   ipcMain.handle(CH.settingsSet, (_e, raw) => {
-    const next = d.settings.set(settingsPatch.parse(raw));
+    const patch = settingsPatch.parse(raw);
+    const next = d.settings.set(patch.screenReading ? { ...patch, screenReadingAsked: true } : patch);
     d.onSettingsChanged();
     return next;
   });
@@ -77,4 +91,9 @@ export function registerIpc(d: IpcDeps): void {
   ipcMain.handle(CH.privacyExport, () => d.privacy.exportData());
   ipcMain.handle(CH.privacyDeleteActivity, () => d.privacy.deleteActivity());
   ipcMain.handle(CH.privacyOpenLanguageSettings, () => { d.privacy.openLanguageSettings(); });
+
+  ipcMain.handle(CH.modelsGet, () => d.models.view());
+  ipcMain.handle(CH.modelsRedownload, () => d.models.redownload());
+  ipcMain.handle(CH.modelsDelete, () => d.models.remove());
+  ipcMain.handle(CH.modelsRetryLabelling, () => d.models.retryLabelling());
 }

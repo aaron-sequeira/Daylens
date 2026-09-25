@@ -29,3 +29,11 @@ describe('privacy settings', () => {
     expect(settingsPatch.safeParse({ readIntervalSec: 5 }).success).toBe(false);
   });
 });
+
+describe('screen reading opt-in', () => {
+  it('defaults screenReadingAsked to false and lets the renderer set it', () => {
+    expect(DEFAULT_SETTINGS.screenReadingAsked).toBe(false);
+    expect(settingsPatch.parse({ screenReadingAsked: true })).toEqual({ screenReadingAsked: true });
+    expect(settingsPatch.safeParse({ screenReadingAsked: 'yes' }).success).toBe(false);
+  });
+});

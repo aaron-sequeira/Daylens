@@ -12,5 +12,9 @@ export const CH = {
   privacySetExclusions: 'privacy:setExclusions',
   privacyExport: 'privacy:export',
   privacyDeleteActivity: 'privacy:deleteActivity',
-  privacyOpenLanguageSettings: 'privacy:openLanguageSettings'
+  privacyOpenLanguageSettings: 'privacy:openLanguageSettings',
+  modelsGet: 'models:get',
+  modelsRedownload: 'models:redownload',
+  modelsDelete: 'models:delete',
+  modelsRetryLabelling: 'models:retryLabelling'
 } as const;

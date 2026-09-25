@@ -1,7 +1,8 @@
-import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell } from 'electron';
+import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityProcess } from 'electron';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
+import { statfs } from 'node:fs/promises';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
 import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
 import { localDate } from '@worksight/core/date';
@@ -12,6 +13,10 @@ import { createOcrClient } from './ocr/client';
 import { SCREEN_SCHEMA, createScreenStore, checkpoint, deleteActivity, exportAll } from './screen/store';
 import { createScreenReader, runRetention } from './screen/reader';
 import { readProfile } from './profile';
+import { createLabelStore } from './screen/labels';
+import { createLabelScheduler, type BrainChild } from './brain/scheduler';
+import { createDownloader } from './models/downloader';
+import { LAYA_MANIFEST } from './models/manifest';
 
 app.setName('Daylens');
 const startHidden = process.argv.includes('--hidden');
@@ -60,6 +65,39 @@ if (!app.requestSingleInstanceLock()) {
     const settings = createKvStore(db, DEFAULT_SETTINGS);
     db.exec(SCREEN_SCHEMA);
     const screenStore = createScreenStore(db);
+    // Existing users who already enabled reading in Phase 3 have answered the opt-in question.
+    if (settings.get().screenReading && !settings.get().screenReadingAsked) settings.set({ screenReadingAsked: true });
+    const labelStore = createLabelStore(db);
+    const modelDir = process.env['DAYLENS_MODEL_DIR'] ?? join(app.getPath('userData'), 'models', 'laya');
+    let lastModelPush = 0;
+    const downloader = createDownloader({
+      dir: modelDir, manifest: LAYA_MANIFEST, fetch: globalThis.fetch,
+      freeBytes: async (d) => { const s = await statfs(d); return s.bavail * s.bsize; },
+      onStatus: (st) => {
+        const t = Date.now();
+        if (st.state === 'downloading' && t - lastModelPush < 1000) return; // progress pushes at most 1/s
+        lastModelPush = t;
+        win?.webContents.send(CH.eventsUpdate);
+      }
+    });
+    const forkBrain = (): BrainChild => {
+      const child = utilityProcess.fork(join(__dirname, 'brain.js'), [], { serviceName: 'Daylens Brain', stdio: 'ignore' });
+      return {
+        post: (m) => child.postMessage(m),
+        onMessage: (cb) => { child.on('message', cb); },
+        onExit: (cb) => { child.on('exit', cb); },
+        kill: () => { child.kill(); }
+      };
+    };
+    const scheduler = createLabelScheduler({
+      store: labelStore, fork: forkBrain, modelReady: () => downloader.status().state === 'ready',
+      modelDir, now: () => Date.now(), onChange: () => win?.webContents.send(CH.eventsUpdate)
+    });
+    const syncModel = (): void => {
+      const s = settings.get();
+      if (s.screenReading && s.consentGranted) downloader.start(); else downloader.stop();
+    };
+    setInterval(() => { try { scheduler.tick(); } catch (e) { console.error('[brain] tick failed:', e); } }, 60_000);
     // ponytail: dev path; Phase 7 packaging must ship resources/ocr-helper.ps1 via extraResources.
     const helperPath = app.isPackaged ? join(process.resourcesPath, 'ocr-helper.ps1') : join(__dirname, '../../resources/ocr-helper.ps1');
     const ocr = createOcrClient({
@@ -92,7 +130,8 @@ if (!app.requestSingleInstanceLock()) {
       ocr, foreground: new ActiveWinForegroundSource(), settings: () => settings.get(),
       idleSec: () => powerMonitor.getSystemIdleTime(), store: screenStore, now: () => Date.now(),
       // The BrowserWindow's HWND belongs to this process: never OCR our own window.
-      selfPid: process.pid
+      selfPid: process.pid,
+      backlogBlocked: () => scheduler.backlogBlocked()
     });
     // The helper process only exists while screen reading is allowed to run.
     const syncOcr = (): void => {
@@ -141,8 +180,49 @@ if (!app.requestSingleInstanceLock()) {
 
     registerIpc({
       repo, settings, tracker, setTracking,
-      onSettingsChanged: () => { applyLoginItem(); syncOcr(); retention(); },
+      onSettingsChanged: () => { applyLoginItem(); syncOcr(); syncModel(); retention(); },
       now: () => Date.now(),
+      labelsFor: (date) => labelStore.confidentForDay(date),
+      models: {
+        view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
+        redownload: async () => {
+          if (process.env['DAYLENS_MODEL_DIR']) {
+            // The dev folder holds the only exported copy of the model: never delete it.
+            console.warn('[models] DAYLENS_MODEL_DIR set: skipping redownload delete');
+            return { model: downloader.status(), labelling: scheduler.status() };
+          }
+          try {
+            await downloader.remove();
+          } catch (e) {
+            console.error('[models] redownload delete failed:', e);
+            return { model: downloader.status(), labelling: scheduler.status() };
+          }
+          syncModel();
+          return { model: downloader.status(), labelling: scheduler.status() };
+        },
+        remove: async () => {
+          if (process.env['DAYLENS_MODEL_DIR']) {
+            // The dev folder holds the only exported copy of the model: never delete it.
+            console.warn('[models] DAYLENS_MODEL_DIR set: skipping delete');
+            return { deleted: false };
+          }
+          const r = await dialog.showMessageBox(win!, {
+            type: 'warning', buttons: ['Delete', 'Cancel'], defaultId: 1, cancelId: 1, title: 'Delete AI model',
+            message: 'Delete the downloaded AI model?',
+            detail: 'Screen reads stop being labelled until it is downloaded again (about 1.7 GB). If screen reading is on, the download starts again right away.'
+          });
+          if (r.response !== 0) return { deleted: false };
+          try {
+            await downloader.remove();
+          } catch (e) {
+            console.error('[models] delete failed:', e);
+            return { deleted: false };
+          }
+          syncModel();
+          return { deleted: true };
+        },
+        retryLabelling: () => { scheduler.retry(); scheduler.tick(); return { model: downloader.status(), labelling: scheduler.status() }; }
+      },
       privacy: {
         ocrStatus: () => ocr.status(),
         lastRead: () => screenStore.lastWithText(),
@@ -190,6 +270,7 @@ if (!app.requestSingleInstanceLock()) {
     applyLoginItem();
     syncOcr();
     retention();
+    downloader.init().then(() => syncModel()).catch((e) => console.error('[models] init failed:', e));
 
     try {
       tray = new Tray(app.isPackaged ? join(process.resourcesPath, 'tray.png') : join(__dirname, '../../resources/tray.png'));
@@ -200,7 +281,7 @@ if (!app.requestSingleInstanceLock()) {
       console.error('[main] tray setup failed (tracking unaffected):', e);
     }
 
-    app.on('before-quit', () => { quitting = true; tracker.stop(); ocr.stop(); });
+    app.on('before-quit', () => { quitting = true; tracker.stop(); ocr.stop(); downloader.stop(); });
     // Sleep must not count as screen time: stop (closes the session, flushes the bucket) before suspend and
     // restart on wake. tracker.stop() is idempotent, so suspending while paused writes nothing.
     powerMonitor.on('suspend', () => tracker.stop());
