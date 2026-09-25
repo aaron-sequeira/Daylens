@@ -24,4 +24,8 @@ describe('below_avg', () => {
     expect(belowAvg(s)).toMatchObject({ ruleId: 'below_avg', title: 'Down 33% today' });
     expect(belowAvg(snap({ now: T(17), view: emptyView({ week, screenSec: 4 * 3600 }) }))).toBeNull();
   });
+  it('returns null with only 2 prior days of data', () => {
+    const week = emptyView().week.map((d, i) => ({ ...d, seconds: i < 2 ? 6 * 3600 : 0 }));
+    expect(belowAvg(snap({ now: T(18, 5), view: emptyView({ week, screenSec: 4 * 3600 }) }))).toBeNull();
+  });
 });

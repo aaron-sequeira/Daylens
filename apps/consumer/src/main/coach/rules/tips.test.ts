@@ -13,7 +13,11 @@ describe('stuck_tip', () => {
 describe('repeat_search', () => {
   it('fires when the same query appears 3 times in 7 days', () => {
     const titles = [T(9, 0, 20), T(9, 0, 22), T(9, 0, 25)].map((at) => ({ at, title: 'React  hooks - Google Search - Google Chrome' }));
-    expect(repeatSearch(snap({ searchTitles: titles }))).toMatchObject({ ruleId: 'repeat_search', key: 'repeat_search:react hooks' });
+    const result = repeatSearch(snap({ searchTitles: titles }));
+    expect(result).toMatchObject({ ruleId: 'repeat_search', key: 'repeat_search:react hooks' });
+    expect(result?.title).toContain('Searched');
+    expect(result?.title).toContain('react hooks');
+    expect(result?.title).toContain('3×');
     expect(repeatSearch(snap({ searchTitles: titles.slice(0, 2) }))).toBeNull();
   });
 });

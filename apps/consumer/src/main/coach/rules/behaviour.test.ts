@@ -37,6 +37,22 @@ describe('stuck_escape', () => {
     expect(stuckEscape(snap({ readsToday: reads }))).toMatchObject({ ruleId: 'stuck_escape', key: 'stuck_escape:2026-09-25' });
     expect(stuckEscape(snap({ readsToday: reads.slice(0, 4) }))).toBeNull();
   });
+  it('with escapes to 2+ apps, names the most frequent', () => {
+    const reads = [
+      read(T(9), 'Code', { stuck: 1.7, category: 'work', conf: 0.9 }),
+      read(T(9) + MIN, 'Discord', { category: 'social', conf: 0.8 }),
+      read(T(9) + 60 * MIN, 'Code', { stuck: 1.7, category: 'work', conf: 0.9 }),
+      read(T(9) + 61 * MIN, 'Instagram', { category: 'entertainment', conf: 0.8 }),
+      read(T(9) + 120 * MIN, 'Code', { stuck: 1.7, category: 'work', conf: 0.9 }),
+      read(T(9) + 121 * MIN, 'Discord', { category: 'social', conf: 0.8 }),
+      read(T(9) + 180 * MIN, 'Code', { stuck: 1.7, category: 'work', conf: 0.9 }),
+      read(T(9) + 181 * MIN, 'Instagram', { category: 'entertainment', conf: 0.8 })
+    ];
+    const result = stuckEscape(snap({ readsToday: reads }));
+    expect(result).toMatchObject({ ruleId: 'stuck_escape' });
+    expect(result?.body).toContain('4 times');
+    expect(result?.body).toContain('mostly');
+  });
   it('ignores low-confidence categories', () => {
     const reads = [0, 60, 120].flatMap((m) => [read(T(9) + m * MIN, 'Code', { stuck: 1.7 }), read(T(9) + m * MIN + MIN, 'Discord', { category: 'social', conf: 0.3 })]);
     expect(stuckEscape(snap({ readsToday: reads }))).toBeNull();

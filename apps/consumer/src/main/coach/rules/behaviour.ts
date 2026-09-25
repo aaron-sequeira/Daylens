@@ -16,7 +16,11 @@ function matchDistraction(r: RecentRead, list: string[]): string | null {
 
 export const doomscroll: Rule = (s) => {
   const byApp = new Map<string, RecentRead[]>();
-  for (const r of s.readsToday) byApp.set(r.appName, [...(byApp.get(r.appName) ?? []), r]);
+  for (const r of s.readsToday) {
+    const list = byApp.get(r.appName) ?? [];
+    list.push(r);
+    byApp.set(r.appName, list);
+  }
   for (const [app, reads] of byApp) {
     const last = reads[reads.length - 1];
     if (s.now - last.at > FRESH_MS || (last.distraction ?? 0) < DISTRACTED) continue;
@@ -48,17 +52,23 @@ export const scattered: Rule = (s) => {
 export const stuckEscape: Rule = (s) => {
   const escapes = new Map<string, number>();
   let count = 0;
-  s.readsToday.forEach((r, i) => {
-    if ((r.stuck ?? 0) < STUCK) return;
-    const next = s.readsToday.slice(i + 1).find((x) => x.at - r.at <= 2 * MIN && (x.category === 'social' || x.category === 'entertainment') && (x.conf ?? 0) >= CONFIDENT);
-    if (!next) return;
+  for (let i = 0; i < s.readsToday.length; i++) {
+    const r = s.readsToday[i];
+    if ((r.stuck ?? 0) < STUCK) continue;
+    let next: RecentRead | null = null;
+    for (let j = i + 1; j < s.readsToday.length; j++) {
+      const x = s.readsToday[j];
+      if (x.at - r.at > 2 * MIN) break;
+      if ((x.category === 'social' || x.category === 'entertainment') && (x.conf ?? 0) >= CONFIDENT) { next = x; break; }
+    }
+    if (!next) continue;
     count++;
     escapes.set(next.appName, (escapes.get(next.appName) ?? 0) + 1);
-  });
+  }
   if (count < 3) return null;
   const app = displayAppName([...escapes.entries()].sort((a, b) => b[1] - a[1])[0][0]);
   return { ruleId: 'stuck_escape', kind: 'behaviour', key: `stuck_escape:${s.date}`, mini: 'Reflex', stat: `${count}× today`,
-    title: `Stuck → ${app} is becoming a reflex`, body: `${count} times today you went to ${app} right after getting stuck. Try a 2-minute walk instead.`,
+    title: `Stuck → ${app} is becoming a reflex`, body: `${count} times today you jumped to a distraction right after getting stuck (mostly ${app}). Try a 2-minute walk instead.`,
     primary: { label: 'OK', action: 'ack' } };
 };
 
