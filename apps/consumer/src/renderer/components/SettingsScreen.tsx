@@ -5,6 +5,7 @@ import { formatHm } from '../lib/format';
 import { MAX_TEXT, type Profile } from '../../shared/profileOptions';
 import { profileSummary } from '../lib/onboardingContent';
 import { PrivacySection } from './PrivacySection';
+import { ModelSection } from './ModelSection';
 
 const GOAL_DEBOUNCE_MS = 300;
 
@@ -94,6 +95,7 @@ export function SettingsScreen({ settings, onChange, onRedo }: { settings: Dayle
       <h1>Settings</h1>
 
       <PrivacySection settings={settings} onChange={onChange} />
+      <ModelSection />
 
       <div className="grp">
         <h4>About you</h4>

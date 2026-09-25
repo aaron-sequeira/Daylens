@@ -53,7 +53,7 @@ export default function App() {
       <TitleBar tracking={!settings.trackingPaused} />
       <div className={`shell${route === 'settings' ? ' wide' : ''}`}>
         <Rail route={route} onNavigate={setRoute} />
-        {route === 'today' ? <TodayScreen settings={settings} /> : <SettingsScreen settings={settings} onChange={setSettings} onRedo={redo} />}
+        {route === 'today' ? <TodayScreen settings={settings} onChange={setSettings} /> : <SettingsScreen settings={settings} onChange={setSettings} onRedo={redo} />}
       </div>
     </>
   );

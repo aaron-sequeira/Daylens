@@ -8,8 +8,9 @@ import { appColor, appInitials, formatClock, formatHm, greeting, joinApps } from
 import { Icon } from './Icon';
 import { Timeline } from './Timeline';
 import { HealthPanel } from './HealthPanel';
+import { ScreenPrompt } from './ScreenPrompt';
 
-export function TodayScreen({ settings }: { settings: DaylensSettings }) {
+export function TodayScreen({ settings, onChange }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void }) {
   const [view, setView] = useState<TodayView | null>(null);
   const [filter, setFilter] = useState<Category | 'all'>('all');
 
@@ -30,6 +31,7 @@ export function TodayScreen({ settings }: { settings: DaylensSettings }) {
   return (
     <>
       <main className="today">
+        <ScreenPrompt settings={settings} onChange={onChange} />
         <p className="date">
           {greeting(new Date(view.now).getHours(), settings.profileName) && `${greeting(new Date(view.now).getHours(), settings.profileName)} · `}
           {dateLabel}{view.firstSeenAt !== null && ` · first on screen at ${formatClock(view.firstSeenAt)}`}
