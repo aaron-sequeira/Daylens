@@ -259,6 +259,12 @@ button { font: inherit; color: inherit; }
 .sp-actions { display: flex; gap: 8px; margin-left: auto; flex: none; }
 .sp-banner { background: var(--panel); border-radius: 999px; padding: 6px 14px; font-size: 12.5px; color: var(--muted); display: inline-block; margin-bottom: 12px; }
 .srow-btns { display: flex; gap: 8px; }
+.held { margin-bottom: 16px; }
+.held-row { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 16px; padding: 10px 12px; margin-top: 8px; border-left: 6px solid var(--c); }
+.held-row p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+.held-row small { opacity: .7; }
+.held-ic { font-size: 18px; }
+.held-row .btn { margin-left: auto; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
