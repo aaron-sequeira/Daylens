@@ -11,6 +11,8 @@ import { exclusionsInput, parseExclusions } from './screen/exclusions';
 import type { ModelStatus } from './models/downloader';
 import type { LabellingStatus } from './brain/scheduler';
 import type { DayLabel } from './screen/labels';
+import { kindsInput, limitsInput, snoozeInput, parseKinds, parseLimits } from './coach/settings';
+import type { AppLimit, Kind } from './coach/types';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 
@@ -38,6 +40,9 @@ export interface ModelsDeps {
   retryLabelling(): ModelsView;
 }
 
+export interface CoachView { kinds: Record<Kind, boolean>; snoozeUntil: number; limits: AppLimit[]; held: { id: number; at: number; kind: Kind; title: string; body: string }[]; }
+export interface CoachIpcDeps { held(): CoachView['held']; dismissHeld(id: number): void; test(): void; onChanged(): void; }
+
 export interface IpcDeps {
   repo: Repositories;
   settings: KvStore<DaylensSettings>;
@@ -48,10 +53,12 @@ export interface IpcDeps {
   privacy: PrivacyDeps;
   models: ModelsDeps;
   labelsFor(date: string): DayLabel[];
+  breaksFor(date: string): number[];
+  coach: CoachIpcDeps;
 }
 
 export function registerIpc(d: IpcDeps): void {
-  ipcMain.handle(CH.todayGet, (_e, raw) => loadTodayView(d.repo, d.settings.get(), dateArg.parse(raw).date, d.now(), d.labelsFor));
+  ipcMain.handle(CH.todayGet, (_e, raw) => loadTodayView(d.repo, d.settings.get(), dateArg.parse(raw).date, d.now(), d.labelsFor, d.breaksFor));
   ipcMain.handle(CH.settingsGet, () => d.settings.get());
   ipcMain.handle(CH.settingsSet, (_e, raw) => {
     const patch = settingsPatch.parse(raw);
@@ -96,4 +103,22 @@ export function registerIpc(d: IpcDeps): void {
   ipcMain.handle(CH.modelsRedownload, () => d.models.redownload());
   ipcMain.handle(CH.modelsDelete, () => d.models.remove());
   ipcMain.handle(CH.modelsRetryLabelling, () => d.models.retryLabelling());
+
+  const coachView = (): CoachView => {
+    const s = d.settings.get();
+    return { kinds: parseKinds(s.nudgeKinds), snoozeUntil: s.snoozeUntil, limits: parseLimits(s.appLimits), held: d.coach.held() };
+  };
+  ipcMain.handle(CH.coachGet, () => coachView());
+  ipcMain.handle(CH.coachSetKinds, (_e, raw) => { d.settings.set({ nudgeKinds: JSON.stringify(kindsInput.parse(raw)) }); d.coach.onChanged(); return coachView(); });
+  ipcMain.handle(CH.coachSetLimits, (_e, raw) => { d.settings.set({ appLimits: JSON.stringify(limitsInput.parse(raw)) }); return coachView(); });
+  ipcMain.handle(CH.coachSnooze, (_e, raw) => {
+    const v = snoozeInput.parse(raw);
+    const now = d.now();
+    const tomorrow = new Date(now); tomorrow.setHours(24, 0, 0, 0);
+    d.settings.set({ snoozeUntil: v === 'off' ? 0 : v === '1h' ? now + 3_600_000 : tomorrow.getTime() });
+    d.coach.onChanged();
+    return coachView();
+  });
+  ipcMain.handle(CH.coachDismissHeld, (_e, raw) => { d.coach.dismissHeld(z.number().int().parse(raw)); return coachView(); });
+  ipcMain.handle(CH.coachTest, () => { d.coach.test(); });
 }

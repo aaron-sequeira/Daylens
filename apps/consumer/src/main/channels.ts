@@ -16,5 +16,11 @@ export const CH = {
   modelsGet: 'models:get',
   modelsRedownload: 'models:redownload',
   modelsDelete: 'models:delete',
-  modelsRetryLabelling: 'models:retryLabelling'
+  modelsRetryLabelling: 'models:retryLabelling',
+  coachGet: 'coach:get',
+  coachSetKinds: 'coach:setKinds',
+  coachSnooze: 'coach:snooze',
+  coachSetLimits: 'coach:setLimits',
+  coachDismissHeld: 'coach:dismissHeld',
+  coachTest: 'coach:test'
 } as const;

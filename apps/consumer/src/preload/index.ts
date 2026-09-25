@@ -4,7 +4,7 @@ import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
-import type { PrivacyView, ModelsView } from '../main/ipc';
+import type { PrivacyView, ModelsView, CoachView } from '../main/ipc';
 
 const api = {
   today: (date: string): Promise<TodayView> => ipcRenderer.invoke(CH.todayGet, { date }),
@@ -33,6 +33,14 @@ const api = {
     redownload: (): Promise<ModelsView> => ipcRenderer.invoke(CH.modelsRedownload),
     delete: (): Promise<{ deleted: boolean }> => ipcRenderer.invoke(CH.modelsDelete),
     retryLabelling: (): Promise<ModelsView> => ipcRenderer.invoke(CH.modelsRetryLabelling)
+  },
+  coach: {
+    get: (): Promise<CoachView> => ipcRenderer.invoke(CH.coachGet),
+    setKinds: (k: Record<'health' | 'behaviour' | 'tip' | 'win', boolean>): Promise<CoachView> => ipcRenderer.invoke(CH.coachSetKinds, k),
+    snooze: (v: '1h' | 'tomorrow' | 'off'): Promise<CoachView> => ipcRenderer.invoke(CH.coachSnooze, v),
+    setLimits: (l: { app: string; minutes: number }[]): Promise<CoachView> => ipcRenderer.invoke(CH.coachSetLimits, l),
+    dismissHeld: (id: number): Promise<CoachView> => ipcRenderer.invoke(CH.coachDismissHeld, id),
+    test: (): Promise<void> => ipcRenderer.invoke(CH.coachTest)
   },
   onUpdate: (cb: () => void): (() => void) => {
     const listener = (): void => cb();

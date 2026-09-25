@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityProcess } from 'electron';
+import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityProcess, globalShortcut, screen } from 'electron';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -19,6 +19,18 @@ import { createLabelScheduler, type BrainChild } from './brain/scheduler';
 import { createDownloader } from './models/downloader';
 import { LAYA_MANIFEST } from './models/manifest';
 import { batchAllowed, LAYA_NEED_BYTES } from './brain/resources';
+import { COACH_SCHEMA, createCoachStore } from './coach/store';
+import { createCoach } from './coach/engine';
+import { ruleWeight } from './coach/weights';
+import { holdReason, type Rect } from './coach/gate';
+import { queryNotificationState } from './coach/notifState';
+import { parseFewer, parseKinds, parseLimits } from './coach/settings';
+import { createPillManager, pillMessage, PILL_W, PILL_MARGIN } from './windows/pill';
+import { electronPillWindow } from './windows/pillElectron';
+import { createBreakOverlay, breakMessage } from './windows/breakOverlay';
+import { electronBreakWindow } from './windows/breakOverlayElectron';
+import { loadTodayView } from './day/today';
+import { shiftDate } from './day/time';
 
 app.setName('Daylens');
 const startHidden = process.argv.includes('--hidden');
@@ -70,6 +82,8 @@ if (!app.requestSingleInstanceLock()) {
     // Existing users who already enabled reading in Phase 3 have answered the opt-in question.
     if (settings.get().screenReading && !settings.get().screenReadingAsked) settings.set({ screenReadingAsked: true });
     const labelStore = createLabelStore(db);
+    db.exec(COACH_SCHEMA);
+    const coachStore = createCoachStore(db);
     // DAYLENS_MODEL_DIR points at a dev folder holding the only exported copy of the model: read-only.
     const devModelDir = process.env['DAYLENS_MODEL_DIR'] || undefined;
     const modelDir = devModelDir ?? join(app.getPath('userData'), 'models', 'laya');
@@ -126,6 +140,96 @@ if (!app.requestSingleInstanceLock()) {
       onStatus: () => win?.webContents.send(CH.eventsUpdate)
     });
 
+    const loadPage = (w: BrowserWindow, page: 'pill' | 'break'): void => {
+      const devUrl = process.env['ELECTRON_RENDERER_URL'];
+      if (devUrl) void w.loadURL(`${devUrl}/${page}.html`);
+      else void w.loadFile(join(__dirname, `../renderer/${page}.html`));
+    };
+    const overlay = createBreakOverlay({
+      displays: () => screen.getAllDisplays().map((dsp) => ({ bounds: dsp.bounds, primary: dsp.id === screen.getPrimaryDisplay().id })),
+      makeWindow: (bounds) => electronBreakWindow(bounds, join(__dirname, '../preload/break.js'), (w) => loadPage(w, 'break'), (raw) => {
+        const m = breakMessage.safeParse(raw);
+        if (m.success) overlay.handle(m.data);
+      }),
+      onDone: (r) => {
+        const now = Date.now();
+        coachStore.recordBreak({ at: now, date: localDate(now), kind: r.kind, seconds: r.seconds, completed: r.completed });
+        win?.webContents.send(CH.eventsUpdate);
+      }
+    });
+    const primaryActions = new Map<number, { kind: string; action: string }>();
+    const pill = createPillManager({
+      makeWindow: () => electronPillWindow(join(__dirname, '../preload/pill.js'), (w) => loadPage(w, 'pill'), (raw) => {
+        const m = pillMessage.safeParse(raw);
+        if (m.success) pill.handle(m.data);
+      }),
+      placement: () => {
+        const wa = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+        return { x: wa.x + wa.width - PILL_W - PILL_MARGIN, y: wa.y + PILL_MARGIN };
+      },
+      onAction: (id, action) => {
+        if (id < 0) return; // "Test a pop-up"
+        const meta = primaryActions.get(id);
+        primaryActions.delete(id);
+        const status = action === 'primary' ? 'acted' : action === 'dismiss' || action === 'fewer' ? 'dismissed' : action === 'snooze' ? 'snoozed' : 'expired';
+        coachStore.setStatus(id, status);
+        if (action === 'snooze') settings.set({ snoozeUntil: Date.now() + 3_600_000 });
+        if (action === 'fewer' && meta) {
+          const fewer = parseFewer(settings.get().nudgeFewer);
+          const k = meta.kind as keyof typeof fewer;
+          settings.set({ nudgeFewer: JSON.stringify({ ...fewer, [k]: Math.min(64, (fewer[k] ?? 1) * 2) }) });
+        }
+        if (action === 'primary' && meta?.action === 'break_eye') overlay.start('eye');
+        if (action === 'primary' && meta?.action === 'break_stretch') overlay.start('stretch');
+        refreshTray();
+        win?.webContents.send(CH.eventsUpdate);
+      }
+    });
+    const buildSnapshot = (now: number) => {
+      const s = settings.get();
+      const date = localDate(now);
+      const view = loadTodayView(repo, s, date, now, (d) => labelStore.labelsForDay(d), (d) => coachStore.completedBreaksForDay(d));
+      const searchTitles = Array.from({ length: 7 }, (_, i) => repo.getFocusSessions(shiftDate(date, -i))).flat()
+        .filter((x) => x.windowTitle).map((x) => ({ at: x.startedAt, title: x.windowTitle as string }));
+      const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
+      return {
+        now, date, settings: s, profile: readProfile(s), samples: repo.getActivitySamples(date), sessions: repo.getFocusSessions(date),
+        readsToday: labelStore.readsSince(dayStart.getTime()), // rules apply their own freshness windows
+        view, searchTitles, limits: parseLimits(s.appLimits), lastBreakAt: coachStore.lastCompletedBreakAt()
+      };
+    };
+    const coach = createCoach({
+      now: () => Date.now(),
+      snapshot: buildSnapshot,
+      history: (now) => coachStore.since(now - 7 * 86_400_000),
+      kinds: () => parseKinds(settings.get().nudgeKinds),
+      snoozeUntil: () => settings.get().snoozeUntil,
+      fewer: () => parseFewer(settings.get().nudgeFewer),
+      weight: (c, now) => ruleWeight(c.ruleId, c.kind, readProfile(settings.get()), now),
+      holdReason: async () => {
+        const fg = await new ActiveWinForegroundSource().get().catch(() => null);
+        const displays: Rect[] = screen.getAllDisplays().map((dsp) => dsp.bounds);
+        return holdReason(fg ? { appName: fg.appName, title: fg.title, bounds: fg.bounds ? screen.screenToDipRect(null, fg.bounds) : null } : null, displays, await queryNotificationState());
+      },
+      record: (c, status, now) => {
+        const id = coachStore.record({ at: now, date: localDate(now), kind: c.kind, ruleId: c.ruleId, key: c.key, title: c.title, body: c.body, status });
+        if (status === 'shown') primaryActions.set(id, { kind: c.kind, action: c.primary.action });
+        return id;
+      },
+      setStatus: (id, st) => coachStore.setStatus(id, st),
+      show: (n) => pill.show(n)
+    });
+    let coaching = false;
+    let lastSnoozed = settings.get().snoozeUntil > Date.now();
+    setInterval(() => {
+      const s = settings.get();
+      const snoozed = s.snoozeUntil > Date.now();
+      if (snoozed !== lastSnoozed) { lastSnoozed = snoozed; refreshTray(); }
+      if (coaching || !s.consentGranted || s.trackingPaused) return;
+      coaching = true;
+      coach.tick().catch((e) => console.error('[coach] tick failed:', e)).finally(() => { coaching = false; });
+    }, 30_000);
+
     let lastPush = 0;
     // ponytail: drop pushes closer than 2 s; the renderer also polls every 30 s, so a dropped push only delays by <30 s.
     const pushUpdate = (): void => {
@@ -181,6 +285,9 @@ if (!app.requestSingleInstanceLock()) {
       tray?.setContextMenu(Menu.buildFromTemplate([
         { label: 'Open Daylens', click: showWindow },
         { label: paused ? 'Resume tracking' : 'Pause tracking', click: () => setTracking(paused) },
+        settings.get().snoozeUntil > Date.now()
+          ? { label: 'Resume pop-ups', click: () => { settings.set({ snoozeUntil: 0 }); refreshTray(); } }
+          : { label: 'Snooze pop-ups 1 h', click: () => { settings.set({ snoozeUntil: Date.now() + 3_600_000 }); refreshTray(); } },
         { type: 'separator' },
         { label: 'Quit', click: () => { quitting = true; app.quit(); } }
       ]));
@@ -203,6 +310,13 @@ if (!app.requestSingleInstanceLock()) {
       onSettingsChanged: () => { applyLoginItem(); syncOcr(); syncModel(); retention(); },
       now: () => Date.now(),
       labelsFor: (date) => labelStore.labelsForDay(date),
+      breaksFor: (date) => coachStore.completedBreaksForDay(date),
+      coach: {
+        held: () => coachStore.heldForDay(localDate(Date.now())).map(({ id, at, kind, title, body }) => ({ id, at, kind, title, body })),
+        dismissHeld: (id) => { coachStore.setStatus(id, 'expired'); win?.webContents.send(CH.eventsUpdate); },
+        test: () => { pill.show({ id: -1, kind: 'health', mini: 'Eye break', stat: 'test', title: 'Give your eyes a break', body: 'This is how Daylens pop-ups look. They never take your keyboard focus.', primaryLabel: 'Nice', offerFewer: false }); },
+        onChanged: () => refreshTray()
+      },
       models: {
         view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
         redownload: async () => {
@@ -304,6 +418,9 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
     createWindow();
+
+    if (!globalShortcut.register('Control+Alt+D', () => pill.dismissAll())) console.warn('[coach] Ctrl+Alt+D is taken by another app');
+    app.on('will-quit', () => globalShortcut.unregisterAll());
 
     // Start tracking BEFORE the tray: a tray failure must never prevent tracking.
     const s = settings.get();
