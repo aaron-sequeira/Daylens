@@ -18,10 +18,21 @@ export default defineConfig({
     // brain.js is the Laya utilityProcess entry (forked per batch from index.js).
     build: { rollupOptions: { input: { index: resolve(__dirname, 'src/main/index.ts'), brain: resolve(__dirname, 'src/main/brain/worker.ts') } } }
   },
-  preload: { plugins: [externalizeDepsPlugin()] },
+  preload: {
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/preload/index.ts'),
+          pill: resolve(__dirname, 'src/preload/pill.ts'),
+          break: resolve(__dirname, 'src/preload/break.ts')
+        }
+      }
+    }
+  },
   renderer: {
     root: '.',
-    build: { rollupOptions: { input: { index: resolve(__dirname, 'index.html') } } },
+    build: { rollupOptions: { input: { index: resolve(__dirname, 'index.html'), pill: resolve(__dirname, 'pill.html') } } },
     plugins: [react(), devCsp()]
   }
 });

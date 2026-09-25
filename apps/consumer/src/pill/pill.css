@@ -1,0 +1,59 @@
+@import '@fontsource-variable/dm-sans';
+
+:root {
+  --ink: #171717;
+  --spring: cubic-bezier(.2, 1.3, .35, 1);
+  --ease: cubic-bezier(.22, .8, .26, 1);
+}
+
+html, body { margin: 0; background: transparent; overflow: hidden; font-family: 'DM Sans Variable', system-ui, sans-serif; }
+
+#stack { position: fixed; top: 0; right: 0; width: 400px; height: 260px; }
+
+/* ---- the pop-up (ported from docs/superpowers/specs/assets/daylens-mockups/pill-v2.html) ---- */
+.pill {
+  position: absolute; top: 18px; right: 18px; width: 252px; height: 46px; border-radius: 23px; background: var(--c); overflow: hidden;
+  box-shadow: 0 20px 40px -16px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .6);
+  transition: width .6s var(--spring), height .6s var(--spring), border-radius .6s var(--spring), background .5s, transform .55s var(--spring), opacity .35s;
+}
+.pill.hide { transform: translateY(-90px) scale(.9); opacity: 0; }
+.pill.open { width: 360px; height: 204px; border-radius: 26px; }
+
+/* header row: pinned to the top, never moves */
+.head { position: absolute; top: 8px; left: 8px; right: 12px; height: 30px; display: flex; align-items: center; gap: 10px; }
+.ic { flex: none; width: 30px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, .9); display: grid; place-items: center; font-size: 14px; }
+.labels { position: relative; flex: 1; height: 30px; }
+.labels > span { position: absolute; inset: 0; display: flex; align-items: center; white-space: nowrap; transition: opacity .25s, transform .35s var(--ease); }
+.mini { font-size: 13px; font-weight: 600; }
+.mini em { font-style: normal; font-weight: 400; opacity: .6; margin-left: 4px; }
+.kind { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: 0; transform: translateY(6px); justify-content: space-between; }
+.kind i { font-style: normal; font-weight: 500; letter-spacing: 0; text-transform: none; opacity: .55; font-size: 12px; }
+.pill.open .mini { opacity: 0; transform: translateY(-6px); }
+.pill.open .kind { opacity: .7; transform: none; transition-delay: .12s; }
+
+/* body: sits below the header, fades in after the morph */
+.full { position: absolute; top: 50px; left: 18px; right: 18px; opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; }
+.pill.open .full { opacity: 1; transform: none; transition: opacity .35s .25s, transform .45s .25s var(--ease); }
+.full b { display: block; font-size: 16.5px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 3px; }
+.full p { font-size: 13px; line-height: 1.5; color: #3a3531; }
+.acts { display: flex; gap: 8px; margin-top: 14px; }
+.acts span { border-radius: 999px; padding: 8px 15px; font-weight: 600; font-size: 12px; background: var(--ink); color: #fff; cursor: pointer; transition: transform .25s var(--spring); }
+.acts span:hover { transform: scale(1.05); }
+.acts span+span { background: rgba(255, 255, 255, .7); color: var(--ink); }
+.bar { position: absolute; left: 18px; right: 18px; bottom: 12px; height: 3px; border-radius: 3px; background: rgba(0, 0, 0, .08); opacity: 0; transition: opacity .3s; }
+.bar i { display: block; height: 100%; background: var(--ink); border-radius: 3px; transform-origin: left; }
+.pill.open .bar { opacity: 1; }
+.pill.open .bar i { animation: shrink 4s linear forwards; }
+@keyframes shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ---- stacking, "fewer" variant and reduced motion (Daylens additions) ---- */
+.pill.behind { transform: translateY(10px) scale(.94); opacity: .55; pointer-events: none; }
+.pill.behind.b2 { transform: translateY(18px) scale(.88); opacity: .3; }
+#stack:hover .pill.behind { transform: translateY(58px) scale(.96); opacity: .9; }
+#stack:hover .pill.behind.b2 { transform: translateY(104px) scale(.92); }
+.pill.open.fewer { height: 226px; }
+.fewer-link { margin-top: 8px; font-size: 11.5px; text-decoration: underline; cursor: pointer; opacity: .7; background: none; border: 0; font: inherit; padding: 0; }
+.x { cursor: pointer; }
+.pill.open .bar i { animation: shrink 8s linear forwards; }
+#stack:hover .pill.open .bar i { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .pill, .pill * { transition: opacity .2s !important; animation: none !important; } }
