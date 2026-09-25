@@ -202,19 +202,33 @@ export function createDownloader(deps: {
     stop: stopImpl,
     async remove() {
       stopImpl();
+      // Synchronously, regardless of stopImpl()'s own (conditional) status change: stopImpl() is a no-op
+      // when there's no active controller (e.g. status was 'ready'), which would otherwise leave status
+      // at 'ready' for the whole deletion and cause a start() that lands mid-remove() to be silently
+      // dropped by startImpl()'s `status.state === 'ready'` guard.
+      set({ state: 'missing' });
       const prev = run;
+      let deletionError: unknown;
       const removal = prev.catch(() => {}).then(async () => {
-        // Only the manifest's own files: `dir` may be a shared/dev folder with unrelated content.
-        for (const f of manifest.files) {
-          await fsp.rm(final(f), { force: true });
-          await fsp.rm(part(f), { recursive: true, force: true });
+        try {
+          // Only the manifest's own files: `dir` may be a shared/dev folder with unrelated content.
+          for (const f of manifest.files) {
+            await fsp.rm(final(f), { force: true });
+            await fsp.rm(part(f), { recursive: true, force: true });
+          }
+          await fsp.rm(join(dir, MARKER), { force: true });
+          await fsp.rm(join(dir, `${MARKER}.tmp`), { force: true });
+        } catch (err) {
+          // Swallow here so `run` (and thus a later done()) never rejects on a stale deletion failure;
+          // still surfaced to remove()'s own caller below.
+          deletionError = err;
+          console.error('[downloader] failed to delete model files', err);
         }
-        await fsp.rm(join(dir, MARKER), { force: true });
-        await fsp.rm(join(dir, `${MARKER}.tmp`), { force: true });
       });
       run = removal; // so a start() called during remove() chains onto the removal, not the (already-stopped) old run
       await removal;
       if (run === removal) set({ state: 'missing' }); // only if no newer run (from a start() during remove()) has since begun
+      if (deletionError) throw deletionError;
     },
     status: () => status,
     done: () => run

@@ -1,10 +1,64 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, rmSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createDownloader, type Manifest } from './downloader';
+
+// Shared, hoisted mutable state the 'node:fs' mock below reads -- vi.mock factories are hoisted above
+// imports, so any state they close over must come from vi.hoisted(). Both hooks are no-ops (pass straight
+// through to the real implementation) unless a specific test arms them, so every other test is unaffected.
+const fsHooks = vi.hoisted(() => ({
+  onSecondReadChunk: null as (() => void) | null, // fires just before the 2nd chunk of a createReadStream read is handed to the consumer
+  failNextRm: false // makes the next fsp.rm() call reject once, then resets itself
+}));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    createReadStream: (...args: Parameters<typeof actual.createReadStream>) => {
+      const stream = actual.createReadStream(...args);
+      if (fsHooks.onSecondReadChunk) {
+        const fire = fsHooks.onSecondReadChunk;
+        fsHooks.onSecondReadChunk = null;
+        const boundIterator = (stream[Symbol.asyncIterator] as () => AsyncIterator<unknown>).bind(stream);
+        let calls = 0;
+        (stream as unknown as Record<symbol, unknown>)[Symbol.asyncIterator] = () => {
+          const iter = boundIterator();
+          return {
+            next: async () => {
+              calls++;
+              const result = await iter.next();
+              if (calls === 2) {
+                fire(); // triggers d.stop() (aborts the download's own signal)
+                // Proactively close the fd here rather than relying on the for-await loop's implicit
+                // AsyncIteratorClose cleanup timing, so the test's afterEach never races an open handle.
+                await new Promise<void>((resolve) => {
+                  if (stream.destroyed) return resolve();
+                  stream.once('close', () => resolve());
+                  stream.destroy();
+                });
+              }
+              return result;
+            },
+            return: (value?: unknown) => (iter.return ? iter.return(value) : Promise.resolve({ value, done: true })),
+            throw: (err?: unknown) => (iter.throw ? iter.throw(err) : Promise.reject(err))
+          };
+        };
+      }
+      return stream;
+    },
+    promises: {
+      ...actual.promises,
+      rm: async (...args: Parameters<typeof actual.promises.rm>) => {
+        if (fsHooks.failNextRm) { fsHooks.failNextRm = false; throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' }); }
+        return actual.promises.rm(...args);
+      }
+    }
+  };
+});
 
 const A = randomBytes(200_000), B = randomBytes(1_000);
 const OVERLONG = randomBytes(200_050); // deliberately longer than a.bin's declared 200_000-byte size, and unrelated content
@@ -15,6 +69,7 @@ const files: Record<string, Buffer> = { 'a.bin': A, 'b.json': B };
 
 beforeEach(async () => {
   reqs = []; opts = {}; dir = mkdtempSync(join(tmpdir(), 'dl-'));
+  fsHooks.onSecondReadChunk = null; fsHooks.failNextRm = false;
   let cut = false; let held = false;
   server = createServer((req, res) => {
     const name = decodeURIComponent((req.url ?? '').split('/').pop() ?? '');
@@ -45,7 +100,9 @@ afterEach(async () => {
   // few seconds. Force them closed so afterEach is always fast and deterministic.
   server.closeAllConnections?.();
   await new Promise((r) => server.close(r));
-  rmSync(dir, { recursive: true, force: true });
+  // maxRetries/retryDelay: tolerate a just-closed file handle (e.g. from an aborted read stream) that
+  // Windows hasn't fully released yet, rather than letting a transient EBUSY/ENOTEMPTY fail the test.
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
 });
 
 const manifest = (over: Partial<Record<string, string>> = {}): Manifest => ({
@@ -155,25 +212,33 @@ describe('downloader', () => {
     expect(reqs.filter((r) => r.path === 'a.bin')).toHaveLength(2);
     expect(existsSync(join(dir, 'a.bin'))).toBe(false);
   });
-  it('stop() during a re-hash of an already-complete .part leaves it untouched, not deleted or renamed', async () => {
-    // Large enough that hashing it via createReadStream (many chunked, async fs reads) takes long
-    // enough for a stop() fired after a single event-loop tick to reliably land mid-read rather than
-    // before the first chunk or after the last.
-    const big = randomBytes(80 * 1024 * 1024);
-    const bigManifest: Manifest = { baseUrl: base, files: [{ name: 'a.bin', size: big.length, sha256: sha(big) }, { name: 'b.json', size: B.length, sha256: sha(B) }] };
-    writeFileSync(join(dir, 'a.bin.part'), big);
-    const d = createDownloader({ dir, manifest: bigManifest, fetch, freeBytes: async () => 10 ** 12, wait: async () => {} });
+  it('stop() that lands inside the re-hash of an already-complete .part leaves it untouched, not deleted or renamed', async () => {
+    // Deterministic, not timing-based: the 'node:fs' mock above calls our hook just before the SECOND
+    // chunk of this file's createReadStream read is handed to feed()'s for-await loop -- i.e. after the
+    // first chunk has already been hashed, proving the stop() genuinely lands mid-read rather than
+    // before any reading started or after the file was fully (re)hashed.
+    writeFileSync(join(dir, 'a.bin.part'), A); // already fully downloaded, correct bytes; only needs a re-hash
+    const d = createDownloader({ dir, manifest: manifest(), fetch, freeBytes: async () => 10 ** 12, wait: async () => {} });
     expect(await d.init()).toEqual({ state: 'missing' }); // only the .part exists, not the final file
+    let hookFired = false;
+    fsHooks.onSecondReadChunk = () => { hookFired = true; d.stop(); };
     d.start();
-    await new Promise((r) => setImmediate(r));
-    d.stop();
     await d.done();
+    expect(hookFired).toBe(true); // sanity check that the hook (and thus the mid-read stop) actually happened
     expect(d.status()).toEqual({ state: 'missing' });
     expect(existsSync(join(dir, 'a.bin.part'))).toBe(true);
-    expect(readFileSync(join(dir, 'a.bin.part')).equals(big)).toBe(true); // untouched, not truncated or corrupted
+    expect(readFileSync(join(dir, 'a.bin.part')).equals(A)).toBe(true); // untouched, not truncated, deleted or corrupted
     expect(existsSync(join(dir, 'a.bin'))).toBe(false); // never renamed into place
     expect(reqs).toHaveLength(0); // the file was already fully sized on disk -- no fetch was ever needed
-  }, 10_000);
+  });
+  it('a rejected deletion inside remove() does not poison a later done(), but remove() itself still reports the failure', async () => {
+    const { d } = make(); await d.init(); d.start(); await d.done();
+    expect(d.status()).toEqual({ state: 'ready' });
+    fsHooks.failNextRm = true;
+    await expect(d.remove()).rejects.toThrow(/EBUSY/);
+    await expect(d.done()).resolves.toBeUndefined(); // the failed deletion must not leave `run` a rejected promise
+    expect(d.status()).toEqual({ state: 'missing' }); // still reflects the intended end-state despite the partial failure
+  });
   it('a start() during remove() runs after the deletion, and remove() does not clobber its status', async () => {
     // No timing tricks needed: everything up to remove()'s first `await` runs synchronously, so by the
     // time the second start() below executes, remove() has already stopped the first run and queued its
