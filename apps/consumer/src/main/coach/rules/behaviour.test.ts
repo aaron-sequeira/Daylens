@@ -26,6 +26,10 @@ describe('scattered', () => {
     expect(scattered(snap({ sessions, now: T(12) }))).toMatchObject({ ruleId: 'scattered' });
     expect(scattered(snap({ sessions: sessions.slice(0, 30), now: T(12) }))).toBeNull();
   });
+  it('ignores title-only changes inside one app', () => {
+    const sessions = Array.from({ length: 41 }, (_, i) => sess('Google Chrome', T(11, 45) + i * 20_000, null, `tab ${i}`));
+    expect(scattered(snap({ sessions, now: T(12) }))).toBeNull();
+  });
 });
 
 describe('stuck_escape', () => {

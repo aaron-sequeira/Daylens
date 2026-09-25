@@ -21,8 +21,17 @@ export function clock(hhmm: string): string {
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
 }
 
-export const switchesBetween = (sessions: FocusSessionRow[], from: number, to: number): number =>
-  sessions.filter((s) => s.startedAt > from && s.startedAt <= to).length;
+/** App switches that started in (from, to]: the tracker also splits sessions on title/pid changes, so only
+ * consecutive sessions whose appName differs count. */
+export function switchesBetween(sessions: FocusSessionRow[], from: number, to: number): number {
+  const sorted = [...sessions].sort((a, b) => a.startedAt - b.startedAt);
+  let n = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    const s = sorted[i];
+    if (s.startedAt > from && s.startedAt <= to && s.appName !== sorted[i - 1].appName) n++;
+  }
+  return n;
+}
 
 // Note: Microsoft Edge window titles contain a zero-width space (​) after "Microsoft", so the regex includes ​? to match it.
 const BROWSER_SUFFIX = /\s[-—–]\s(Google Chrome|Microsoft​? Edge|Mozilla Firefox|Brave|Opera|Vivaldi)$/i;

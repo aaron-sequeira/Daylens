@@ -11,9 +11,14 @@ describe('deep_work', () => {
   });
   it('is blocked by many switches or high distraction', () => {
     const view = emptyView({ timeline: [{ start: T(10), end: T(11, 5), category: 'work' }] });
-    const sessions = Array.from({ length: 12 }, (_, i) => sess('Code', T(10, 1 + i)));
+    const sessions = Array.from({ length: 12 }, (_, i) => sess(i % 2 ? 'Code' : 'Slack', T(10, 1 + i)));
     expect(deepWork(snap({ view, sessions, now: T(11, 6) }))).toBeNull();
     expect(deepWork(snap({ view, readsToday: [read(T(10, 30), 'Code', { distraction: 1.2 })], now: T(11, 6) }))).toBeNull();
+  });
+  it('is not blocked by title changes inside one app (12 Code sessions are 0 switches)', () => {
+    const view = emptyView({ timeline: [{ start: T(10), end: T(11, 5), category: 'work' }] });
+    const sessions = Array.from({ length: 12 }, (_, i) => sess('Code', T(10, 1 + i), null, `file${i}.ts`));
+    expect(deepWork(snap({ view, sessions, now: T(11, 6) }))).toMatchObject({ ruleId: 'deep_work' });
   });
 });
 

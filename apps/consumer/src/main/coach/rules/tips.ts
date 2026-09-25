@@ -17,10 +17,18 @@ export const stuckTip: Rule = (s) => {
     primary: { label: 'Got it', action: 'ack' } };
 };
 
+const DISTINCT_MS = 30 * MIN; // re-focusing the same search tab within this counts once
+
 export const repeatSearch: Rule = (s) => {
-  const counts = new Map<string, number>();
-  for (const t of s.searchTitles) { const q = normaliseSearch(t.title); if (q) counts.set(q, (counts.get(q) ?? 0) + 1); }
-  const hit = [...counts.entries()].find(([, n]) => n >= 3);
+  const counts = new Map<string, { n: number; last: number }>();
+  for (const t of [...s.searchTitles].sort((a, b) => a.at - b.at)) {
+    const q = normaliseSearch(t.title);
+    if (!q) continue;
+    const c = counts.get(q);
+    if (!c) counts.set(q, { n: 1, last: t.at });
+    else if (t.at - c.last >= DISTINCT_MS) { c.n++; c.last = t.at; }
+  }
+  const hit = [...counts.entries()].map(([q, c]) => [q, c.n] as const).find(([, n]) => n >= 3);
   if (!hit) return null;
   const q = hit[0].length > 30 ? `${hit[0].slice(0, 29)}…` : hit[0];
   return { ruleId: 'repeat_search', kind: 'tip', key: `repeat_search:${hit[0]}`, mini: 'Same search', stat: `${hit[1]}×`,

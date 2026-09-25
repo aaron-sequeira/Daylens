@@ -20,4 +20,11 @@ describe('repeat_search', () => {
     expect(result?.title).toContain('3×');
     expect(repeatSearch(snap({ searchTitles: titles.slice(0, 2) }))).toBeNull();
   });
+  it('counts the same query re-focused within 30 min once', () => {
+    const q = 'React hooks - Google Search - Google Chrome';
+    const refocused = [T(9), T(9, 5), T(9, 12), T(9, 29)].map((at) => ({ at, title: q }));
+    expect(repeatSearch(snap({ searchTitles: refocused }))).toBeNull();
+    const spaced = [T(9), T(9, 10), T(9, 30), T(9, 45), T(10)].map((at) => ({ at, title: q })); // counts at 9:00, 9:30, 10:00
+    expect(repeatSearch(snap({ searchTitles: spaced }))?.stat).toBe('3×');
+  });
 });

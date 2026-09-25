@@ -28,6 +28,10 @@ describe('switchesBetween', () => {
     const s = [sess('A', T(9)), sess('B', T(9, 5)), sess('C', T(9, 10)), sess('D', T(9, 20))];
     expect(switchesBetween(s, T(9, 1), T(9, 15))).toBe(2);
   });
+  it('does not count title-only changes inside one app as switches', () => {
+    const s = [sess('Code', T(9), null, 'a.ts'), sess('Code', T(9, 2), null, 'b.ts'), sess('Code', T(9, 4), null, 'c.ts'), sess('Chrome', T(9, 6)), sess('Chrome', T(9, 7), null, 'x')];
+    expect(switchesBetween(s, T(9, 1), T(9, 15))).toBe(1);
+  });
 });
 
 describe('normaliseSearch', () => {
