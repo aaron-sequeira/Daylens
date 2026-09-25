@@ -1,6 +1,7 @@
 import type { ActivitySampleRow, FocusSessionRow } from '@worksight/core/types';
 import { atLeast, restPeriods } from '../day/time';
 import { BREAK_MS } from '../day/health';
+import { displayAppName } from '../../shared/categories';
 
 const RECENT_MS = 2 * 60_000; // the user counts as "at it" if the latest bucket ended this recently
 
@@ -31,6 +32,16 @@ export function switchesBetween(sessions: FocusSessionRow[], from: number, to: n
     if (s.startedAt > from && s.startedAt <= to && s.appName !== sorted[i - 1].appName) n++;
   }
   return n;
+}
+
+const appKey = (a: string): string => displayAppName(a).toLowerCase();
+
+/** True when the latest focus session is in `appName` — labels can arrive up to 30 min late, so "right now"
+ * rules check the user hasn't moved on since the read. */
+export function stillIn(sessions: FocusSessionRow[], appName: string): boolean {
+  let last: FocusSessionRow | null = null;
+  for (const s of sessions) if (!last || s.startedAt >= last.startedAt) last = s;
+  return last !== null && appKey(last.appName) === appKey(appName);
 }
 
 // Note: Microsoft Edge window titles contain a zero-width space (​) after "Microsoft", so the regex includes ​? to match it.

@@ -2,10 +2,10 @@ import type { Rule } from '../snapshot';
 import type { RecentRead } from '../types';
 import { displayAppName } from '../../../shared/categories';
 import { CONFIDENT } from '../../brain/questions';
-import { hm, switchesBetween } from '../activity';
+import { hm, stillIn, switchesBetween } from '../activity';
 
 const MIN = 60_000;
-const FRESH_MS = 5 * MIN; // the latest scroll read must be this recent
+const FRESH_MS = 30 * MIN; // spec §4.2: labels may arrive up to 30 min after the read
 const GAP_MS = 5 * MIN;   // reads further apart than this break a run
 const DISTRACTED = 1.5, STUCK = 1.5;
 
@@ -23,7 +23,7 @@ export const doomscroll: Rule = (s) => {
   }
   for (const [app, reads] of byApp) {
     const last = reads[reads.length - 1];
-    if (s.now - last.at > FRESH_MS || (last.distraction ?? 0) < DISTRACTED) continue;
+    if (s.now - last.at > FRESH_MS || (last.distraction ?? 0) < DISTRACTED || !stillIn(s.sessions, app)) continue;
     let first = last;
     for (let i = reads.length - 2; i >= 0; i--) {
       const r = reads[i];

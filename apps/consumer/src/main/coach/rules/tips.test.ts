@@ -1,12 +1,29 @@
 import { describe, it, expect } from 'vitest';
-import { MIN, read, snap, T } from '../fixtures';
+import { read, sess, snap, T } from '../fixtures';
 import { repeatSearch, stuckTip } from './tips';
 
 describe('stuck_tip', () => {
+  const inCode = [sess('Code', T(11))];
+  const stuckAt = (...at: number[]) => at.map((t) => read(t, 'Code', { stuck: 1.6 }));
   it('fires on 3 stuck reads within 10 min in one app', () => {
-    const reads = [0, 3, 6].map((m) => read(T(11, 50) + m * MIN, 'Code', { stuck: 1.6 }));
-    expect(stuckTip(snap({ readsToday: reads, now: T(11, 57) }))).toMatchObject({ ruleId: 'stuck_tip', kind: 'tip', title: 'Stuck in Code?' });
-    expect(stuckTip(snap({ readsToday: reads.slice(0, 2), now: T(11, 57) }))).toBeNull();
+    const reads = stuckAt(T(11, 50), T(11, 53), T(11, 56));
+    expect(stuckTip(snap({ readsToday: reads, sessions: inCode, now: T(11, 57) }))).toMatchObject({ ruleId: 'stuck_tip', kind: 'tip', title: 'Stuck in Code?' });
+    expect(stuckTip(snap({ readsToday: reads.slice(0, 2), sessions: inCode, now: T(11, 57) }))).toBeNull();
+  });
+  it('still fires when the labels arrive 20 min late, while the user is still in that app', () => {
+    expect(stuckTip(snap({ readsToday: stuckAt(T(11, 20), T(11, 23), T(11, 26)), sessions: inCode, now: T(11, 46) }))).toMatchObject({ ruleId: 'stuck_tip' });
+  });
+  it('stays silent once the user moved to another app, or when the reads are stale or spread out', () => {
+    const reads = stuckAt(T(11, 20), T(11, 23), T(11, 26));
+    expect(stuckTip(snap({ readsToday: reads, sessions: [...inCode, sess('Google Chrome', T(11, 40))], now: T(11, 46) }))).toBeNull();
+    expect(stuckTip(snap({ readsToday: reads, sessions: inCode, now: T(11, 57) }))).toBeNull(); // latest 31 min old
+    expect(stuckTip(snap({ readsToday: stuckAt(T(11, 30), T(11, 36), T(11, 42)), sessions: inCode, now: T(11, 45) }))).toBeNull(); // 12-min span
+  });
+  it('describes being stuck without claiming a duration', () => {
+    const c = stuckTip(snap({ readsToday: stuckAt(T(11, 50), T(11, 53), T(11, 56)), sessions: inCode, now: T(11, 57) }))!;
+    expect(c.stat).toBe('stuck');
+    expect(c.body).not.toMatch(/ten minutes|10 min/i);
+    expect(c.body).toContain('explaining it out loud');
   });
 });
 

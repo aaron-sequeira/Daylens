@@ -6,17 +6,27 @@ const scroll = (from: number, minutes: number, app = 'Google Chrome', title: str
   Array.from({ length: Math.floor(minutes / 2) + 1 }, (_, i) => read(from + i * 2 * MIN, app, { distraction: 1.8, windowTitle: title }));
 
 describe('doomscroll', () => {
+  const inChrome = [sess('Google Chrome', T(11))];
   it('fires after 20 min of high-distraction reads in one app', () => {
-    const s = snap({ readsToday: scroll(T(11, 30), 22), now: T(11, 53) });
+    const s = snap({ readsToday: scroll(T(11, 30), 22), sessions: inChrome, now: T(11, 53) });
     expect(doomscroll(s)).toMatchObject({ ruleId: 'doomscroll', kind: 'behaviour', key: `doomscroll:Google Chrome:${T(11, 30)}` });
   });
   it('uses 15 min for a distraction-list app/site', () => {
-    const s = snap({ readsToday: scroll(T(11, 30), 16, 'Google Chrome', 'YouTube - Google Chrome'), now: T(11, 47), profile: { ...snap().profile, distractions: ['YouTube'] } });
+    const s = snap({ readsToday: scroll(T(11, 30), 16, 'Google Chrome', 'YouTube - Google Chrome'), sessions: inChrome, now: T(11, 47), profile: { ...snap().profile, distractions: ['YouTube'] } });
     expect(doomscroll(s)?.title).toMatch(/YouTube/);
   });
   it('stays silent without labels or with stale reads', () => {
-    expect(doomscroll(snap({ readsToday: [] }))).toBeNull();
-    expect(doomscroll(snap({ readsToday: scroll(T(10), 22), now: T(11, 53) }))).toBeNull();
+    expect(doomscroll(snap({ readsToday: [], sessions: inChrome }))).toBeNull();
+    expect(doomscroll(snap({ readsToday: scroll(T(10), 22), sessions: inChrome, now: T(11, 53) }))).toBeNull();
+  });
+  it('still fires when the labels arrive 20 min late, while the user is still in that app', () => {
+    // reads 11:00–11:22, labelled ~20 min later; the app match ignores case and the .exe suffix
+    const s = snap({ readsToday: scroll(T(11), 22, 'Chrome.exe'), sessions: [sess('Code', T(10)), sess('chrome', T(11))], now: T(11, 42) });
+    expect(doomscroll(s)).toMatchObject({ ruleId: 'doomscroll' });
+  });
+  it('stays silent once the user has moved to another app', () => {
+    const s = snap({ readsToday: scroll(T(11), 22), sessions: [sess('Google Chrome', T(11)), sess('Code', T(11, 30))], now: T(11, 42) });
+    expect(doomscroll(s)).toBeNull();
   });
 });
 
