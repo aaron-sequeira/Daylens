@@ -282,3 +282,39 @@ describe('downloader', () => {
     expect(existsSync(join(dir, 'a.bin'))).toBe(false);
   });
 });
+
+describe('downloader (readOnly: a dev model folder is never modified)', () => {
+  const makeRO = () => createDownloader({ dir, manifest: manifest(), fetch, freeBytes: async () => 10 ** 12, wait: async () => {}, readOnly: true });
+  const snapshot = () => Object.fromEntries(['a.bin', 'b.json', '.verified.json', 'a.bin.part'].map((f) => [f, existsSync(join(dir, f)) ? readFileSync(join(dir, f)).toString('hex') : null]));
+
+  it('init() reports ready for a good model without writing a marker', async () => {
+    writeFileSync(join(dir, 'a.bin'), A); writeFileSync(join(dir, 'b.json'), B);
+    const before = snapshot();
+    expect(await makeRO().init()).toEqual({ state: 'ready' });
+    expect(snapshot()).toEqual(before);
+  });
+  it('init() reports missing for a file with a bad hash but never deletes it', async () => {
+    const tampered = Buffer.from(A); tampered[0] ^= 0xff;
+    writeFileSync(join(dir, 'a.bin'), tampered); writeFileSync(join(dir, 'b.json'), B);
+    const before = snapshot();
+    expect(await makeRO().init()).toEqual({ state: 'missing' });
+    expect(snapshot()).toEqual(before);
+  });
+  it('init() does not create a missing folder', async () => {
+    rmSync(dir, { recursive: true, force: true });
+    expect(await makeRO().init()).toEqual({ state: 'missing' });
+    expect(existsSync(dir)).toBe(false);
+    mkdirSync(dir); // afterEach cleans up
+  });
+  it('start() and remove() are no-ops: nothing is fetched, written or deleted', async () => {
+    writeFileSync(join(dir, 'b.json'), B); // a.bin missing: a normal downloader would fetch it
+    const d = makeRO();
+    await d.init();
+    const before = snapshot();
+    d.start(); await d.done();
+    expect(d.status()).toEqual({ state: 'missing' });
+    await d.remove();
+    expect(reqs).toHaveLength(0);
+    expect(snapshot()).toEqual(before);
+  });
+});

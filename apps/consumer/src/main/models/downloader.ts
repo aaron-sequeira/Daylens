@@ -41,8 +41,11 @@ const defaultWait = (ms: number, signal: AbortSignal): Promise<void> => new Prom
 export function createDownloader(deps: {
   dir: string; manifest: Manifest; fetch: typeof fetch; freeBytes(dir: string): Promise<number>;
   wait?(ms: number, signal: AbortSignal): Promise<void>; onStatus?(s: ModelStatus): void;
+  /** Dev model folder (DAYLENS_MODEL_DIR): only ever read it. init() verifies without writing or deleting; start/remove do nothing. */
+  readOnly?: boolean;
 }): Downloader {
   const { dir, manifest } = deps;
+  const readOnly = deps.readOnly ?? false;
   const wait = deps.wait ?? defaultWait;
   const total = manifest.files.reduce((a, f) => a + f.size, 0);
   let status: ModelStatus = { state: 'missing' };
@@ -185,22 +188,27 @@ export function createDownloader(deps: {
 
   return {
     async init() {
-      await fsp.mkdir(dir, { recursive: true });
+      if (!readOnly) await fsp.mkdir(dir, { recursive: true });
       const marker = await readMarker();
       for (const f of manifest.files) {
         const st = await fsp.stat(final(f)).catch(() => null);
         if (!st || st.size !== f.size) { set({ state: 'missing' }); return status; }
         const m = marker[f.name];
         if (m && m.size === st.size && m.mtimeMs === st.mtimeMs) continue;
-        if ((await hashFile(final(f))) !== f.sha256) { await fsp.rm(final(f), { force: true }); set({ state: 'missing' }); return status; }
+        if ((await hashFile(final(f))) !== f.sha256) {
+          if (!readOnly) await fsp.rm(final(f), { force: true });
+          set({ state: 'missing' });
+          return status;
+        }
       }
-      await writeMarker();
+      if (!readOnly) await writeMarker();
       set({ state: 'ready' });
       return status;
     },
-    start: startImpl,
+    start: () => { if (!readOnly) startImpl(); },
     stop: stopImpl,
     async remove() {
+      if (readOnly) return;
       stopImpl();
       // Synchronously, regardless of stopImpl()'s own (conditional) status change: stopImpl() is a no-op
       // when there's no active controller (e.g. status was 'ready'), which would otherwise leave status

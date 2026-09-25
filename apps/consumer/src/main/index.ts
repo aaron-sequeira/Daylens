@@ -68,10 +68,12 @@ if (!app.requestSingleInstanceLock()) {
     // Existing users who already enabled reading in Phase 3 have answered the opt-in question.
     if (settings.get().screenReading && !settings.get().screenReadingAsked) settings.set({ screenReadingAsked: true });
     const labelStore = createLabelStore(db);
-    const modelDir = process.env['DAYLENS_MODEL_DIR'] ?? join(app.getPath('userData'), 'models', 'laya');
+    // DAYLENS_MODEL_DIR points at a dev folder holding the only exported copy of the model: read-only.
+    const devModelDir = process.env['DAYLENS_MODEL_DIR'] || undefined;
+    const modelDir = devModelDir ?? join(app.getPath('userData'), 'models', 'laya');
     let lastModelPush = 0;
     const downloader = createDownloader({
-      dir: modelDir, manifest: LAYA_MANIFEST, fetch: globalThis.fetch,
+      dir: modelDir, manifest: LAYA_MANIFEST, fetch: globalThis.fetch, readOnly: devModelDir !== undefined,
       freeBytes: async (d) => { const s = await statfs(d); return s.bavail * s.bsize; },
       onStatus: (st) => {
         const t = Date.now();
@@ -82,6 +84,9 @@ if (!app.requestSingleInstanceLock()) {
     });
     const forkBrain = (): BrainChild => {
       const child = utilityProcess.fork(join(__dirname, 'brain.js'), [], { serviceName: 'Daylens Brain', stdio: 'ignore' });
+      // Electron emits 'error' (then 'exit') when the Brain crashes; an unhandled 'error' would throw in main.
+      // The 'exit' that follows is what fails the batch.
+      child.on('error', (type) => console.error('[brain] utility process error:', type));
       return {
         post: (m) => child.postMessage(m),
         onMessage: (cb) => { child.on('message', cb); },
@@ -97,11 +102,15 @@ if (!app.requestSingleInstanceLock()) {
     // change landing mid-hash can't race it into starting/stopping a run init hasn't finished evaluating.
     let modelInitDone = false;
     const syncModel = (): void => {
-      if (!modelInitDone) return;
+      if (!modelInitDone || devModelDir) return; // never download into the dev folder
       const s = settings.get();
       if (s.screenReading && s.consentGranted) downloader.start(); else downloader.stop();
     };
-    const tickScheduler = (): void => { try { scheduler.tick(); } catch (e) { console.error('[brain] tick failed:', e); } };
+    const tickScheduler = (): void => {
+      // No labelling batches while tracking is paused (the reader already stops capturing then).
+      if (settings.get().trackingPaused) return;
+      try { scheduler.tick(); } catch (e) { console.error('[brain] tick failed:', e); }
+    };
     setInterval(tickScheduler, 60_000);
     // ponytail: dev path; Phase 7 packaging must ship resources/ocr-helper.ps1 via extraResources.
     const helperPath = app.isPackaged ? join(process.resourcesPath, 'ocr-helper.ps1') : join(__dirname, '../../resources/ocr-helper.ps1');
@@ -191,7 +200,7 @@ if (!app.requestSingleInstanceLock()) {
       models: {
         view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
         redownload: async () => {
-          if (process.env['DAYLENS_MODEL_DIR']) {
+          if (devModelDir) {
             // The dev folder holds the only exported copy of the model: never delete it.
             console.warn('[models] DAYLENS_MODEL_DIR set: skipping redownload delete');
             return { model: downloader.status(), labelling: scheduler.status() };
@@ -220,7 +229,7 @@ if (!app.requestSingleInstanceLock()) {
           return { model: downloader.status(), labelling: scheduler.status() };
         },
         remove: async () => {
-          if (process.env['DAYLENS_MODEL_DIR']) {
+          if (devModelDir) {
             // The dev folder holds the only exported copy of the model: never delete it.
             console.warn('[models] DAYLENS_MODEL_DIR set: skipping delete');
             return { deleted: false };
@@ -298,7 +307,7 @@ if (!app.requestSingleInstanceLock()) {
     retention();
     downloader.init()
       .then(() => { modelInitDone = true; syncModel(); })
-      .catch((e) => { modelInitDone = true; console.error('[models] init failed:', e); });
+      .catch((e) => { modelInitDone = true; console.error('[models] init failed:', e); syncModel(); });
 
     try {
       tray = new Tray(app.isPackaged ? join(process.resourcesPath, 'tray.png') : join(__dirname, '../../resources/tray.png'));
