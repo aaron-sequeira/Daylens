@@ -14,10 +14,11 @@ let captures: number;
 let idle: number;
 let now: number;
 
+const SELF_PID = 999999;
 const reader = () => createScreenReader({
   ocr: { capture: async () => { captures++; return cap; } },
   foreground: { get: async () => fg },
-  settings: () => settings, idleSec: () => idle, store, now: () => now
+  settings: () => settings, idleSec: () => idle, store, now: () => now, selfPid: SELF_PID
 });
 
 beforeEach(() => {
@@ -43,6 +44,13 @@ describe('screen reader', () => {
     idle = settings.idleThresholdSec;
     await expect(reader().tick()).resolves.toBe('skipped-idle');
     expect(captures).toBe(0);
+  });
+
+  it('skips its own window without capturing (never OCR Daylens itself)', async () => {
+    fg = { appName: 'Daylens', appPath: null, title: 'Daylens', pid: SELF_PID };
+    await expect(reader().tick()).resolves.toBe('skipped-self');
+    expect(captures).toBe(0);
+    expect(store.last()).toBeNull();
   });
 
   it('skips an excluded foreground app without capturing', async () => {
@@ -95,7 +103,7 @@ describe('screen reader', () => {
     const r = createScreenReader({
       ocr: { capture: async () => { settings.trackingPaused = true; return cap; } },
       foreground: { get: async () => fg },
-      settings: () => settings, idleSec: () => idle, store, now: () => now
+      settings: () => settings, idleSec: () => idle, store, now: () => now, selfPid: SELF_PID
     });
     await expect(r.tick()).resolves.toBe('skipped-off');
     expect(store.last()).toBeNull();
@@ -105,7 +113,7 @@ describe('screen reader', () => {
     const r = createScreenReader({
       ocr: { capture: async () => { settings.captureWindowTitles = false; return cap; } },
       foreground: { get: async () => fg },
-      settings: () => settings, idleSec: () => idle, store, now: () => now
+      settings: () => settings, idleSec: () => idle, store, now: () => now, selfPid: SELF_PID
     });
     await expect(r.tick()).resolves.toBe('stored');
     expect(store.last()).toMatchObject({ windowTitle: null });
@@ -129,7 +137,7 @@ describe('screen reader', () => {
     const r = createScreenReader({
       ocr: { capture: async () => { settings = { ...settings, exclusions: JSON.stringify([...JSON.parse(settings.exclusions), 'Visual Studio Code']) }; return cap; } },
       foreground: { get: async () => fg },
-      settings: () => settings, idleSec: () => idle, store, now: () => now
+      settings: () => settings, idleSec: () => idle, store, now: () => now, selfPid: SELF_PID
     });
     await expect(r.tick()).resolves.toBe('discarded');
     expect(store.last()).toBeNull();

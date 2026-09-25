@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS screen_reads (
   stuck REAL, distraction REAL, labeled_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_reads_date ON screen_reads(date, at);
+CREATE INDEX IF NOT EXISTS idx_reads_at ON screen_reads(at);
 `;
 
 export interface ScreenReadInput { at: number; date: string; appName: string; windowTitle: string | null; text: string | null; textHash: string; }
@@ -30,13 +31,25 @@ export function createScreenStore(db: Database.Database): ScreenStore {
   const ins = db.prepare('INSERT INTO screen_reads (at, date, app_name, window_title, text, text_hash) VALUES (@at, @date, @appName, @windowTitle, @text, @textHash)');
   const lastQ = db.prepare(`SELECT ${COLS} FROM screen_reads ORDER BY at DESC, id DESC LIMIT 1`);
   const lastTextQ = db.prepare(`SELECT ${COLS} FROM screen_reads WHERE text IS NOT NULL ORDER BY at DESC, id DESC LIMIT 1`);
-  const purge = db.prepare('UPDATE screen_reads SET text = NULL, text_hash = \'\' WHERE at < ? AND text IS NOT NULL');
+  // Also blanks the hash on an already-purged dup row (text NULL, hash still set): otherwise old free
+  // pages/WAL frames keep the hash of text that should have aged out along with everything else.
+  const purge = db.prepare('UPDATE screen_reads SET text = NULL, text_hash = \'\' WHERE at < ? AND (text IS NOT NULL OR text_hash <> \'\')');
   return {
     insert: (r) => Number(ins.run(r).lastInsertRowid),
     last: () => (lastQ.get() as ScreenReadRow | undefined) ?? null,
     lastWithText: () => (lastTextQ.get() as ScreenReadRow | undefined) ?? null,
     purgeTextBefore: (ms) => purge.run(ms).changes
   };
+}
+
+/**
+ * Forces purged/deleted text out of the WAL and into the main file, then truncates the WAL.
+ * With `secure_delete = ON` (set once at startup) this actually overwrites the freed pages instead of
+ * leaving old text sitting in free pages or old WAL frames. Call after deleteActivity and after any
+ * retention run that changed rows.
+ */
+export function checkpoint(db: Database.Database): void {
+  db.pragma('wal_checkpoint(TRUNCATE)');
 }
 
 /** "Delete my activity": everything tracked and read; settings, profile and consent are kept. */

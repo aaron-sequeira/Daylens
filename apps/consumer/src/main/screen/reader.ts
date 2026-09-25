@@ -7,13 +7,13 @@ import type { ScreenStore } from './store';
 import { redact } from './redact';
 import { isExcluded, parseExclusions } from './exclusions';
 
-export type ReadOutcome = 'skipped-off' | 'skipped-idle' | 'skipped-excluded' | 'skipped-same' | 'no-capture' | 'discarded' | 'stored' | 'stored-dup';
+export type ReadOutcome = 'skipped-off' | 'skipped-idle' | 'skipped-self' | 'skipped-excluded' | 'skipped-same' | 'no-capture' | 'discarded' | 'stored' | 'stored-dup';
 export const SAME_WINDOW_MS = 120_000;
 export interface ScreenReader { tick(): Promise<ReadOutcome>; }
 
 export function createScreenReader(deps: {
   ocr: Pick<OcrClient, 'capture'>; foreground: ForegroundSource; settings: () => DaylensSettings;
-  idleSec: () => number; store: ScreenStore; now: () => number;
+  idleSec: () => number; store: ScreenStore; now: () => number; selfPid: number;
 }): ScreenReader {
   return {
     async tick() {
@@ -22,6 +22,9 @@ export function createScreenReader(deps: {
       if (deps.idleSec() >= s.idleThresholdSec) return 'skipped-idle';
       const fg = await deps.foreground.get();
       if (!fg) return 'no-capture';
+      // Never OCR our own window: opening Settings -> Privacy would otherwise re-store Daylens's own UI
+      // text on the next tick, restarting its retention clock, and the peek would show Daylens itself.
+      if (fg.pid === deps.selfPid) return 'skipped-self';
       const patterns = parseExclusions(s.exclusions);
       if (isExcluded(patterns, fg.appName, fg.title)) return 'skipped-excluded';
       const now = deps.now();

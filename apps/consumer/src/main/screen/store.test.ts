@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { SCHEMA_SQL, createRepositories } from '@worksight/core';
 import { DEFAULT_SETTINGS } from '../settings';
 import { DEFAULT_PROFILE } from '../../shared/profileOptions';
-import { SCREEN_SCHEMA, createScreenStore, deleteActivity, exportAll, type ScreenReadInput } from './store';
+import { SCREEN_SCHEMA, createScreenStore, checkpoint, deleteActivity, exportAll, type ScreenReadInput } from './store';
 
 let db: Database.Database;
 beforeEach(() => { db = new Database(':memory:'); db.exec(SCHEMA_SQL); db.exec(SCREEN_SCHEMA); });
@@ -33,6 +33,25 @@ describe('screen store', () => {
     expect(s.lastWithText()).toMatchObject({ text: 'new' });
     const purged = db.prepare('SELECT text_hash AS textHash FROM screen_reads WHERE at = 1000').get();
     expect(purged).toMatchObject({ textHash: '' });
+  });
+  it('also blanks the hash on an already-purged dup row (text NULL, hash still set)', () => {
+    const s = createScreenStore(db);
+    s.insert(read(1000, null, 'stale-hash'));
+    s.insert(read(5000, 'new'));
+    expect(s.purgeTextBefore(3000)).toBe(1);
+    const row = db.prepare('SELECT text_hash AS textHash FROM screen_reads WHERE at = 1000').get();
+    expect(row).toMatchObject({ textHash: '' });
+  });
+  it('does not re-count rows that are already fully purged', () => {
+    const s = createScreenStore(db);
+    s.insert(read(1000, null, ''));
+    expect(s.purgeTextBefore(3000)).toBe(0);
+  });
+});
+
+describe('checkpoint', () => {
+  it('runs without throwing (WAL checkpoint/truncate is a no-op safety net on an in-memory db)', () => {
+    expect(() => checkpoint(db)).not.toThrow();
   });
 });
 

@@ -9,7 +9,7 @@ import { CH } from './channels';
 import { registerIpc } from './ipc';
 import { DEFAULT_SETTINGS } from './settings';
 import { createOcrClient } from './ocr/client';
-import { SCREEN_SCHEMA, createScreenStore, deleteActivity, exportAll } from './screen/store';
+import { SCREEN_SCHEMA, createScreenStore, checkpoint, deleteActivity, exportAll } from './screen/store';
 import { createScreenReader, runRetention } from './screen/reader';
 import { readProfile } from './profile';
 
@@ -53,6 +53,9 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', showWindow);
   app.whenReady().then(() => {
     const db = openDatabase(join(app.getPath('userData'), 'daylens.sqlite'));
+    // WAL mode alone leaves purged/deleted text sitting in free pages and old WAL frames; secure_delete
+    // makes SQLite actually overwrite them (paired with checkpoint() after a delete/retention run).
+    db.pragma('secure_delete = ON');
     const repo = createRepositories(db);
     const settings = createKvStore(db, DEFAULT_SETTINGS);
     db.exec(SCREEN_SCHEMA);
@@ -60,7 +63,8 @@ if (!app.requestSingleInstanceLock()) {
     // ponytail: dev path; Phase 7 packaging must ship resources/ocr-helper.ps1 via extraResources.
     const helperPath = app.isPackaged ? join(process.resourcesPath, 'ocr-helper.ps1') : join(__dirname, '../../resources/ocr-helper.ps1');
     const ocr = createOcrClient({
-      spawn: () => spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helperPath], { windowsHide: true }),
+      // stderr is ignored, not piped: an undrained stderr pipe can fill up and block the helper.
+      spawn: () => spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', helperPath], { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] }),
       onStatus: () => win?.webContents.send(CH.eventsUpdate)
     });
 
@@ -86,14 +90,25 @@ if (!app.requestSingleInstanceLock()) {
 
     const reader = createScreenReader({
       ocr, foreground: new ActiveWinForegroundSource(), settings: () => settings.get(),
-      idleSec: () => powerMonitor.getSystemIdleTime(), store: screenStore, now: () => Date.now()
+      idleSec: () => powerMonitor.getSystemIdleTime(), store: screenStore, now: () => Date.now(),
+      // The BrowserWindow's HWND belongs to this process: never OCR our own window.
+      selfPid: process.pid
     });
     // The helper process only exists while screen reading is allowed to run.
     const syncOcr = (): void => {
       const s = settings.get();
       if (s.screenReading && s.consentGranted && !s.trackingPaused) ocr.start(); else ocr.stop();
     };
-    const retention = (): void => { runRetention(screenStore, settings.get().rawTextRetentionDays, Date.now()); };
+    // Runs at startup, before the tray/quit/power handlers below are registered, so a failure here must
+    // not crash startup.
+    const retention = (): void => {
+      try {
+        const purged = runRetention(screenStore, settings.get().rawTextRetentionDays, Date.now());
+        if (purged > 0) checkpoint(db);
+      } catch (e) {
+        console.error('[screen] retention failed:', e);
+      }
+    };
     let reading = false;
     setInterval(() => {
       if (reading) return;
@@ -152,9 +167,15 @@ if (!app.requestSingleInstanceLock()) {
           const wasRunning = s.consentGranted && !s.trackingPaused;
           tracker.stop();
           ocr.stop();
-          deleteActivity(db);
-          if (wasRunning) tracker.start();
-          syncOcr();
+          // A failed delete must not leave tracking/OCR silently off: restart them (and re-sync OCR)
+          // whether deleteActivity succeeds or throws.
+          try {
+            deleteActivity(db);
+            checkpoint(db);
+          } finally {
+            if (wasRunning) tracker.start();
+            syncOcr();
+          }
           win?.webContents.send(CH.eventsUpdate);
           return { deleted: true };
         },

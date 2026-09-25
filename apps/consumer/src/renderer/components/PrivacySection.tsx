@@ -1,15 +1,36 @@
 import { useEffect, useState } from 'react';
+import { localDate } from '@worksight/core/date';
 import type { DaylensSettings } from '../../main/settings';
 import type { PrivacyView } from '../../main/ipc';
-import { DEFAULT_EXCLUSIONS, MAX_PATTERN, addExclusion } from '../../shared/exclusions';
+import { DEFAULT_EXCLUSIONS, MAX_EXCLUSIONS, MAX_PATTERN, addExclusion } from '../../shared/exclusions';
 import { api } from '../lib/api';
 import { formatClock } from '../lib/format';
 
 const STATUS_TEXT: Record<PrivacyView['ocrStatus'], string> = {
   off: 'Off', starting: 'Starting…', ready: 'Working', restarting: 'Restarting after an error…',
-  'no-language': 'Windows has no text-recognition language installed',
+  'no-language': 'Windows has no text-recognition language installed. Install one, then turn screen reading off and on.',
   failed: 'Stopped after repeated errors. Turn it off and on to retry.'
 };
+
+/** Union of the current list and the defaults (case-insensitive), capped at MAX_EXCLUSIONS. Keeps whatever the user added instead of wiping it out. */
+function restoreDefaults(current: string[]): string[] {
+  const seen = new Set(current.map((p) => p.toLowerCase()));
+  const merged = [...current];
+  for (const d of DEFAULT_EXCLUSIONS) {
+    if (merged.length >= MAX_EXCLUSIONS) break;
+    if (seen.has(d.toLowerCase())) continue;
+    seen.add(d.toLowerCase());
+    merged.push(d);
+  }
+  return merged.slice(0, MAX_EXCLUSIONS);
+}
+
+function formatPeekTime(ms: number): string {
+  const clock = formatClock(ms);
+  if (localDate(ms) === localDate(Date.now())) return `at ${clock}`;
+  const date = new Date(ms).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  return `${date}, ${clock}`;
+}
 
 export function PrivacySection({ settings, onChange }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void }) {
   const [view, setView] = useState<PrivacyView | null>(null);
@@ -85,7 +106,7 @@ export function PrivacySection({ settings, onChange }: { settings: DaylensSettin
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) add(); }} />
             <button className="btn s" onClick={add}>Add</button>
-            <button className="btn s" onClick={() => { void saveExclusions([...DEFAULT_EXCLUSIONS]); }}>Restore defaults</button>
+            <button className="btn s" onClick={() => { void saveExclusions(restoreDefaults(view.exclusions)); }}>Restore defaults</button>
           </div>
         </div>
       </div>
@@ -95,7 +116,7 @@ export function PrivacySection({ settings, onChange }: { settings: DaylensSettin
         <div className="srow stack">
           {view.lastRead ? (
             <>
-              <p><small>Last read at {formatClock(view.lastRead.at)} · {view.lastRead.app}{view.lastRead.title ? ` · ${view.lastRead.title}` : ''}. This is exactly what was stored.</small></p>
+              <p><small>Last read {formatPeekTime(view.lastRead.at)} · {view.lastRead.app}{view.lastRead.title ? ` · ${view.lastRead.title}` : ''}. This is exactly what was stored.</small></p>
               <pre className="peek">{view.lastRead.text || '(no text found)'}</pre>
             </>
           ) : <p><small>Nothing read yet.</small></p>}

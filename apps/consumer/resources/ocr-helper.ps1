@@ -19,7 +19,8 @@ public static class DaylensFg {
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr v);
-  [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT r, int size);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
 }
 "@
 # Per-monitor DPI aware (v2) so window bounds and screen copies use physical pixels.
@@ -64,22 +65,40 @@ function Ocr-Bytes([byte[]]$bytes) {
   }
 }
 
+$PW_RENDERFULLCONTENT = 2
+
+# Captures the foreground window's own pixels via PrintWindow (never CopyFromScreen: a screen-rectangle
+# grab picks up whatever is topmost on screen — toasts, always-on-top or PiP windows — and would attribute
+# that text to the foreground app, bypassing its exclusions). Returns $null when there is no capturable
+# foreground window, a hashtable with an `error` key on a capture failure or a mid-capture window switch,
+# or a hashtable with the PNG bytes and metadata on success.
 function Capture-Foreground {
   $h = [DaylensFg]::GetForegroundWindow()
   if ($h -eq [IntPtr]::Zero -or [DaylensFg]::IsIconic($h)) { return $null }
-  $r = New-Object 'DaylensFg+RECT'
-  if ([DaylensFg]::DwmGetWindowAttribute($h, 9, [ref]$r, 16) -ne 0) { return $null } # DWMWA_EXTENDED_FRAME_BOUNDS
-  $w = $r.Right - $r.Left; $hh = $r.Bottom - $r.Top
-  if ($w -le 0 -or $hh -le 0) { return $null }
   [uint32]$procId = 0
   [void][DaylensFg]::GetWindowThreadProcessId($h, [ref]$procId)
-  $sb = New-Object System.Text.StringBuilder 512
-  [void][DaylensFg]::GetWindowText($h, $sb, 512)
-  $bmp = $null; $scaled = $null; $ms = $null
+  $sbPre = New-Object System.Text.StringBuilder 512
+  [void][DaylensFg]::GetWindowText($h, $sbPre, 512)
+  $preTitle = $sbPre.ToString()
+  $r = New-Object 'DaylensFg+RECT'
+  if (-not [DaylensFg]::GetWindowRect($h, [ref]$r)) { return $null }
+  $w = $r.Right - $r.Left; $hh = $r.Bottom - $r.Top
+  if ($w -le 0 -or $hh -le 0) { return $null }
+  $bmp = $null; $scaled = $null; $ms = $null; $g = $null
   try {
     $bmp = New-Object System.Drawing.Bitmap $w, $hh
     $g = [System.Drawing.Graphics]::FromImage($bmp)
-    try { $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size) } finally { $g.Dispose() }
+    $hdc = $g.GetHdc()
+    $ok = $false
+    try { $ok = [DaylensFg]::PrintWindow($h, $hdc, $PW_RENDERFULLCONTENT) } finally { $g.ReleaseHdc($hdc) }
+    if (-not $ok) { return @{ error = 'capture_failed' } }
+    # The foreground window may have changed while PrintWindow rendered: never attribute those pixels
+    # to a different (or now-hidden) window. Re-read after the capture and report that title.
+    if ([DaylensFg]::GetForegroundWindow() -ne $h) { return @{ error = 'window_changed' } }
+    $sbPost = New-Object System.Text.StringBuilder 512
+    [void][DaylensFg]::GetWindowText($h, $sbPost, 512)
+    $postTitle = $sbPost.ToString()
+    if ($postTitle -ne $preTitle) { return @{ error = 'window_changed' } }
     $src = $bmp
     if ($w -gt $maxDim -or $hh -gt $maxDim) {
       $k = [Math]::Min($maxDim / $w, $maxDim / $hh)
@@ -88,10 +107,11 @@ function Capture-Foreground {
     }
     $ms = New-Object System.IO.MemoryStream
     $src.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-    return @{ bytes = $ms.ToArray(); pid = [int]$procId; title = $sb.ToString(); w = $w; h = $hh }
+    return @{ bytes = $ms.ToArray(); pid = [int]$procId; title = $postTitle; w = $w; h = $hh }
   } finally {
     if ($null -ne $ms) { $ms.Dispose() }
     if ($null -ne $scaled) { $scaled.Dispose() }
+    if ($null -ne $g) { $g.Dispose() }
     if ($null -ne $bmp) { $bmp.Dispose() }
   }
 }
@@ -108,6 +128,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
     if ($arg -eq 'CAPTURE') {
       $cap = Capture-Foreground
       if ($null -eq $cap) { Emit @{ id = $id; error = 'no_window' }; continue }
+      if ($cap.ContainsKey('error')) { Emit @{ id = $id; error = $cap.error }; continue }
       $text = Ocr-Bytes $cap.bytes
       Emit @{ id = $id; text = $text; ms = $sw.ElapsedMilliseconds; pid = $cap.pid; title = $cap.title; w = $cap.w; h = $cap.h }
     } else {
