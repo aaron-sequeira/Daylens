@@ -10,6 +10,7 @@
     "pretest": "pnpm rebuild better-sqlite3",
     "test": "vitest run",
     "test:parity": "vitest run src/main/brain/laya.parity.test.ts",
+    "test:eval": "vitest run src/main/brain/laya.eval.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
