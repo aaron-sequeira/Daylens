@@ -92,4 +92,9 @@ describe('label store', () => {
     labels.applyLabels([{ id: a, category: 'entertainment', categoryConf: 0.2, activity: null, activityConf: null, stuck: null, distraction: null }], 5000);
     expect(labels.labelsForDay('2026-09-25')).toEqual([{ at: 1000, appName: 'Discord', category: 'entertainment', conf: 0.2 }]);
   });
+  it('lists labelled reads since a time with scores', () => {
+    const a = add(1000, 'a', 'ha'); add(2000, 'b', 'hb');
+    labels.applyLabels([{ id: a, category: 'work', categoryConf: 0.8, activity: 'coding', activityConf: 0.7, stuck: 1.6, distraction: 0.2 }], 3000);
+    expect(labels.readsSince(500)).toEqual([{ at: 1000, appName: 'Code', windowTitle: 't', category: 'work', conf: 0.8, stuck: 1.6, distraction: 0.2 }]);
+  });
 });

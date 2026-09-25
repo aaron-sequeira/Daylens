@@ -55,16 +55,21 @@ export function checkpoint(db: Database.Database): void {
   db.pragma('wal_checkpoint(TRUNCATE)');
 }
 
+const hasTable = (db: Database.Database, t: string): boolean =>
+  !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(t);
+
 /** "Delete my activity": everything tracked and read; settings, profile and consent are kept. */
 export function deleteActivity(db: Database.Database): void {
   db.transaction(() => {
     db.exec('DELETE FROM focus_sessions; DELETE FROM app_events; DELETE FROM activity_samples; DELETE FROM daily_summaries; DELETE FROM screen_reads;');
+    if (hasTable(db, 'nudges')) db.exec('DELETE FROM nudges; DELETE FROM breaks;');
   })();
 }
 
 export interface ExportData {
   exportedAt: number; settings: DaylensSettings; profile: Profile;
   focusSessions: unknown[]; appEvents: unknown[]; activitySamples: unknown[]; screenReads: unknown[];
+  nudges: unknown[]; breaks: unknown[];
 }
 
 export function exportAll(db: Database.Database, settings: DaylensSettings, profile: Profile, now: number): ExportData {
@@ -72,6 +77,7 @@ export function exportAll(db: Database.Database, settings: DaylensSettings, prof
   return {
     exportedAt: now, settings, profile,
     focusSessions: all('focus_sessions'), appEvents: all('app_events'),
-    activitySamples: all('activity_samples'), screenReads: all('screen_reads')
+    activitySamples: all('activity_samples'), screenReads: all('screen_reads'),
+    nudges: hasTable(db, 'nudges') ? all('nudges') : [], breaks: hasTable(db, 'breaks') ? all('breaks') : []
   };
 }

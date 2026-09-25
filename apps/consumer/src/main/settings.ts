@@ -22,7 +22,11 @@ export const DEFAULT_SETTINGS = {
   rawTextRetentionDays: 7,
   readIntervalSec: 30,
   exclusions: JSON.stringify(DEFAULT_EXCLUSIONS),
-  screenReadingAsked: false
+  screenReadingAsked: false,
+  nudgeKinds: '{"health":true,"behaviour":true,"tip":true,"win":true}',
+  snoozeUntil: 0,
+  appLimits: '[]',
+  nudgeFewer: '{}'
 };
 export type DaylensSettings = typeof DEFAULT_SETTINGS;
 

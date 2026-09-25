@@ -12,7 +12,7 @@ export const AWAY_MS = 10 * 60_000;
 const NOT_SCREEN = /^lockapp(\.exe)?$/i; // Windows lock screen
 const TIMELINE_JOIN_MS = 60_000;
 
-export interface DayInput { date: ISODate; sessions: FocusSessionRow[]; samples: ActivitySampleRow[]; labels?: DayLabel[]; }
+export interface DayInput { date: ISODate; sessions: FocusSessionRow[]; samples: ActivitySampleRow[]; labels?: DayLabel[]; breakScreens?: number[]; }
 export interface ViewSettings { dailyGoalMin: number; windDownTime: string; breakIntervalMin: number; }
 export interface AppTime { appName: string; seconds: number; }
 export interface CategoryCard { category: Category; seconds: number; apps: AppTime[]; }
@@ -20,7 +20,7 @@ export interface TimelineSegment { start: number; end: number; category: Categor
 export interface DayBar { date: ISODate; seconds: number; byCategory: Record<Category, number>; }
 export interface TodayView {
   date: ISODate; now: number; screenSec: number; activeSec: number; goalSec: number; firstSeenAt: number | null;
-  cards: CategoryCard[]; timeline: TimelineSegment[]; health: Health; week: DayBar[];
+  cards: CategoryCard[]; timeline: TimelineSegment[]; health: Health; week: DayBar[]; apps: AppTime[];
 }
 
 interface Piece extends Interval { appName: string; category: Category; }
@@ -90,6 +90,12 @@ function cardsOf(pieces: Piece[]): CategoryCard[] {
     .sort((a, b) => b.seconds - a.seconds);
 }
 
+function appsOf(pieces: Piece[]): AppTime[] {
+  const apps = new Map<string, number>();
+  for (const p of pieces) apps.set(p.appName, (apps.get(p.appName) ?? 0) + (p.end - p.start));
+  return [...apps.entries()].map(([appName, ms]) => ({ appName, seconds: sec(ms) })).sort((a, b) => b.seconds - a.seconds);
+}
+
 function timelineOf(pieces: Piece[]): TimelineSegment[] {
   const out: TimelineSegment[] = [];
   for (const p of [...pieces].sort((a, b) => a.start - b.start)) {
@@ -123,16 +129,23 @@ export function buildTodayView(days: DayInput[], settings: ViewSettings, now: nu
     firstSeenAt: pieces.length ? Math.min(...pieces.map((p) => p.start)) : null,
     cards: cardsOf(pieces),
     timeline: timelineOf(pieces),
-    health: computeHealth({ samples: today.samples, screenSec, ...settings }),
-    week: days.map((d) => barOf(d, currentId, now))
+    health: computeHealth({ samples: today.samples, screenSec, breakScreens: today.breakScreens, ...settings }),
+    week: days.map((d) => barOf(d, currentId, now)),
+    apps: appsOf(pieces)
   };
 }
 
-export function loadTodayView(repo: Repositories, settings: ViewSettings, date: ISODate, now: number, labelsFor: (date: ISODate) => DayLabel[] = () => []): TodayView {
+export function loadTodayView(
+  repo: Repositories, settings: ViewSettings, date: ISODate, now: number,
+  labelsFor: (date: ISODate) => DayLabel[] = () => [], breaksFor: (date: ISODate) => number[] = () => []
+): TodayView {
   const days: DayInput[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = shiftDate(date, -i);
-    days.push({ date: d, sessions: [...repo.getFocusSessions(shiftDate(d, -1)), ...repo.getFocusSessions(d)], samples: repo.getActivitySamples(d), labels: labelsFor(d) });
+    days.push({
+      date: d, sessions: [...repo.getFocusSessions(shiftDate(d, -1)), ...repo.getFocusSessions(d)],
+      samples: repo.getActivitySamples(d), labels: labelsFor(d), breakScreens: breaksFor(d)
+    });
   }
   return buildTodayView(days, settings, now);
 }

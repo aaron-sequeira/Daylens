@@ -164,6 +164,11 @@ describe('buildTodayView', () => {
     });
     expect(v.cards.map((c) => c.category)).toEqual(['communication']);
   });
+
+  it('lists every app with its time', () => {
+    const v = view({ sessions: [session('Code', T(9), T(10)), session('Discord', T(10), T(10, 30)), session('Figma', T(10, 30), T(11)), session('Slack', T(11), T(11, 10))], samples: run(T(9), 130, 1) });
+    expect(v.apps.map((a) => a.appName)).toEqual(['Code', 'Discord', 'Figma', 'Slack']);
+  });
 });
 
 describe('loadTodayView', () => {

@@ -51,4 +51,10 @@ describe('computeHealth', () => {
     const h = computeHealth({ ...base, dailyGoalMin: 60, samples: run(T(10), 30, 1), screenSec: 5 * 3600 });
     expect(h.score).toBe(80);
   });
+  it('counts a completed break screen outside any detected rest as a break', () => {
+    const samples = run(T(9), 120, 1); // 2 h of continuous activity, no 2-min rest
+    const without = computeHealth({ ...base, samples, screenSec: 7200 });
+    const withBreak = computeHealth({ ...base, samples, screenSec: 7200, breakScreens: [T(10)] });
+    expect(withBreak.breaks).toBe(without.breaks + 1);
+  });
 });

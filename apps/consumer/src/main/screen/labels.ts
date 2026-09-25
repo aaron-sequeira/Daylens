@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { LayaAnswer } from '../brain/laya';
+import type { RecentRead } from '../coach/types';
 
 export interface StoredLabel { id: number; category: string | null; categoryConf: number | null; activity: string | null; activityConf: number | null; stuck: number | null; distraction: number | null; }
 export interface ReadToLabel { id: number; app: string; title: string | null; text: string; }
@@ -28,6 +29,7 @@ export interface LabelStore {
   markFailed(id: number, now: number): void;
   lastLabelledAt(): number | null;
   labelsForDay(date: string): DayLabel[];
+  readsSince(ms: number): RecentRead[];
 }
 
 // Starts with labeled_at IS NULL so every pending-read query can use the partial idx_reads_unlabelled.
@@ -50,6 +52,8 @@ export function createLabelStore(db: Database.Database): LabelStore {
   const last = db.prepare('SELECT max(labeled_at) AS t FROM screen_reads');
   // category <> 'uncertain' excludes legacy rows from before Laya always stored its own choice (dev DBs may still have them).
   const day = db.prepare(`SELECT at, app_name AS appName, category, category_conf AS conf FROM screen_reads WHERE date = ? AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
+  const recent = db.prepare(`SELECT at, app_name AS appName, window_title AS windowTitle, category, category_conf AS conf, stuck, distraction
+    FROM screen_reads WHERE at >= ? AND labeled_at IS NOT NULL AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
   const applyAll = db.transaction((results: StoredLabel[], now: number) => { for (const r of results) upd.run({ ...r, now }); });
   return {
     unlabelled: (limit) => unl.all(limit) as ReadToLabel[],
@@ -60,6 +64,7 @@ export function createLabelStore(db: Database.Database): LabelStore {
     markPurged: (now) => purged.run(now).changes,
     markFailed: (id, now) => { failed.run(now, id); },
     lastLabelledAt: () => (last.get() as { t: number | null }).t,
-    labelsForDay: (date) => day.all(date) as DayLabel[]
+    labelsForDay: (date) => day.all(date) as DayLabel[],
+    readsSince: (ms) => recent.all(ms) as RecentRead[]
   };
 }

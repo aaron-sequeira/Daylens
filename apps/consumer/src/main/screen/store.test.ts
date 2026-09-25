@@ -4,6 +4,7 @@ import { SCHEMA_SQL, createRepositories } from '@worksight/core';
 import { DEFAULT_SETTINGS } from '../settings';
 import { DEFAULT_PROFILE } from '../../shared/profileOptions';
 import { SCREEN_SCHEMA, createScreenStore, checkpoint, deleteActivity, exportAll, type ScreenReadInput } from './store';
+import { COACH_SCHEMA, createCoachStore } from '../coach/store';
 
 let db: Database.Database;
 beforeEach(() => { db = new Database(':memory:'); db.exec(SCHEMA_SQL); db.exec(SCREEN_SCHEMA); });
@@ -70,14 +71,43 @@ describe('deleteActivity', () => {
     }
     expect(db.prepare('SELECT count(*) AS n FROM settings').get()).toEqual({ n: 1 });
   });
+
+  it('also works, and does nothing to coach tables, on a db without them', () => {
+    createScreenStore(db).insert(read(1000, 'x'));
+    expect(() => deleteActivity(db)).not.toThrow();
+    expect(db.prepare('SELECT count(*) AS n FROM screen_reads').get()).toEqual({ n: 0 });
+  });
+
+  it('empties nudges and breaks too when the coach tables exist', () => {
+    db.exec(COACH_SCHEMA);
+    const coach = createCoachStore(db);
+    coach.record({ at: 1000, date: '2026-09-24', kind: 'health', ruleId: 'eye_break', key: 'k', title: 't', body: 'b', status: 'shown' });
+    coach.recordBreak({ at: 1000, date: '2026-09-24', kind: 'eye', seconds: 20, completed: true });
+    createScreenStore(db).insert(read(1000, 'x'));
+    deleteActivity(db);
+    expect(db.prepare('SELECT count(*) AS n FROM nudges').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT count(*) AS n FROM breaks').get()).toEqual({ n: 0 });
+  });
 });
 
 describe('exportAll', () => {
-  it('exports every table plus settings and profile', () => {
+  it('exports every table plus settings and profile, with empty nudges/breaks when those tables do not exist', () => {
     createScreenStore(db).insert(read(1000, 'x'));
     const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
-    expect(Object.keys(out).sort()).toEqual(['activitySamples', 'appEvents', 'exportedAt', 'focusSessions', 'profile', 'screenReads', 'settings']);
+    expect(Object.keys(out).sort()).toEqual(['activitySamples', 'appEvents', 'breaks', 'exportedAt', 'focusSessions', 'nudges', 'profile', 'screenReads', 'settings']);
     expect(out.exportedAt).toBe(42);
     expect(out.screenReads).toHaveLength(1);
+    expect(out.nudges).toEqual([]);
+    expect(out.breaks).toEqual([]);
+  });
+
+  it('includes nudges and breaks when the coach tables exist', () => {
+    db.exec(COACH_SCHEMA);
+    const coach = createCoachStore(db);
+    coach.record({ at: 1000, date: '2026-09-24', kind: 'health', ruleId: 'eye_break', key: 'k', title: 't', body: 'b', status: 'shown' });
+    coach.recordBreak({ at: 1000, date: '2026-09-24', kind: 'eye', seconds: 20, completed: true });
+    const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
+    expect(out.nudges).toHaveLength(1);
+    expect(out.breaks).toHaveLength(1);
   });
 });

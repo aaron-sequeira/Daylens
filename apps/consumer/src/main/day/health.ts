@@ -6,12 +6,14 @@ const EARLY_MORNING_MIN = 5 * 60; // activity before 05:00 also counts as late n
 // Score weights (spec §9.5) — tune here.
 const W = { missedBreak: 5, perHourOverOne: 10, lateNight: 15, overGoal: 20 };
 
-export interface HealthInput { samples: ActivitySampleRow[]; screenSec: number; dailyGoalMin: number; windDownTime: string; breakIntervalMin: number; }
+export interface HealthInput { samples: ActivitySampleRow[]; screenSec: number; dailyGoalMin: number; windDownTime: string; breakIntervalMin: number; breakScreens?: number[]; }
 export interface Health { score: number; breaks: number; expectedBreaks: number; longestStretchSec: number; lateNight: boolean; }
 
 export function computeHealth(i: HealthInput): Health {
   const sorted = [...i.samples].sort((a, b) => a.bucketStart - b.bucketStart);
   const breaks = atLeast(restPeriods(sorted), BREAK_MS);
+  // A completed break screen counts as a break unless it already sits inside a detected rest period.
+  const screenBreaks = (i.breakScreens ?? []).filter((t) => !breaks.some((b) => t >= b.start && t <= b.end)).length;
 
   let longest = 0;
   if (sorted.length) {
@@ -37,14 +39,15 @@ export function computeHealth(i: HealthInput): Health {
   }
 
   const expectedBreaks = Math.floor(activeMs / 60_000 / i.breakIntervalMin);
+  const totalBreaks = breaks.length + screenBreaks;
   const over = i.dailyGoalMin > 0 ? i.screenSec / (i.dailyGoalMin * 60) - 1 : 0;
   const raw = 100
-    - W.missedBreak * Math.max(0, expectedBreaks - breaks.length)
+    - W.missedBreak * Math.max(0, expectedBreaks - totalBreaks)
     - W.perHourOverOne * Math.max(0, longest / 3_600_000 - 1)
     - W.lateNight * (lateNight ? 1 : 0)
     - W.overGoal * Math.min(1, Math.max(0, over));
   return {
     score: Math.round(Math.min(100, Math.max(0, raw))),
-    breaks: breaks.length, expectedBreaks, longestStretchSec: Math.round(longest / 1000), lateNight
+    breaks: totalBreaks, expectedBreaks, longestStretchSec: Math.round(longest / 1000), lateNight
   };
 }
