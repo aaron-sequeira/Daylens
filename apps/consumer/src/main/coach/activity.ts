@@ -24,6 +24,7 @@ export function clock(hhmm: string): string {
 export const switchesBetween = (sessions: FocusSessionRow[], from: number, to: number): number =>
   sessions.filter((s) => s.startedAt > from && s.startedAt <= to).length;
 
+// Note: Microsoft Edge window titles contain a zero-width space (​) after "Microsoft", so the regex includes ​? to match it.
 const BROWSER_SUFFIX = /\s[-—–]\s(Google Chrome|Microsoft​? Edge|Mozilla Firefox|Brave|Opera|Vivaldi)$/i;
 const ENGINES = [/^(.+?)\s-\sGoogle Search$/i, /^(.+?)\s-\sBing$/i, /^(.+?)\sat DuckDuckGo$/i];
 

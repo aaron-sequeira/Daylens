@@ -1,8 +1,7 @@
 import type { ActivitySampleRow } from '@worksight/core/types';
-import { atLeast, isActiveSample, restPeriods } from './time';
+import { atLeast, isActiveSample, restPeriods, isLateNight } from './time';
 
 export const BREAK_MS = 2 * 60_000;
-const EARLY_MORNING_MIN = 5 * 60; // activity before 05:00 also counts as late night
 // Score weights (spec §9.5) — tune here.
 const W = { missedBreak: 5, perHourOverOne: 10, lateNight: 15, overGoal: 20 };
 
@@ -22,20 +21,12 @@ export function computeHealth(i: HealthInput): Health {
     longest = Math.max(longest, sorted[sorted.length - 1].bucketEnd - edge);
   }
 
-  const [wh, wm] = i.windDownTime.split(':').map(Number);
-  const windDownMin = wh * 60 + wm;
   let activeMs = 0;
   let lateNight = false;
   for (const s of sorted) {
     if (!isActiveSample(s)) continue;
     activeMs += s.bucketEnd - s.bucketStart;
-    const d = new Date(s.bucketStart);
-    const minute = d.getHours() * 60 + d.getMinutes();
-    // A wind-down after midnight (e.g. 00:30) means late night is [wind-down, 05:00), not "after 00:30 or before 05:00".
-    const late = windDownMin < EARLY_MORNING_MIN
-      ? minute >= windDownMin && minute < EARLY_MORNING_MIN
-      : minute >= windDownMin || minute < EARLY_MORNING_MIN;
-    if (late) lateNight = true;
+    if (isLateNight(s.bucketStart, i.windDownTime)) lateNight = true;
   }
 
   const expectedBreaks = Math.floor(activeMs / 60_000 / i.breakIntervalMin);

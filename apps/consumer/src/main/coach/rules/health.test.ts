@@ -10,6 +10,14 @@ describe('eye_break', () => {
     expect(c.key).toBe(`eye_break:${T(9)}:1`);
     expect(eyeBreak(snap({ samples: active(T(9), 40), now: T(9, 40) }))).toBeNull();
   });
+  it('restarts counting after a completed break screen', () => {
+    // 90 min active from 9:00 to 10:30, completed break at 10:00, now 10:55 (55 min active since break)
+    // Add samples from 10:30 to 10:55 to keep the user "active" (within RECENT_MS)
+    const s = snap({ samples: [...active(T(9), 90), ...active(T(10, 30), 25)], now: T(10, 55), lastBreakAt: T(10) });
+    const c = eyeBreak(s)!;
+    // Key should use the break time (T(10)) as the new stretch start, not T(9)
+    expect(c.key).toBe(`eye_break:${T(10)}:1`);
+  });
 });
 
 describe('stretch', () => {

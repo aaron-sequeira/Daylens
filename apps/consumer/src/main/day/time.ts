@@ -2,6 +2,7 @@ import type { ActivitySampleRow, FocusSessionRow, ISODate } from '@worksight/cor
 import { localDate } from '@worksight/core/date';
 
 export interface Interval { start: number; end: number; }
+export const EARLY_MORNING_MIN = 5 * 60; // activity before 05:00 also counts as late night
 export const GAP_TOLERANCE_MS = 5_000; // buckets closer than this are contiguous
 /** A real bucket is ~60 s. One longer than 3 buckets is a flush that spanned sleep/suspend (or a
  * missed suspend event): it says nothing about the time it covers, so it counts as rest, never as active. */
@@ -60,4 +61,19 @@ export function shiftDate(date: ISODate, days: number): ISODate {
 export function sessionInterval(s: FocusSessionRow, isLatest: boolean, now: number): Interval {
   const end = s.endedAt ?? (isLatest ? now : s.startedAt);
   return { start: s.startedAt, end: Math.max(s.startedAt, end) };
+}
+
+/** Check if a timestamp falls in the late-night window defined by windDownTime.
+ * e.g. windDownTime "23:00" → late = [23:00, 05:00); windDownTime "01:00" → late = [01:00, 05:00);
+ * windDownTime "05:00" (edge case: wind-down time = end time) → never late.
+ * Handles cross-midnight windows: a timestamp at 00:30 is late if wind-down is 23:00 or 01:00. */
+export function isLateNight(ms: number, windDownTime: string): boolean {
+  const [wh, wm] = windDownTime.split(':').map(Number);
+  const windMin = wh * 60 + wm;
+  if (windMin === EARLY_MORNING_MIN) return false; // 05:00 wind-down never triggers "late"
+  const d = new Date(ms);
+  const minute = d.getHours() * 60 + d.getMinutes();
+  return windMin < EARLY_MORNING_MIN
+    ? minute >= windMin && minute < EARLY_MORNING_MIN
+    : minute >= windMin || minute < EARLY_MORNING_MIN;
 }

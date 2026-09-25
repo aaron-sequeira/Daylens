@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ActivitySampleRow, FocusSessionRow } from '@worksight/core/types';
-import { restPeriods, MAX_SAMPLE_MS, atLeast, subtract, clip, dayBounds, shiftDate, sessionInterval } from './time';
+import { restPeriods, MAX_SAMPLE_MS, atLeast, subtract, clip, dayBounds, shiftDate, sessionInterval, isLateNight } from './time';
 
 const MIN = 60_000;
 const T = (h: number, m = 0): number => new Date(2026, 8, 23, h, m).getTime();
@@ -64,4 +64,23 @@ describe('sessionInterval', () => {
   it('uses endedAt when finished', () => { expect(sessionInterval(s(T(11)), false, T(12))).toEqual({ start: T(10), end: T(11) }); });
   it('runs the latest open session up to now', () => { expect(sessionInterval(s(null), true, T(12))).toEqual({ start: T(10), end: T(12) }); });
   it('counts an older open session (crash leftover) as zero length', () => { expect(sessionInterval(s(null), false, T(12))).toEqual({ start: T(10), end: T(10) }); });
+});
+
+describe('isLateNight', () => {
+  it('checks wind-down window 23:00 (late = [23:00, 05:00))', () => {
+    expect(isLateNight(T(23, 30), '23:00')).toBe(true); // after wind-down time
+    expect(isLateNight(T(12), '23:00')).toBe(false); // before wind-down time
+    expect(isLateNight(new Date(2026, 8, 24, 1).getTime(), '23:00')).toBe(true); // after midnight in wind-down window
+  });
+  it('checks wind-down window 01:00 (late = [01:00, 05:00))', () => {
+    expect(isLateNight(new Date(2026, 8, 24, 1).getTime(), '01:00')).toBe(true); // at wind-down time after midnight
+    expect(isLateNight(new Date(2026, 8, 24, 0, 30).getTime(), '01:00')).toBe(false); // before wind-down time
+    expect(isLateNight(T(23), '01:00')).toBe(false); // before midnight wind-down
+  });
+  it('never fires for edge case 05:00 (wind-down = end time)', () => {
+    expect(isLateNight(new Date(2026, 8, 23, 4).getTime(), '05:00')).toBe(false);
+    expect(isLateNight(T(5), '05:00')).toBe(false);
+    expect(isLateNight(T(12), '05:00')).toBe(false);
+    expect(isLateNight(T(23), '05:00')).toBe(false);
+  });
 });

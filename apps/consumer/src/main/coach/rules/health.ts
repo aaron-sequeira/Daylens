@@ -1,10 +1,10 @@
 import { localDate } from '@worksight/core/date';
+import { EARLY_MORNING_MIN, isLateNight } from '../../day/time';
 import type { Rule } from '../snapshot';
 import { clock, currentStretch, hm } from '../activity';
 
 const STRETCH_MS = 90 * 60_000;
-const NIGHT_OFFSET_MS = 5 * 3_600_000; // a night runs until 05:00, so 00:30 belongs to yesterday's night
-const EARLY_MIN = 5 * 60;
+const NIGHT_OFFSET_MS = EARLY_MORNING_MIN * 60_000; // a night runs until 05:00, so 00:30 belongs to yesterday's night
 
 export const eyeBreak: Rule = (s) => {
   const st = currentStretch(s.samples, s.now, s.lastBreakAt);
@@ -30,12 +30,7 @@ export const stretch: Rule = (s) => {
 
 export const windDown: Rule = (s) => {
   if (!currentStretch(s.samples, s.now, null)) return null;
-  const [wh, wm] = s.settings.windDownTime.split(':').map(Number);
-  const windMin = wh * 60 + wm;
-  const d = new Date(s.now);
-  const minute = d.getHours() * 60 + d.getMinutes();
-  const late = windMin < EARLY_MIN ? minute >= windMin && minute < EARLY_MIN : minute >= windMin || minute < EARLY_MIN;
-  if (!late) return null;
+  if (!isLateNight(s.now, s.settings.windDownTime)) return null;
   return { ruleId: 'wind_down', kind: 'health', key: `wind_down:${localDate(s.now - NIGHT_OFFSET_MS)}`, mini: 'Wind down', stat: clock(s.settings.windDownTime),
     title: 'Time to wind down', body: `It's past ${clock(s.settings.windDownTime)}. Start winding down so sleep comes easier.`,
     primary: { label: 'OK', action: 'ack' } };
