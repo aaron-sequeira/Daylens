@@ -1,13 +1,8 @@
-import { categoryForApp } from '../../shared/categories';
-import { CONFIDENT } from './questions';
+export { finalCategory } from './finalCategory';
+import { finalCategory } from './finalCategory';
 
 export interface EvalRow { id: number; expected: string; choice: string; confidence: number; app: string; }
 export interface EvalScore { n: number; layaAcc: number; finalAcc: number; confusion: Record<string, Record<string, number>>; }
-
-/** What Today would show: a confident Laya choice, else the app-name rule (same logic as the Today view). */
-export function finalCategory(choice: string, confidence: number, app: string): string {
-  return confidence >= CONFIDENT ? choice : categoryForApp(app);
-}
 
 export function scoreRun(rows: EvalRow[]): EvalScore {
   const confusion: Record<string, Record<string, number>> = {};

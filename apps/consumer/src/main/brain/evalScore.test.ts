@@ -1,13 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { finalCategory, scoreRun, type EvalRow } from './evalScore';
-
-describe('finalCategory', () => {
-  it('keeps confident Laya choices and falls back to the app rule when unsure', () => {
-    expect(finalCategory('social', 0.8, 'Google Chrome')).toBe('social');
-    expect(finalCategory('entertainment', 0.2, 'Microsoft Teams')).toBe('communication');
-    expect(finalCategory('entertainment', 0.2, 'Google Chrome')).toBe('other');
-  });
-});
+import { scoreRun, type EvalRow } from './evalScore';
 
 describe('scoreRun', () => {
   it('computes Laya-only and final accuracy plus a confusion table', () => {
@@ -20,7 +12,9 @@ describe('scoreRun', () => {
     const s = scoreRun(rows);
     expect(s.n).toBe(4);
     expect(s.layaAcc).toBeCloseTo(0.5);
-    expect(s.finalAcc).toBeCloseTo(0.5); // row 2 fixed by the app rule, row 4 lost to it
+    // row 2 fixed by the known-app rule (Teams -> communication); row 4 keeps Laya's own
+    // (correct) guess since Chrome is not a known app, so the app rule doesn't override it.
+    expect(s.finalAcc).toBeCloseTo(0.75);
     expect(s.confusion.social.entertainment).toBe(1);
     expect(s.confusion.work.work).toBe(1);
   });
