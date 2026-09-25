@@ -158,6 +158,7 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
     const primaryActions = new Map<number, { kind: string; action: string }>();
+    let testPillId = 0; // decrementing counter for "Test a pop-up": unique negative ids, never collide with real (positive) nudge ids
     const pill = createPillManager({
       makeWindow: () => electronPillWindow(join(__dirname, '../preload/pill.js'), (w) => loadPage(w, 'pill'), (raw) => {
         const m = pillMessage.safeParse(raw);
@@ -216,7 +217,10 @@ if (!app.requestSingleInstanceLock()) {
         if (status === 'shown') primaryActions.set(id, { kind: c.kind, action: c.primary.action });
         return id;
       },
-      setStatus: (id, st) => coachStore.setStatus(id, st),
+      setStatus: (id, st) => {
+        coachStore.setStatus(id, st);
+        if (st !== 'shown') primaryActions.delete(id); // only a 'shown' row still needs its primary-action metadata
+      },
       show: (n) => pill.show(n)
     });
     let coaching = false;
@@ -313,8 +317,8 @@ if (!app.requestSingleInstanceLock()) {
       breaksFor: (date) => coachStore.completedBreaksForDay(date),
       coach: {
         held: () => coachStore.heldForDay(localDate(Date.now())).map(({ id, at, kind, title, body }) => ({ id, at, kind, title, body })),
-        dismissHeld: (id) => { coachStore.setStatus(id, 'expired'); win?.webContents.send(CH.eventsUpdate); },
-        test: () => { pill.show({ id: -1, kind: 'health', mini: 'Eye break', stat: 'test', title: 'Give your eyes a break', body: 'This is how Daylens pop-ups look. They never take your keyboard focus.', primaryLabel: 'Nice', offerFewer: false }); },
+        dismissHeld: (id) => { if (coachStore.expireHeld(id)) win?.webContents.send(CH.eventsUpdate); },
+        test: () => { pill.show({ id: --testPillId, kind: 'health', mini: 'Eye break', stat: 'test', title: 'Give your eyes a break', body: 'This is how Daylens pop-ups look. They never take your keyboard focus.', primaryLabel: 'Nice', offerFewer: false }); },
         onChanged: () => refreshTray()
       },
       models: {
@@ -406,6 +410,7 @@ if (!app.requestSingleInstanceLock()) {
           // whether deleteActivity succeeds or throws.
           try {
             deleteActivity(db);
+            pill.dismissAll(); // any on-screen nudges reference rows that just got wiped
             checkpoint(db);
           } finally {
             if (wasRunning) tracker.start();

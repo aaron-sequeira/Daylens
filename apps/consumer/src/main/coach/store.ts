@@ -21,6 +21,8 @@ CREATE INDEX IF NOT EXISTS idx_breaks_date ON breaks(date, at);
 export interface CoachStore {
   record(n: Omit<NudgeRow, 'id'>): number;
   setStatus(id: number, status: NudgeStatus): void;
+  /** Marks a held nudge expired; a no-op (returns false) if the row isn't currently held. */
+  expireHeld(id: number): boolean;
   since(ms: number): NudgeRow[];
   heldForDay(date: string): NudgeRow[];
   recordBreak(b: { at: number; date: string; kind: 'eye' | 'stretch'; seconds: number; completed: boolean }): void;
@@ -34,6 +36,7 @@ const COLS = 'id, at, date, kind, rule_id AS ruleId, key, title, body, status';
 export function createCoachStore(db: Database.Database): CoachStore {
   const ins = db.prepare('INSERT INTO nudges (at, date, kind, rule_id, key, title, body, status) VALUES (@at, @date, @kind, @ruleId, @key, @title, @body, @status)');
   const upd = db.prepare('UPDATE nudges SET status = ? WHERE id = ?');
+  const expire = db.prepare("UPDATE nudges SET status = 'expired' WHERE id = ? AND status = 'held'");
   const since = db.prepare(`SELECT ${COLS} FROM nudges WHERE at >= ? ORDER BY at, id`);
   const held = db.prepare(`SELECT ${COLS} FROM nudges WHERE date = ? AND status = 'held' ORDER BY at, id`);
   const brk = db.prepare('INSERT INTO breaks (at, date, kind, seconds, completed) VALUES (@at, @date, @kind, @seconds, @completed)');
@@ -42,6 +45,7 @@ export function createCoachStore(db: Database.Database): CoachStore {
   return {
     record: (n) => Number(ins.run(n).lastInsertRowid),
     setStatus: (id, status) => { upd.run(status, id); },
+    expireHeld: (id) => expire.run(id).changes > 0,
     since: (ms) => since.all(ms) as NudgeRow[],
     heldForDay: (date) => held.all(date) as NudgeRow[],
     recordBreak: (b) => { brk.run({ ...b, completed: b.completed ? 1 : 0 }); },

@@ -34,4 +34,13 @@ describe('coach store', () => {
     expect(s.since(0)).toEqual([]);
     expect(s.lastCompletedBreakAt()).toBeNull();
   });
+  it('expireHeld() only changes a held row, and reports whether it changed', () => {
+    const held = s.record(n(1000, 'held'));
+    const shown = s.record(n(2000, 'shown'));
+    expect(s.expireHeld(shown)).toBe(false);
+    expect(s.since(0).find((r) => r.id === shown)?.status).toBe('shown');
+    expect(s.expireHeld(held)).toBe(true);
+    expect(s.since(0).find((r) => r.id === held)?.status).toBe('expired');
+    expect(s.expireHeld(held)).toBe(false); // already expired: no longer 'held'
+  });
 });

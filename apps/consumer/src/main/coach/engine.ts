@@ -19,6 +19,9 @@ export function createCoach(d: CoachDeps) {
       const snap = d.snapshot(now);
       const history = [...d.history(now)];
       let outcome: 'held' | 'none' = 'none';
+      // At most one PowerShell spawn per tick: every show-eligible candidate this tick shares the same answer.
+      let holdOnce: Promise<string | null> | null = null;
+      const getHold = (): Promise<string | null> => (holdOnce ??= d.holdReason());
       for (const rule of rules) {
         let c: Candidate | null = null;
         try { c = rule(snap); } catch (e) { console.error('[coach] rule failed:', e); continue; }
@@ -26,7 +29,7 @@ export function createCoach(d: CoachDeps) {
         const base = { now, history, kinds: d.kinds(), snoozeUntil: d.snoozeUntil(), fewer: d.fewer(), weight: d.weight(c, now) };
         let dec = decide(c, { ...base, hold: null });
         if (dec.status === 'show') {
-          const hold = await d.holdReason();
+          const hold = await getHold();
           if (hold) dec = { status: 'held', reason: hold };
         }
         if (dec.status === 'drop') continue;

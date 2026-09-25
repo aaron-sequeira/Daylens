@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createCoach, type CoachDeps } from './engine';
 import { snap, T } from './fixtures';
 import type { Candidate, NudgeRow, NudgeStatus, PillNudge } from './types';
@@ -45,13 +45,32 @@ describe('coach engine', () => {
     expect(asked).toBe(0);
   });
   it('survives a throwing rule and shows at most one pop-up per tick', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { d, shown } = deps({ rules: [() => { throw new Error('bug'); }, () => c({ key: 'a' }), () => c({ key: 'b', ruleId: 'eye_break' })] });
     await createCoach(d).tick();
     expect(shown).toHaveLength(1);
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
   it('marks a nudge held when the window cannot be shown', async () => {
     const { d, rows } = deps({ show: () => false });
     await createCoach(d).tick();
     expect(rows[0].status).toBe('held');
+  });
+  it('queries the hold reason at most once per tick, even with multiple show-eligible candidates', async () => {
+    let asked = 0;
+    const { d } = deps({
+      holdReason: async () => { asked++; return 'call'; },
+      rules: [() => c({ key: 'a' }), () => c({ key: 'b', ruleId: 'eye_break' })]
+    });
+    await createCoach(d).tick();
+    expect(asked).toBe(1);
+  });
+  it('does not record a held key again on the next tick', async () => {
+    const { d, rows } = deps({ holdReason: async () => 'call' });
+    const coach = createCoach(d);
+    await coach.tick();
+    await coach.tick();
+    expect(rows).toHaveLength(1);
   });
 });
