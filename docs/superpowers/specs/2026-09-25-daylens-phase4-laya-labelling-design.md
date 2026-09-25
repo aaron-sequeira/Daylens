@@ -10,7 +10,7 @@ Turn stored screen reads into activity labels with the local Laya model, and mak
 
 | Decision | Choice |
 |---|---|
-| Model hosting | Public Hugging Face repo owned by the user: **`aaronalexS/daylens-laya-onnx`** (fp32 ONNX + tokenizer + meta + model card + Apache-2.0 LICENSE, credit to `convaiinnovations/laya`). URLs pinned to a commit. |
+| Model hosting | Public Hugging Face repo owned by the user: **`aaronalexS/daylens-laya-onnx`** (fp32 ONNX + tokenizer + meta + model card + Apache-2.0 LICENSE, credit to `convaiinnovations/laya`). URLs pinned to a commit. Pinned commit `6e5dbfec69ce2aac4e1f0c2768ab017099393652` (verified: all four files match the manifest sizes and SHA-256). |
 | Accuracy (77 % < 80 % target) | First task: reword the `category` question, tuned on the 48 existing samples and checked on ~24 new held-out samples; plus the app-name rules as a tie-breaker when Laya is unsure. |
 | Memory (~2 GB while loaded) | **Batch, then unload:** a Brain `utilityProcess` is started per batch, labels, and exits. |
 | Opt-in / download | New onboarding step (off by default); the model downloads **in the background** after onboarding; existing users get a one-time Today card. |

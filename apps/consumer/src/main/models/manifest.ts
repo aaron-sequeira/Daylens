@@ -2,7 +2,7 @@ import type { Manifest } from './downloader';
 
 export const LAYA_REPO = 'aaronalexS/daylens-laya-onnx';
 // Pinned upload (a commit id) so a later push to the repo can't swap the model under users. Set in Task 11.
-export const LAYA_REVISION = 'main';
+export const LAYA_REVISION = '6e5dbfec69ce2aac4e1f0c2768ab017099393652';
 
 export const LAYA_MANIFEST: Manifest = {
   baseUrl: `https://huggingface.co/${LAYA_REPO}/resolve/${LAYA_REVISION}`,
