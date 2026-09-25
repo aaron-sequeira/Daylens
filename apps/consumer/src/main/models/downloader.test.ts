@@ -1,20 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync, utimesSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, statSync, rmSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createDownloader, type Manifest } from './downloader';
 
 const A = randomBytes(200_000), B = randomBytes(1_000);
 const sha = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
-type Opts = { ignoreRange?: boolean; fail?: number; cutFirstAt?: number };
+type Opts = { ignoreRange?: boolean; fail?: number; cutFirstAt?: number; holdAfter?: number };
 let server: Server; let base: string; let dir: string; let reqs: { path: string; range?: string }[]; let opts: Opts;
 const files: Record<string, Buffer> = { 'a.bin': A, 'b.json': B };
 
 beforeEach(async () => {
   reqs = []; opts = {}; dir = mkdtempSync(join(tmpdir(), 'dl-'));
-  let cut = false;
+  let cut = false; let held = false;
   server = createServer((req, res) => {
     const name = decodeURIComponent((req.url ?? '').split('/').pop() ?? '');
     reqs.push({ path: name, range: req.headers.range });
@@ -24,6 +24,7 @@ beforeEach(async () => {
     const from = m && !opts.ignoreRange ? Number(m[1]) : 0;
     res.writeHead(from ? 206 : 200, { 'content-length': String(body.length - from) });
     if (opts.cutFirstAt && !cut && name === 'a.bin') { cut = true; res.write(body.subarray(from, opts.cutFirstAt), () => res.destroy()); return; }
+    if (opts.holdAfter !== undefined && !held && name === 'a.bin') { held = true; res.write(body.subarray(from, opts.holdAfter)); return; } // send part, then never end (until the client aborts)
     res.end(body.subarray(from));
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
@@ -83,6 +84,53 @@ describe('downloader', () => {
     expect(ranges[1]).toMatch(/^bytes=[1-9]\d*-$/); // resumed from whatever arrived before the drop
     expect(readFileSync(join(dir, 'a.bin')).equals(A)).toBe(true);
   });
+  it('stop() mid-download leaves a genuine .part file; a later start() resumes it with Range', async () => {
+    opts.holdAfter = 80_000;
+    const { d } = make(); await d.init(); d.start();
+    while (!existsSync(join(dir, 'a.bin.part')) || statSync(join(dir, 'a.bin.part')).size === 0) {
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    d.stop(); await d.done();
+    const partial = statSync(join(dir, 'a.bin.part')).size;
+    expect(partial).toBeGreaterThan(0);
+    expect(partial).toBeLessThan(A.length);
+    expect(d.status()).toEqual({ state: 'missing' });
+    opts.holdAfter = undefined;
+    d.start(); await d.done();
+    expect(reqs.filter((r) => r.path === 'a.bin').pop()?.range).toBe(`bytes=${partial}-`);
+    expect(d.status()).toEqual({ state: 'ready' });
+    expect(readFileSync(join(dir, 'a.bin')).equals(A)).toBe(true);
+  });
+  it('a corrupt marker file does not crash init(); the model is treated as missing', async () => {
+    writeFileSync(join(dir, '.verified.json'), '{ not valid json');
+    const { d } = make();
+    await expect(d.init()).resolves.toEqual({ state: 'missing' });
+  });
+  it('remove() deletes only the manifest files, leaving unrelated files in dir untouched', async () => {
+    const { d } = make(); await d.init(); d.start(); await d.done();
+    writeFileSync(join(dir, 'unrelated.txt'), 'keep me');
+    await d.remove();
+    expect(d.status()).toEqual({ state: 'missing' });
+    expect(existsSync(join(dir, 'a.bin'))).toBe(false);
+    expect(existsSync(join(dir, 'b.json'))).toBe(false);
+    expect(existsSync(join(dir, '.verified.json'))).toBe(false);
+    expect(existsSync(join(dir, 'unrelated.txt'))).toBe(true);
+    expect(readFileSync(join(dir, 'unrelated.txt'), 'utf8')).toBe('keep me');
+  });
+  it('a write failure (.part path occupied by a directory) surfaces as a retry, not a crash', async () => {
+    // Simulates an fsp.open()/write() failure without relying on filesystem permissions, which
+    // aren't reliably restrictable from a test on Windows. This exercises the same catch-and-retry
+    // path a genuine mid-write disk error would take, since writes now go through fsp.open()/write()
+    // (promise-based) instead of a WriteStream with an unhandled 'error' event. Opening a directory
+    // as if it were a file occasionally takes ~3s on Windows (observed, likely Defender scanning the
+    // freshly created directory) rather than failing instantly, hence the generous test timeout below.
+    mkdirSync(join(dir, 'a.bin.part'));
+    const { d, waits } = make();
+    await d.init(); d.start();
+    while (waits.length === 0) await new Promise((r) => setTimeout(r, 5));
+    expect(d.status().state).toBe('downloading'); // still retrying, no uncaught exception
+    d.stop(); await d.done();
+  }, 10_000);
   it('stop() keeps the partial file and a restart resumes it', async () => {
     opts.fail = 1000;
     const waits: number[] = [];
