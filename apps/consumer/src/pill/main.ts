@@ -5,7 +5,8 @@ import { NUDGE_LOOK } from '../shared/nudgeLook';
 import {
   MAX_CARDS, OPEN_AFTER_MS, AUTO_HIDE_MS,
   PILL_COLLAPSED_H, PILL_OPEN_H, PILL_OPEN_FEWER_H,
-  overflow, computeLayout, tickDown, canFan
+  overflow, computeLayout, canFan,
+  arm, pause as pauseState, resume as resumeState, type AutoHideState
 } from './stack';
 
 declare global { interface Window { pill?: PillApi } }
@@ -17,8 +18,8 @@ interface Card {
   el: HTMLElement;
   done: boolean;
   openReady: boolean;
-  remainingMs: number;
-  hideStartedAt: number | null;
+  autoHide: AutoHideState;
+  hideStartedAt: number | null; // wall-clock time the current run began, only while autoHide.running
   hideTimer?: ReturnType<typeof setTimeout>;
   openTimer?: ReturnType<typeof setTimeout>;
 }
@@ -37,21 +38,48 @@ function init(pillApi: PillApi): void {
   let cards: Card[] = [];
   const hoveredIds = new Set<number>();
 
-  function armAutoHide(c: Card): void {
+  /** Paints the progress bar from the card's actual remaining time (not a fixed
+   * duration) so a paused-then-resumed, or hover-armed, card's bar always starts
+   * from where its real countdown is — never a reset-to-full flash. The animation
+   * is force-restarted (name -> none -> reflow -> name) so changing --dur mid-flight
+   * takes effect instead of being ignored by an already-running animation. */
+  function paintBar(c: Card): void {
+    const bar = c.el.querySelector('.bar > i') as HTMLElement | null;
+    if (!bar) return;
+    const left = Math.max(0, Math.min(1, c.autoHide.remainingMs / AUTO_HIDE_MS));
+    bar.style.setProperty('--left', String(left));
+    bar.style.setProperty('--dur', `${c.autoHide.remainingMs}ms`);
+    bar.style.animationName = 'none';
+    void bar.offsetWidth; // force reflow so the next line actually restarts the animation
+    bar.style.animationName = 'shrink';
+  }
+
+  function scheduleHideTimer(c: Card): void {
     c.hideStartedAt = Date.now();
-    c.hideTimer = setTimeout(() => finish(c, 'expired'), c.remainingMs);
+    c.hideTimer = setTimeout(() => finish(c, 'expired'), c.autoHide.remainingMs);
+  }
+  /** Arms the countdown for a card that just opened. If the stack is already being
+   * hovered, it starts paused at the full time instead of ticking down under the
+   * cursor (arm()'s `hovering` flag models this, see stack.test.ts). */
+  function armAutoHide(c: Card): void {
+    c.autoHide = arm(AUTO_HIDE_MS, hoveredIds.size > 0);
+    if (c.autoHide.running) scheduleHideTimer(c);
+    paintBar(c);
   }
   function pauseAutoHide(c: Card): void {
-    if (c.hideTimer === undefined || c.hideStartedAt === null) return;
-    clearTimeout(c.hideTimer);
+    if (!c.autoHide.running) return;
+    const elapsed = c.hideStartedAt === null ? 0 : Date.now() - c.hideStartedAt;
+    if (c.hideTimer !== undefined) clearTimeout(c.hideTimer);
     c.hideTimer = undefined;
-    c.remainingMs = tickDown(c.remainingMs, Date.now() - c.hideStartedAt);
     c.hideStartedAt = null;
+    c.autoHide = pauseState(c.autoHide, elapsed);
   }
   function resumeAutoHide(c: Card): void {
-    if (c.hideTimer !== undefined) return;
-    if (c.remainingMs <= 0) { finish(c, 'expired'); return; }
-    armAutoHide(c);
+    if (c.autoHide.running) return;
+    if (c.autoHide.remainingMs <= 0) { finish(c, 'expired'); return; }
+    c.autoHide = resumeState(c.autoHide);
+    scheduleHideTimer(c);
+    paintBar(c);
   }
 
   function frontHeight(front: Card | undefined): number {
@@ -136,7 +164,7 @@ function init(pillApi: PillApi): void {
     const snooze = el('span', undefined, 'Snooze 1 h');
     acts.append(primary, snooze);
     full.append(el('b', undefined, n.title), el('p', undefined, n.body), acts);
-    const card: Card = { n, el: root, done: false, openReady: false, remainingMs: AUTO_HIDE_MS, hideStartedAt: null };
+    const card: Card = { n, el: root, done: false, openReady: false, autoHide: { remainingMs: AUTO_HIDE_MS, running: false }, hideStartedAt: null };
     if (n.offerFewer) { const f = el('button', 'fewer-link', 'Show fewer like this?'); full.append(f); root.classList.add('fewer'); f.onclick = () => finish(card, 'fewer'); }
     const bar = el('div', 'bar'); bar.append(el('i'));
     root.append(head, full, bar);

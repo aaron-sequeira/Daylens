@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { overflow, computeLayout, tickDown, canFan, PILL_OPEN_H, PILL_OPEN_FEWER_H, PILL_COLLAPSED_H } from './stack';
+import { overflow, computeLayout, tickDown, canFan, arm, pause, resume, PILL_OPEN_H, PILL_OPEN_FEWER_H, PILL_COLLAPSED_H } from './stack';
 
 describe('overflow', () => {
   it('expires exactly the oldest live card when a 4th live card arrives', () => {
@@ -48,4 +48,27 @@ describe('canFan', () => {
   it('does not fit below an open front card', () => { expect(canFan(PILL_OPEN_H, 1)).toBe(false); });
   it('does not fit below an open (fewer) front card either', () => { expect(canFan(PILL_OPEN_FEWER_H, 1)).toBe(false); });
   it('fits below a still-collapsed front card', () => { expect(canFan(PILL_COLLAPSED_H, 2)).toBe(true); });
+});
+
+describe('auto-hide state (arm/pause/resume)', () => {
+  it('arms the full time and starts running when not hovering', () => {
+    expect(arm(8000, false)).toEqual({ remainingMs: 8000, running: true });
+  });
+  it('arm while hovered stays paused, at the full time', () => {
+    expect(arm(8000, true)).toEqual({ remainingMs: 8000, running: false });
+  });
+  it('pause stores the remaining time and stops running', () => {
+    expect(pause({ remainingMs: 8000, running: true }, 3000)).toEqual({ remainingMs: 5000, running: false });
+  });
+  it('pause is a no-op if already not running', () => {
+    const s = { remainingMs: 5000, running: false };
+    expect(pause(s, 3000)).toEqual(s);
+  });
+  it('resume re-arms with the stored remaining time, unchanged', () => {
+    expect(resume({ remainingMs: 5000, running: false })).toEqual({ remainingMs: 5000, running: true });
+  });
+  it('resume is a no-op if already running', () => {
+    const s = { remainingMs: 5000, running: true };
+    expect(resume(s)).toEqual(s);
+  });
 });

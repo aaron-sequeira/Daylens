@@ -3,7 +3,10 @@ import { createPillManager, pillMessage, type PillWindowLike } from './pill';
 import type { PillNudge } from '../coach/types';
 
 class FakeWin implements PillWindowLike {
-  sent: [string, unknown][] = []; ignore = true; shown = 0; destroyed = false; pos: [number, number] = [0, 0];
+  // Starts false (not the "already passthrough" true) so a test asserting
+  // `ignore === true` actually proves setIgnoreMouseEvents(true) was called,
+  // rather than passing vacuously off the initial value.
+  sent: [string, unknown][] = []; ignore = false; shown = 0; destroyed = false; pos: [number, number] = [0, 0];
   private ready: (() => void) | null = null;
   send(c: string, p?: unknown) { this.sent.push([c, p]); }
   setIgnoreMouseEvents(i: boolean) { this.ignore = i; }
@@ -60,6 +63,7 @@ describe('pill manager', () => {
     expect(acts).toEqual([[1, 'dismiss'], [2, 'dismiss']]);
     w.fireReady();
     expect(w.sent).toEqual([['pill:dismissAll', undefined]]); // queue was cleared, nothing to flush
+    expect(w.shown).toBe(0); // no showInactive() for a window with nothing to show
   });
   it('recreates the window after empty, with fresh mouse passthrough', () => {
     const wins: FakeWin[] = [];
@@ -83,5 +87,20 @@ describe('pill manager', () => {
     m.handle({ type: 'action', id: 1, action: 'dismiss' });
     m.handle({ type: 'empty' });
     expect(w.destroyed).toBe(true);
+  });
+  it('reports outstanding ids as expired when the window is replaced after a crash, so the replacement is not stranded', () => {
+    const acts: [number, string][] = [];
+    const wins: FakeWin[] = [];
+    const m = createPillManager({ makeWindow: () => { const w = new FakeWin(); wins.push(w); return w; }, placement: () => ({ x: 0, y: 0 }), onAction: (id, a) => acts.push([id, a]) });
+    m.show(n(1));
+    wins[0].fireReady(); // outstanding = {1}
+    wins[0].destroyed = true; // simulate a crash: did-fail-load / render-process-gone in the real adapter
+    m.show(n(2)); // manager notices the dead window and replaces it
+    expect(acts).toEqual([[1, 'expired']]); // stale id1 reported, not silently dropped
+    expect(wins).toHaveLength(2);
+    wins[1].fireReady();
+    m.handle({ type: 'action', id: 2, action: 'dismiss' });
+    m.handle({ type: 'empty' });
+    expect(wins[1].destroyed).toBe(true); // replacement window isn't stranded by the stale id
   });
 });

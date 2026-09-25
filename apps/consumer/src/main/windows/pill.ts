@@ -29,7 +29,7 @@ export function createPillManager(deps: { makeWindow(): PillWindowLike; placemen
   const outstanding = new Set<number>();
 
   const flush = (): void => {
-    if (!win || !ready) return;
+    if (!win || !ready || !queue.length) return; // nothing to show: don't surface an empty window
     for (const n of queue) {
       win.send('pill:show', n);
       outstanding.add(n.id);
@@ -42,6 +42,16 @@ export function createPillManager(deps: { makeWindow(): PillWindowLike; placemen
     show(n: PillNudge): boolean {
       try {
         if (!win || win.isDestroyed()) {
+          // The old window is gone (crashed, or never existed): any ids it was
+          // showing will never come back with a real action, so report them
+          // expired instead of leaving them stuck in `outstanding` forever — that
+          // would strand the replacement window, since 'empty' is ignored while
+          // outstanding is non-empty.
+          if (outstanding.size) {
+            const stale = [...outstanding];
+            outstanding.clear();
+            for (const id of stale) deps.onAction(id, 'expired');
+          }
           ready = false;
           win = deps.makeWindow();
           // Placed once, right when the window is created — not on every flush.

@@ -76,3 +76,33 @@ export function canFan(frontHeightPx: number, behindCount: number): boolean {
   const needed = PILL_TOP + frontHeightPx + behindCount * (FAN_GAP + PILL_COLLAPSED_H);
   return needed <= STACK_H;
 }
+
+/**
+ * A card's auto-hide countdown: how much time is left, and whether it's currently
+ * ticking down. Pure state so the "does hover actually pause it" logic is testable
+ * without a real timer or clock.
+ */
+export interface AutoHideState {
+  remainingMs: number;
+  running: boolean;
+}
+
+/**
+ * Arms a fresh countdown for `totalMs`. If the card opens while already hovered, it
+ * starts paused at the full time instead of ticking down under the cursor.
+ */
+export function arm(totalMs: number, hovering: boolean): AutoHideState {
+  return { remainingMs: totalMs, running: !hovering };
+}
+
+/** Stops the countdown and stores what's left after `elapsedMs` have ticked by. No-op if already paused. */
+export function pause(state: AutoHideState, elapsedMs: number): AutoHideState {
+  if (!state.running) return state;
+  return { remainingMs: tickDown(state.remainingMs, elapsedMs), running: false };
+}
+
+/** Resumes ticking down from the stored remaining time (unchanged). No-op if already running. */
+export function resume(state: AutoHideState): AutoHideState {
+  if (state.running) return state;
+  return { ...state, running: true };
+}

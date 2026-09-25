@@ -43,10 +43,13 @@ html, body { margin: 0; background: transparent; overflow: hidden; font-family: 
 .acts span:hover { transform: scale(1.05); }
 .acts span+span { background: rgba(255, 255, 255, .7); color: var(--ink); }
 .bar { position: absolute; left: 18px; right: 18px; bottom: 12px; height: 3px; border-radius: 3px; background: rgba(0, 0, 0, .08); opacity: 0; transition: opacity .3s; }
-.bar i { display: block; height: 100%; background: var(--ink); border-radius: 3px; transform-origin: left; }
+/* --left/--dur are set from main.ts's paintBar() to match the card's actual remaining
+   auto-hide time (not a fixed duration), so a paused/resumed or hover-armed card's
+   bar always starts from where its real countdown is. */
+.bar i { display: block; height: 100%; background: var(--ink); border-radius: 3px; transform-origin: left; transform: scaleX(var(--left, 1)); }
 .pill.open .bar { opacity: 1; }
-.pill.open .bar i { animation: shrink 4s linear forwards; }
-@keyframes shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.pill.open .bar i { animation: shrink var(--dur, 8000ms) linear forwards; }
+@keyframes shrink { from { transform: scaleX(var(--left, 1)); } to { transform: scaleX(0); } }
 
 /* ---- stacking, "fewer" variant and reduced motion (Daylens additions) ---- */
 
@@ -66,6 +69,10 @@ html, body { margin: 0; background: transparent; overflow: hidden; font-family: 
 .pill.behind.hide, .pill.behind.b2.hide { transform: translateY(-90px) scale(.9); opacity: 0; }
 #stack.hovering.fan .pill.behind { transform: translateY(54px) scale(.96); opacity: .9; }
 #stack.hovering.fan .pill.behind.b2 { transform: translateY(108px) scale(.92); }
+/* #stack.hovering.fan .pill.behind (1 id + 4 classes) otherwise outranks the plain
+   .pill.behind.hide (3 classes) above, so a card dismissed while the stack is fanned
+   out would freeze at the fan offset instead of fading — match its specificity. */
+#stack.hovering.fan .pill.behind.hide, #stack.hovering.fan .pill.behind.b2.hide { transform: translateY(-90px) scale(.9); opacity: 0; }
 
 .pill.open.fewer { height: 226px; }
 .fewer-link { margin-top: 8px; opacity: .7; text-decoration: underline; cursor: pointer; background: none; border: 0; font: inherit; font-size: 11.5px; padding: 0; }
