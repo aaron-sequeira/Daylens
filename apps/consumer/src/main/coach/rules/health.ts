@@ -1,5 +1,5 @@
 import { localDate } from '@worksight/core/date';
-import { EARLY_MORNING_MIN, isLateNight } from '../../day/time';
+import { EARLY_MORNING_MIN, isActiveSample, isLateNight } from '../../day/time';
 import type { Rule } from '../snapshot';
 import { clock, currentStretch, hm } from '../activity';
 
@@ -29,7 +29,9 @@ export const stretch: Rule = (s) => {
 };
 
 export const windDown: Rule = (s) => {
-  if (!currentStretch(s.samples, s.now, null)) return null;
+  const st = currentStretch(s.samples, s.now, null);
+  // Recent idle buckets keep a stretch "current"; wind_down needs real input since it began.
+  if (!st || st.ms <= 0 || !s.samples.some((x) => isActiveSample(x) && x.bucketEnd > st.start)) return null;
   if (!isLateNight(s.now, s.settings.windDownTime)) return null;
   return { ruleId: 'wind_down', kind: 'health', key: `wind_down:${localDate(s.now - NIGHT_OFFSET_MS)}`, mini: 'Wind down', stat: clock(s.settings.windDownTime),
     title: 'Time to wind down', body: `It's past ${clock(s.settings.windDownTime)}. Start winding down so sleep comes easier.`,

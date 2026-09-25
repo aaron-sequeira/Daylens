@@ -35,6 +35,12 @@ describe('wind_down', () => {
     expect(windDown(afterMidnight)!.key).toBe('wind_down:2026-09-25'); // same night, same key
     expect(windDown(snap({ samples: active(T(21), 10), now: T(21, 10) }))).toBeNull();
   });
+  it('needs real activity in the current stretch, not just recent idle buckets', () => {
+    // active 23:00–23:10, then away: the tracker keeps writing inactive buckets up to 23:20
+    const samples = [...active(T(23), 10), ...active(T(23, 10), 10, 0)];
+    expect(windDown(snap({ samples, now: T(23, 20) + 30_000 }))).toBeNull();
+    expect(windDown(snap({ samples: [...samples, ...active(T(23, 20), 1)], now: T(23, 21) + 30_000 }))).toMatchObject({ ruleId: 'wind_down' });
+  });
 });
 
 describe('goal', () => {

@@ -230,6 +230,7 @@ if (!app.requestSingleInstanceLock()) {
       const snoozed = s.snoozeUntil > Date.now();
       if (snoozed !== lastSnoozed) { lastSnoozed = snoozed; refreshTray(); }
       if (coaching || !s.consentGranted || s.trackingPaused) return;
+      if (powerMonitor.getSystemIdleState(120) !== 'active') return; // no coaching while the user is away or locked
       coaching = true;
       coach.tick().catch((e) => console.error('[coach] tick failed:', e)).finally(() => { coaching = false; });
     }, 30_000);
