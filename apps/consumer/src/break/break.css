@@ -1,0 +1,23 @@
+/* Ported verbatim from docs/superpowers/specs/assets/daylens-mockups/popups.html (§2 break overlay). */
+@import '@fontsource-variable/dm-sans';
+
+:root { --mint: #BFEBD3; --ink: #171717; --spring: cubic-bezier(.2, 1.35, .35, 1); }
+
+.breath{position:relative;width:180px;height:180px;display:grid;place-items:center}
+.breath .blob{position:absolute;inset:18px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff,var(--mint) 55%,#9ADBB9);animation:breathe 8s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:scale(.72)}50%{transform:scale(1)}}
+.breath svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.breath circle.p{stroke-dasharray:540;stroke-dashoffset:0;transition:stroke-dashoffset 1s linear}
+.breath .num{position:relative;font-size:44px;font-weight:500}
+.overlay h3{font-size:26px;font-weight:500;letter-spacing:-.01em}
+.overlay p{font-size:14px;color:#4b4642;margin-top:-10px}
+.overlay .hint{font-size:13px;font-weight:600;letter-spacing:.02em;color:#2d6b54;height:18px}
+.pbtn{border:0;border-radius:999px;padding:10px 20px;font:600 13px 'DM Sans';cursor:pointer;background:var(--ink);color:#fff;transition:transform .25s var(--spring)}
+.pbtn:hover{transform:scale(1.05)}
+.pbtn.s{background:rgba(255,255,255,.8);color:var(--ink)}
+
+html, body { margin: 0; height: 100%; background: transparent; font-family: 'DM Sans Variable', system-ui, sans-serif; color: #171717; }
+.overlay { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }
+.btns { display: flex; gap: 8px; }
+.pbtn.s { background: rgba(255, 255, 255, .8); color: #171717; }
+@media (prefers-reduced-motion: reduce) { .blob { animation: none !important; } .breath circle.p { transition: none !important; } }
