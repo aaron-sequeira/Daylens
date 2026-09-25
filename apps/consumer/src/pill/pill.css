@@ -1,5 +1,7 @@
 @import '@fontsource-variable/dm-sans';
 
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
 :root {
   --ink: #171717;
   --spring: cubic-bezier(.2, 1.3, .35, 1);
@@ -47,13 +49,31 @@ html, body { margin: 0; background: transparent; overflow: hidden; font-family: 
 @keyframes shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
 /* ---- stacking, "fewer" variant and reduced motion (Daylens additions) ---- */
-.pill.behind { transform: translateY(10px) scale(.94); opacity: .55; pointer-events: none; }
-.pill.behind.b2 { transform: translateY(18px) scale(.88); opacity: .3; }
-#stack:hover .pill.behind { transform: translateY(58px) scale(.96); opacity: .9; }
-#stack:hover .pill.behind.b2 { transform: translateY(104px) scale(.92); }
+
+/* Collapsed pill's "now · ✕" is invisible (.kind opacity:0) until open — don't let its
+   hitbox capture clicks meant for whatever it's laid over. */
+.x { cursor: pointer; pointer-events: none; }
+.pill.open .x { pointer-events: auto; }
+
+/* Behind cards stay collapsed (no .open) — layout() in main.ts enforces that only the
+   front card ever carries .open. At rest they're a small peek; #stack.hovering.fan
+   (set by the script, only when it actually fits under a still-collapsed front card —
+   see canFan() in stack.ts) fans the collapsed 46px pills out below the front card,
+   never past the 260px stack. .hide must win over .behind so a dismissed behind card
+   still fades out (higher specificity: 3 classes beats 2). */
+.pill.behind { transform: translateY(8px) scale(.94); opacity: .55; pointer-events: none; }
+.pill.behind.b2 { transform: translateY(14px) scale(.88); opacity: .3; }
+.pill.behind.hide, .pill.behind.b2.hide { transform: translateY(-90px) scale(.9); opacity: 0; }
+#stack.hovering.fan .pill.behind { transform: translateY(54px) scale(.96); opacity: .9; }
+#stack.hovering.fan .pill.behind.b2 { transform: translateY(108px) scale(.92); }
+
 .pill.open.fewer { height: 226px; }
-.fewer-link { margin-top: 8px; font-size: 11.5px; text-decoration: underline; cursor: pointer; opacity: .7; background: none; border: 0; font: inherit; padding: 0; }
-.x { cursor: pointer; }
-.pill.open .bar i { animation: shrink 8s linear forwards; }
-#stack:hover .pill.open .bar i { animation-play-state: paused; }
+.fewer-link { margin-top: 8px; opacity: .7; text-decoration: underline; cursor: pointer; background: none; border: 0; font: inherit; font-size: 11.5px; padding: 0; }
+
+/* main.ts sets #stack.hovering from per-pill mouseover/mouseout (not :hover on the
+   400x260 window, which would fire for the whole transparent area) so the progress
+   bar pauses exactly when — and for as long as — the script has actually paused the
+   matching card's auto-hide timer. */
+#stack.hovering .pill.open .bar i { animation-play-state: paused; }
+
 @media (prefers-reduced-motion: reduce) { .pill, .pill * { transition: opacity .2s !important; animation: none !important; } }

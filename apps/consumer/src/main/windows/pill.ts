@@ -22,20 +22,31 @@ export function createPillManager(deps: { makeWindow(): PillWindowLike; placemen
   let win: PillWindowLike | null = null;
   let ready = false;
   let queue: PillNudge[] = [];
+  // Ids sent to the renderer ('pill:show') that haven't yet come back as a terminal
+  // 'action' message. Guards against the race where the renderer's 'empty' (sent when
+  // its own card list drains to zero) crosses in flight with a fresh 'pill:show' this
+  // manager just sent — destroying the window then would drop that in-flight nudge.
+  const outstanding = new Set<number>();
+
   const flush = (): void => {
     if (!win || !ready) return;
-    for (const n of queue) win.send('pill:show', n);
+    for (const n of queue) {
+      win.send('pill:show', n);
+      outstanding.add(n.id);
+    }
     queue = [];
-    const p = deps.placement();
-    win.setPosition(p.x, p.y);
     win.showInactive();
   };
+
   return {
     show(n: PillNudge): boolean {
       try {
         if (!win || win.isDestroyed()) {
           ready = false;
           win = deps.makeWindow();
+          // Placed once, right when the window is created — not on every flush.
+          const p = deps.placement();
+          win.setPosition(p.x, p.y);
           win.setIgnoreMouseEvents(true);
           win.onReady(() => { ready = true; flush(); });
         }
@@ -48,11 +59,28 @@ export function createPillManager(deps: { makeWindow(): PillWindowLike; placemen
         return false;
       }
     },
-    dismissAll(): void { if (win && !win.isDestroyed()) win.send('pill:dismissAll'); },
+    dismissAll(): void {
+      // Nudges still queued (window not ready yet) never reached the renderer, so it
+      // can't report them dismissed — report them ourselves and drop them here.
+      if (queue.length) {
+        const dropped = queue;
+        queue = [];
+        for (const n of dropped) deps.onAction(n.id, 'dismiss');
+      }
+      if (win && !win.isDestroyed()) win.send('pill:dismissAll');
+    },
     handle(msg: PillMessage): void {
-      if (msg.type === 'hover') win?.setIgnoreMouseEvents(!msg.hover);
-      else if (msg.type === 'action') deps.onAction(msg.id, msg.action);
-      else { win?.destroy(); win = null; ready = false; }
+      if (msg.type === 'hover') {
+        win?.setIgnoreMouseEvents(!msg.hover);
+      } else if (msg.type === 'action') {
+        outstanding.delete(msg.id);
+        deps.onAction(msg.id, msg.action);
+      } else {
+        if (outstanding.size > 0 || queue.length > 0) return; // stale 'empty': ignore
+        win?.destroy();
+        win = null;
+        ready = false;
+      }
     }
   };
 }

@@ -49,4 +49,39 @@ describe('pill manager', () => {
     expect(pillMessage.safeParse({ type: 'action', id: 3, action: 'primary' }).success).toBe(true);
     expect(pillMessage.safeParse({ type: 'action', id: 3, action: 'hack' }).success).toBe(false);
   });
+  it('dismissAll before the page is ready clears the queue and reports dismiss for each queued nudge', () => {
+    const acts: [number, string][] = [];
+    const w = new FakeWin();
+    const m = createPillManager({ makeWindow: () => w, placement: () => ({ x: 0, y: 0 }), onAction: (id, a) => acts.push([id, a]) });
+    m.show(n(1));
+    m.show(n(2));
+    expect(w.sent).toEqual([]); // not ready yet: both nudges are only queued
+    m.dismissAll();
+    expect(acts).toEqual([[1, 'dismiss'], [2, 'dismiss']]);
+    w.fireReady();
+    expect(w.sent).toEqual([['pill:dismissAll', undefined]]); // queue was cleared, nothing to flush
+  });
+  it('recreates the window after empty, with fresh mouse passthrough', () => {
+    const wins: FakeWin[] = [];
+    const m = createPillManager({ makeWindow: () => { const w = new FakeWin(); wins.push(w); return w; }, placement: () => ({ x: 0, y: 0 }), onAction: () => {} });
+    m.show(n(1));
+    wins[0].fireReady();
+    m.handle({ type: 'action', id: 1, action: 'dismiss' });
+    m.handle({ type: 'empty' });
+    expect(wins[0].destroyed).toBe(true);
+    m.show(n(2));
+    expect(wins).toHaveLength(2);
+    expect(wins[1].ignore).toBe(true);
+  });
+  it('ignores empty while a shown nudge is still outstanding (main/renderer race)', () => {
+    const w = new FakeWin();
+    const m = createPillManager({ makeWindow: () => w, placement: () => ({ x: 0, y: 0 }), onAction: () => {} });
+    m.show(n(1));
+    w.fireReady();
+    m.handle({ type: 'empty' }); // renderer's own drain-to-zero crossed in flight with our 'pill:show'
+    expect(w.destroyed).toBe(false);
+    m.handle({ type: 'action', id: 1, action: 'dismiss' });
+    m.handle({ type: 'empty' });
+    expect(w.destroyed).toBe(true);
+  });
 });
