@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MIN, emptyView, read, sess, snap, T } from '../fixtures';
+import { MIN, read, sess, snap, T } from '../fixtures';
 import { appCap, doomscroll, scattered, stuckEscape } from './behaviour';
 
 const scroll = (from: number, minutes: number, app = 'Google Chrome', title: string | null = 'Reddit') =>
@@ -75,8 +75,15 @@ describe('stuck_escape', () => {
 
 describe('app_cap', () => {
   it('fires when an app passes its daily limit, once per day per app', () => {
-    const s = snap({ limits: [{ app: 'Discord', minutes: 30 }], view: emptyView({ apps: [{ appName: 'Discord.exe', seconds: 31 * 60 }] }) });
+    const s = snap({ limits: [{ app: 'Discord', minutes: 30 }], sessions: [sess('Discord.exe', T(10), T(10, 20)), sess('Code', T(10, 20), T(11)), sess('Discord.exe', T(11), T(11, 11))] });
     expect(appCap(s)).toMatchObject({ ruleId: 'app_cap', key: 'app_cap:Discord:2026-09-25' });
-    expect(appCap(snap({ limits: [{ app: 'Discord', minutes: 30 }], view: emptyView({ apps: [{ appName: 'Discord', seconds: 20 * 60 }] }) }))).toBeNull();
+    expect(appCap(snap({ limits: [{ app: 'Discord', minutes: 30 }], sessions: [sess('Discord', T(10), T(10, 20))] }))).toBeNull();
+  });
+  it('matches the limit name in window titles, e.g. YouTube watched in Chrome, counting the open session up to now', () => {
+    const sessions = [sess('Google Chrome', T(11), T(11, 20), 'Lo-fi mix - YouTube - Google Chrome'), sess('Google Chrome', T(11, 20), T(11, 25), 'Gmail'),
+      sess('chrome.exe', T(11, 25), null, 'Talk - youtube - Google Chrome')];
+    const s = snap({ limits: [{ app: 'YouTube', minutes: 30 }], sessions, now: T(11, 36) }); // 20 + 11 = 31 min
+    expect(appCap(s)).toMatchObject({ ruleId: 'app_cap', key: 'app_cap:YouTube:2026-09-25' });
+    expect(appCap({ ...s, now: T(11, 34) })).toBeNull(); // 29 min
   });
 });

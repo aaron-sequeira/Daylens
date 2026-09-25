@@ -9,7 +9,8 @@ const FRESH_MS = 30 * MIN; // spec §4.2: labels may arrive up to 30 min after t
 const GAP_MS = 5 * MIN;   // reads further apart than this break a run
 const DISTRACTED = 1.5, STUCK = 1.5;
 
-function matchDistraction(r: RecentRead, list: string[]): string | null {
+/** First entry of `list` contained (case-insensitive) in the app name or window title. */
+function matchDistraction(r: { appName: string; windowTitle: string | null }, list: string[]): string | null {
   const hay = `${r.appName} ${r.windowTitle ?? ''}`.toLowerCase();
   return list.find((d) => hay.includes(d.toLowerCase())) ?? null;
 }
@@ -74,10 +75,11 @@ export const stuckEscape: Rule = (s) => {
 
 export const appCap: Rule = (s) => {
   for (const l of s.limits) {
-    const used = s.view.apps.find((a) => displayAppName(a.appName).toLowerCase() === l.app.toLowerCase());
-    if (!used || used.seconds < l.minutes * 60) continue;
+    // A limit matches the app name or the window title, so "YouTube" counts YouTube tabs in any browser.
+    const ms = s.sessions.filter((x) => matchDistraction(x, [l.app])).reduce((a, x) => a + Math.max(0, (x.endedAt ?? s.now) - x.startedAt), 0);
+    if (ms < l.minutes * MIN) continue;
     return { ruleId: 'app_cap', kind: 'behaviour', key: `app_cap:${l.app}:${s.date}`, mini: `${l.app} limit`, stat: hm(l.minutes),
-      title: `${l.app}: ${hm(l.minutes)} limit reached`, body: `You've used ${l.app} for ${hm(Math.round(used.seconds / 60))} today. Time to close it?`,
+      title: `${l.app}: ${hm(l.minutes)} limit reached`, body: `You've used ${l.app} for ${hm(Math.round(ms / MIN))} today. Time to close it?`,
       primary: { label: 'OK', action: 'ack' } };
   }
   return null;
