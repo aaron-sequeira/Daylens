@@ -28,7 +28,20 @@ describe('label store', () => {
     add(2000, 'b', 'hb'); add(1000, 'a', 'ha'); add(3000, null, 'ha');
     expect(labels.unlabelled(10).map((r) => r.text)).toEqual(['a', 'b']);
     expect(labels.countUnlabelled()).toBe(2);
-    expect(labels.oldestUnlabelledAt()).toBe(1000);
+    expect(labels.unlabelledSummary()).toEqual({ count: 2, oldest: 1000 });
+  });
+  it('reports no oldest read when nothing is waiting', () => {
+    expect(labels.unlabelledSummary()).toEqual({ count: 0, oldest: null });
+  });
+  it('pending-read and last-labelled queries use an index, never a full-table scan', () => {
+    const plan = (sql: string) => (db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all() as { detail: string }[]).map((r) => r.detail).join(' | ');
+    const indexed = /USING (COVERING )?INDEX idx_reads_(unlabelled|labeled)\b/;
+    const pending = 'labeled_at IS NULL AND text IS NOT NULL'; // same WHERE as labels.ts
+    // The planner may pick either the partial idx_reads_unlabelled or idx_reads_labeled (labeled_at IS NULL search).
+    expect(plan(`SELECT id FROM screen_reads WHERE ${pending} ORDER BY at, id LIMIT 50`)).toMatch(indexed);
+    expect(plan(`SELECT count(*), min(at) FROM screen_reads WHERE ${pending}`)).toMatch(indexed);
+    expect(plan('SELECT max(labeled_at) FROM screen_reads')).toMatch(indexed);
+    expect(plan(`SELECT id FROM screen_reads INDEXED BY idx_reads_unlabelled WHERE ${pending} ORDER BY at, id`)).toMatch(/idx_reads_unlabelled/); // partial index matches this WHERE
   });
   it('applies labels in one go and reports the last labelling time', () => {
     const a = add(1000, 'a', 'ha');

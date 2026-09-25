@@ -18,7 +18,8 @@ export function toStoredLabel(id: number, answers: Record<string, LayaAnswer>): 
 export interface LabelStore {
   unlabelled(limit: number): ReadToLabel[];
   countUnlabelled(): number;
-  oldestUnlabelledAt(): number | null;
+  /** Pending count and oldest pending read time in one query. */
+  unlabelledSummary(): { count: number; oldest: number | null };
   applyLabels(results: StoredLabel[], now: number): void;
   copyDupLabels(now: number): number;
   markPurged(now: number): number;
@@ -28,11 +29,12 @@ export interface LabelStore {
   confidentForDay(date: string): DayLabel[];
 }
 
+// Starts with labeled_at IS NULL so every pending-read query can use the partial idx_reads_unlabelled.
 const PENDING = 'labeled_at IS NULL AND text IS NOT NULL';
 
 export function createLabelStore(db: Database.Database): LabelStore {
   const unl = db.prepare(`SELECT id, app_name AS app, window_title AS title, text FROM screen_reads WHERE ${PENDING} ORDER BY at, id LIMIT ?`);
-  const cnt = db.prepare(`SELECT count(*) AS n, min(at) AS oldest FROM screen_reads WHERE ${PENDING}`);
+  const cnt = db.prepare(`SELECT count(*) AS count, min(at) AS oldest FROM screen_reads WHERE ${PENDING}`);
   // AND text IS NOT NULL: if the text was purged mid-batch, leave labels NULL (markPurged marks it done).
   const upd = db.prepare(`UPDATE screen_reads SET category = @category, category_conf = @categoryConf, activity = @activity, activity_conf = @activityConf,
     stuck = @stuck, distraction = @distraction, labeled_at = @now WHERE id = @id AND text IS NOT NULL`);
@@ -49,8 +51,8 @@ export function createLabelStore(db: Database.Database): LabelStore {
   const applyAll = db.transaction((results: StoredLabel[], now: number) => { for (const r of results) upd.run({ ...r, now }); });
   return {
     unlabelled: (limit) => unl.all(limit) as ReadToLabel[],
-    countUnlabelled: () => (cnt.get() as { n: number }).n,
-    oldestUnlabelledAt: () => (cnt.get() as { oldest: number | null }).oldest,
+    countUnlabelled: () => (cnt.get() as { count: number }).count,
+    unlabelledSummary: () => cnt.get() as { count: number; oldest: number | null },
     applyLabels: (results, now) => applyAll(results, now),
     copyDupLabels: (now) => copy.run({ now }).changes,
     markPurged: (now) => purged.run(now).changes,

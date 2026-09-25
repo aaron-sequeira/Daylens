@@ -121,10 +121,9 @@ export function createLabelScheduler(deps: {
       deps.store.markPurged(now);
       deps.store.copyDupLabels(now);
       if (!deps.modelReady() || now < retryAt) return;
-      const pending = deps.store.countUnlabelled();
-      if (pending === 0) return;
-      const oldest = deps.store.oldestUnlabelledAt() ?? now;
-      if (pending < BATCH_MIN && now - oldest < MAX_WAIT_MS) return;
+      const { count, oldest } = deps.store.unlabelledSummary();
+      if (count === 0) return;
+      if (count < BATCH_MIN && now - (oldest ?? now) < MAX_WAIT_MS) return;
       runBatch();
     },
     status: () => ({

@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS screen_reads (
 );
 CREATE INDEX IF NOT EXISTS idx_reads_date ON screen_reads(date, at);
 CREATE INDEX IF NOT EXISTS idx_reads_at ON screen_reads(at);
+-- The labelling scheduler scans for pending reads every minute; keep that off a full-table scan.
+CREATE INDEX IF NOT EXISTS idx_reads_unlabelled ON screen_reads(at) WHERE labeled_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_reads_labeled ON screen_reads(labeled_at);
 `;
 
 export interface ScreenReadInput { at: number; date: string; appName: string; windowTitle: string | null; text: string | null; textHash: string; }

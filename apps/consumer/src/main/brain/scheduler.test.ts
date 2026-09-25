@@ -40,6 +40,14 @@ describe('label scheduler', () => {
     expect(brains[0].sent[0]).toMatchObject({ op: 'label', modelDir: 'M' });
     expect(brains[0].sent[0].reads).toHaveLength(19);
   });
+  it('queries the pending count and oldest read once per tick', () => {
+    add(20);
+    const counting = { ...store, countUnlabelled: vi.fn(store.countUnlabelled), unlabelledSummary: vi.fn(store.unlabelledSummary) };
+    make({ store: counting }).tick();
+    expect(brains).toHaveLength(1);
+    expect(counting.unlabelledSummary).toHaveBeenCalledTimes(1);
+    expect(counting.countUnlabelled).not.toHaveBeenCalled();
+  });
   it('reports waiting when the model is missing', () => {
     ready = false; add(25); const s = make(); s.tick();
     expect(brains).toHaveLength(0);
