@@ -13,6 +13,7 @@ describe('coach UI helpers', () => {
   it('adds limits case-insensitively unique, max 20', () => {
     expect(addLimit([{ app: 'Discord', minutes: 30 }], ' discord ', 60)).toEqual([{ app: 'Discord', minutes: 30 }]);
     expect(addLimit([], 'Steam', 45)).toEqual([{ app: 'Steam', minutes: 45 }]);
+    expect(addLimit([], 'Ste\u0007am', 45)).toEqual([{ app: 'Steam', minutes: 45 }]);
     expect(addLimit(Array.from({ length: 20 }, (_, i) => ({ app: `a${i}`, minutes: 30 })), 'x', 30)).toHaveLength(20);
   });
 });

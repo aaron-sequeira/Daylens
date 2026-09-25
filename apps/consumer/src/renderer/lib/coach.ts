@@ -12,7 +12,7 @@ export function limitSuggestions(distractions: string[], existing: { app: string
 }
 
 export function addLimit(list: { app: string; minutes: number }[], raw: string, minutes: number): { app: string; minutes: number }[] {
-  const app = raw.trim().replace(/\s+/g, ' ');
+  const app = raw.replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ');
   if (!app || app.length > 60 || list.length >= 20 || list.some((l) => l.app.toLowerCase() === app.toLowerCase())) return list;
   return [...list, { app, minutes }];
 }

@@ -55,7 +55,7 @@ export function PopupsSection() {
         </div>
         <div className="xadd">
           <input type="text" aria-label="App to limit" placeholder="App name, e.g. Discord" maxLength={60} value={app}
-            onChange={(e) => setApp(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) add(app); }} />
+            onChange={(e) => setApp(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) add(app); }} />
           <select aria-label="Daily limit" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
             {LIMIT_CHOICES.map((m) => <option key={m} value={m}>{formatHm(m * 60)}</option>)}
           </select>
