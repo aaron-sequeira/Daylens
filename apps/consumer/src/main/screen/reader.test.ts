@@ -142,6 +142,15 @@ describe('screen reader', () => {
     await expect(r.tick()).resolves.toBe('discarded');
     expect(store.last()).toBeNull();
   });
+
+  it('skips capturing while the label backlog is blocked', async () => {
+    const r = createScreenReader({
+      ocr: { capture: async () => { captures++; return cap; } }, foreground: { get: async () => fg },
+      settings: () => settings, idleSec: () => idle, store, now: () => now, selfPid: 1, backlogBlocked: () => true
+    });
+    await expect(r.tick()).resolves.toBe('skipped-backlog');
+    expect(captures).toBe(0);
+  });
 });
 
 describe('runRetention', () => {
