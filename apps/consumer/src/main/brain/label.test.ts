@@ -20,7 +20,7 @@ describe('labelReads', () => {
     const out: StoredLabel[] = [];
     await labelReads(fake(seen), [{ id: 3, app: 'Code', title: 'a.ts', text: 'const x' }], (l) => out.push(l));
     expect(seen).toEqual(['App: Code\nWindow: a.ts\nScreen text: const x']);
-    expect(out).toEqual([{ id: 3, category: 'work', categoryConf: 0.9, activity: 'uncertain', activityConf: 0.2, stuck: 0.5, distraction: 0 }]);
+    expect(out).toEqual([{ id: 3, category: 'work', categoryConf: 0.9, activity: 'coding', activityConf: 0.2, stuck: 0.5, distraction: 0 }]);
   });
   it('reports each result as soon as its read is done, before asking about the next read', async () => {
     const events: string[] = [];

@@ -1,13 +1,14 @@
 import type Database from 'better-sqlite3';
 import type { LayaAnswer } from '../brain/laya';
-import { CONFIDENT } from '../brain/questions';
 
 export interface StoredLabel { id: number; category: string | null; categoryConf: number | null; activity: string | null; activityConf: number | null; stuck: number | null; distraction: number | null; }
 export interface ReadToLabel { id: number; app: string; title: string | null; text: string; }
-export interface DayLabel { at: number; appName: string; category: string; }
+export interface DayLabel { at: number; appName: string; category: string; conf: number | null; }
 
+// Laya's own choice is always stored, confident or not; consumers (Today, Phase 5 rules) decide
+// what to do with a low-confidence label using the stored confidence (see brain/finalCategory.ts).
 const pick = (a: LayaAnswer | undefined): { v: string | null; c: number | null } =>
-  a?.type === 'choice' ? { v: a.confidence >= CONFIDENT ? a.choice : 'uncertain', c: a.confidence } : { v: null, c: null };
+  a?.type === 'choice' ? { v: a.choice, c: a.confidence } : { v: null, c: null };
 const scoreOf = (a: LayaAnswer | undefined): number | null => (a?.type === 'score' ? a.score : null);
 
 export function toStoredLabel(id: number, answers: Record<string, LayaAnswer>): StoredLabel {
@@ -26,7 +27,7 @@ export interface LabelStore {
   /** A read that keeps breaking batches: mark it done with no labels so it can't block the rest. */
   markFailed(id: number, now: number): void;
   lastLabelledAt(): number | null;
-  confidentForDay(date: string): DayLabel[];
+  labelsForDay(date: string): DayLabel[];
 }
 
 // Starts with labeled_at IS NULL so every pending-read query can use the partial idx_reads_unlabelled.
@@ -47,7 +48,8 @@ export function createLabelStore(db: Database.Database): LabelStore {
   const purged = db.prepare(`UPDATE screen_reads SET labeled_at = ? WHERE labeled_at IS NULL AND text IS NULL AND text_hash = ''`);
   const failed = db.prepare('UPDATE screen_reads SET labeled_at = ? WHERE id = ? AND labeled_at IS NULL');
   const last = db.prepare('SELECT max(labeled_at) AS t FROM screen_reads');
-  const day = db.prepare(`SELECT at, app_name AS appName, category FROM screen_reads WHERE date = ? AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
+  // category <> 'uncertain' excludes legacy rows from before Laya always stored its own choice (dev DBs may still have them).
+  const day = db.prepare(`SELECT at, app_name AS appName, category, category_conf AS conf FROM screen_reads WHERE date = ? AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
   const applyAll = db.transaction((results: StoredLabel[], now: number) => { for (const r of results) upd.run({ ...r, now }); });
   return {
     unlabelled: (limit) => unl.all(limit) as ReadToLabel[],
@@ -58,6 +60,6 @@ export function createLabelStore(db: Database.Database): LabelStore {
     markPurged: (now) => purged.run(now).changes,
     markFailed: (id, now) => { failed.run(now, id); },
     lastLabelledAt: () => (last.get() as { t: number | null }).t,
-    confidentForDay: (date) => day.all(date) as DayLabel[]
+    labelsForDay: (date) => day.all(date) as DayLabel[]
   };
 }

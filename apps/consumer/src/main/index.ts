@@ -196,7 +196,7 @@ if (!app.requestSingleInstanceLock()) {
       repo, settings, tracker, setTracking,
       onSettingsChanged: () => { applyLoginItem(); syncOcr(); syncModel(); retention(); },
       now: () => Date.now(),
-      labelsFor: (date) => labelStore.confidentForDay(date),
+      labelsFor: (date) => labelStore.labelsForDay(date),
       models: {
         view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
         redownload: async () => {

@@ -14,9 +14,9 @@ const add = (at: number, text: string | null, hash: string, app = 'Code', date =
 const row = (id: number) => db.prepare('SELECT category, category_conf AS categoryConf, activity, stuck, distraction, labeled_at AS labeledAt FROM screen_reads WHERE id = ?').get(id) as Record<string, unknown>;
 
 describe('toStoredLabel', () => {
-  it('keeps confident choices, marks unsure ones uncertain, keeps scores', () => {
+  it('always keeps Laya\'s own choice, confident or not, keeps scores', () => {
     expect(toStoredLabel(7, { category: choice('work', 0.8), activity: choice('coding', 0.3), stuck: score(0.4), distraction: score(1.6) }))
-      .toEqual({ id: 7, category: 'work', categoryConf: 0.8, activity: 'uncertain', activityConf: 0.3, stuck: 0.4, distraction: 1.6 });
+      .toEqual({ id: 7, category: 'work', categoryConf: 0.8, activity: 'coding', activityConf: 0.3, stuck: 0.4, distraction: 1.6 });
   });
   it('tolerates missing answers', () => {
     expect(toStoredLabel(1, {})).toEqual({ id: 1, category: null, categoryConf: null, activity: null, activityConf: null, stuck: null, distraction: null });
@@ -78,12 +78,18 @@ describe('label store', () => {
     expect(row(good)).toMatchObject({ category: 'work', labeledAt: 3000 });
     expect(labels.countUnlabelled()).toBe(0);
   });
-  it('returns only confident categories for a day', () => {
+  it('returns all labelled categories (with confidence) for a day, excluding legacy uncertain rows', () => {
     const a = add(1000, 'a', 'ha', 'Chrome'); const b = add(2000, 'b', 'hb', 'Chrome'); add(3000, 'c', 'hc', 'Chrome', '2026-09-24');
     labels.applyLabels([
       { id: a, category: 'social', categoryConf: 0.9, activity: null, activityConf: null, stuck: null, distraction: null },
+      // simulates a legacy dev-DB row from before Laya always stored its own choice
       { id: b, category: 'uncertain', categoryConf: 0.2, activity: null, activityConf: null, stuck: null, distraction: null }
     ], 5000);
-    expect(labels.confidentForDay('2026-09-25')).toEqual([{ at: 1000, appName: 'Chrome', category: 'social' }]);
+    expect(labels.labelsForDay('2026-09-25')).toEqual([{ at: 1000, appName: 'Chrome', category: 'social', conf: 0.9 }]);
+  });
+  it('includes a low-confidence category now that Laya always stores its own guess', () => {
+    const a = add(1000, 'a', 'ha', 'Discord');
+    labels.applyLabels([{ id: a, category: 'entertainment', categoryConf: 0.2, activity: null, activityConf: null, stuck: null, distraction: null }], 5000);
+    expect(labels.labelsForDay('2026-09-25')).toEqual([{ at: 1000, appName: 'Discord', category: 'entertainment', conf: 0.2 }]);
   });
 });
