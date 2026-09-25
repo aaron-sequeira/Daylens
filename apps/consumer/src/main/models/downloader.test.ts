@@ -7,8 +7,9 @@ import { tmpdir } from 'node:os';
 import { createDownloader, type Manifest } from './downloader';
 
 const A = randomBytes(200_000), B = randomBytes(1_000);
+const OVERLONG = randomBytes(200_050); // deliberately longer than a.bin's declared 200_000-byte size, and unrelated content
 const sha = (b: Buffer): string => createHash('sha256').update(b).digest('hex');
-type Opts = { ignoreRange?: boolean; fail?: number; cutFirstAt?: number; holdAfter?: number };
+type Opts = { ignoreRange?: boolean; fail?: number; cutFirstAt?: number; holdAfter?: number; overlong?: boolean };
 let server: Server; let base: string; let dir: string; let reqs: { path: string; range?: string }[]; let opts: Opts;
 const files: Record<string, Buffer> = { 'a.bin': A, 'b.json': B };
 
@@ -19,6 +20,13 @@ beforeEach(async () => {
     const name = decodeURIComponent((req.url ?? '').split('/').pop() ?? '');
     reqs.push({ path: name, range: req.headers.range });
     if (opts.fail && opts.fail > 0) { opts.fail--; res.writeHead(500).end(); return; }
+    if (opts.overlong && name === 'a.bin') {
+      const m0 = /bytes=(\d+)-/.exec(req.headers.range ?? '');
+      const from0 = m0 ? Number(m0[1]) : 0;
+      res.writeHead(from0 ? 206 : 200, { 'content-length': String(OVERLONG.length - from0) });
+      res.end(OVERLONG.subarray(from0));
+      return;
+    }
     const body = files[name]; if (!body) { res.writeHead(404).end(); return; }
     const m = /bytes=(\d+)-/.exec(req.headers.range ?? '');
     const from = m && !opts.ignoreRange ? Number(m[1]) : 0;
@@ -30,7 +38,15 @@ beforeEach(async () => {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
   base = `http://127.0.0.1:${(server.address() as { port: number }).port}/repo/resolve/rev`;
 });
-afterEach(async () => { await new Promise((r) => server.close(r)); rmSync(dir, { recursive: true, force: true }); });
+afterEach(async () => {
+  // Without this, some runs leave idle keep-alive sockets from earlier requests on this server (e.g.
+  // after a retry loop makes several real round-trips before each attempt fails locally), and the
+  // default server.close() waits for those to time out before its callback fires -- occasionally a
+  // few seconds. Force them closed so afterEach is always fast and deterministic.
+  server.closeAllConnections?.();
+  await new Promise((r) => server.close(r));
+  rmSync(dir, { recursive: true, force: true });
+});
 
 const manifest = (over: Partial<Record<string, string>> = {}): Manifest => ({
   baseUrl: base, files: [{ name: 'a.bin', size: A.length, sha256: over['a.bin'] ?? sha(A) }, { name: 'b.json', size: B.length, sha256: sha(B) }]
@@ -121,16 +137,57 @@ describe('downloader', () => {
     // Simulates an fsp.open()/write() failure without relying on filesystem permissions, which
     // aren't reliably restrictable from a test on Windows. This exercises the same catch-and-retry
     // path a genuine mid-write disk error would take, since writes now go through fsp.open()/write()
-    // (promise-based) instead of a WriteStream with an unhandled 'error' event. Opening a directory
-    // as if it were a file occasionally takes ~3s on Windows (observed, likely Defender scanning the
-    // freshly created directory) rather than failing instantly, hence the generous test timeout below.
+    // (promise-based) instead of a WriteStream with an unhandled 'error' event. (A previous version of
+    // this comment blamed fsp.open() on a directory for an occasional ~3s slowdown here; the real cause
+    // was afterEach's server.close() waiting on idle keep-alive sockets left by this retry loop's many
+    // real round-trips -- fixed by calling server.closeAllConnections() first, see afterEach above.)
     mkdirSync(join(dir, 'a.bin.part'));
     const { d, waits } = make();
     await d.init(); d.start();
     while (waits.length === 0) await new Promise((r) => setTimeout(r, 5));
     expect(d.status().state).toBe('downloading'); // still retrying, no uncaught exception
     d.stop(); await d.done();
+  });
+  it('rejects a response body that overruns the expected size, then reports bad_hash (no infinite retry)', async () => {
+    opts.overlong = true;
+    const { d } = make(); await d.init(); d.start(); await d.done();
+    expect(d.status()).toEqual({ state: 'error', reason: 'bad_hash' });
+    expect(reqs.filter((r) => r.path === 'a.bin')).toHaveLength(2);
+    expect(existsSync(join(dir, 'a.bin'))).toBe(false);
+  });
+  it('stop() during a re-hash of an already-complete .part leaves it untouched, not deleted or renamed', async () => {
+    // Large enough that hashing it via createReadStream (many chunked, async fs reads) takes long
+    // enough for a stop() fired after a single event-loop tick to reliably land mid-read rather than
+    // before the first chunk or after the last.
+    const big = randomBytes(80 * 1024 * 1024);
+    const bigManifest: Manifest = { baseUrl: base, files: [{ name: 'a.bin', size: big.length, sha256: sha(big) }, { name: 'b.json', size: B.length, sha256: sha(B) }] };
+    writeFileSync(join(dir, 'a.bin.part'), big);
+    const d = createDownloader({ dir, manifest: bigManifest, fetch, freeBytes: async () => 10 ** 12, wait: async () => {} });
+    expect(await d.init()).toEqual({ state: 'missing' }); // only the .part exists, not the final file
+    d.start();
+    await new Promise((r) => setImmediate(r));
+    d.stop();
+    await d.done();
+    expect(d.status()).toEqual({ state: 'missing' });
+    expect(existsSync(join(dir, 'a.bin.part'))).toBe(true);
+    expect(readFileSync(join(dir, 'a.bin.part')).equals(big)).toBe(true); // untouched, not truncated or corrupted
+    expect(existsSync(join(dir, 'a.bin'))).toBe(false); // never renamed into place
+    expect(reqs).toHaveLength(0); // the file was already fully sized on disk -- no fetch was ever needed
   }, 10_000);
+  it('a start() during remove() runs after the deletion, and remove() does not clobber its status', async () => {
+    // No timing tricks needed: everything up to remove()'s first `await` runs synchronously, so by the
+    // time the second start() below executes, remove() has already stopped the first run and queued its
+    // deletion -- deterministically exercising "start() lands in the middle of remove()".
+    const { d } = make();
+    await d.init();
+    d.start(); // now downloading
+    const removing = d.remove(); // stops the in-flight run and queues the deletion (status is 'missing' once this line returns)
+    d.start(); // status is 'missing', so this queues a fresh run to start after remove()'s deletion finishes
+    await removing;
+    await d.done();
+    expect(d.status()).toEqual({ state: 'ready' }); // the second start()'s download completed; remove() did not reset it back to 'missing' afterwards
+    expect(readFileSync(join(dir, 'a.bin')).equals(A)).toBe(true);
+  });
   it('stop() keeps the partial file and a restart resumes it', async () => {
     opts.fail = 1000;
     const waits: number[] = [];

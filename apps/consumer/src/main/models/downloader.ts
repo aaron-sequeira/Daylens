@@ -1,5 +1,6 @@
 import { createHash, type Hash } from 'node:crypto';
 import { createReadStream, promises as fsp } from 'node:fs';
+import type { FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export interface ModelFile { name: string; size: number; sha256: string; }
@@ -27,7 +28,7 @@ function isMarkerEntries(v: unknown): v is MarkerEntries {
 }
 async function feed(hash: Hash, path: string, signal?: AbortSignal): Promise<void> {
   for await (const chunk of createReadStream(path)) {
-    if (signal?.aborted) return;
+    if (signal?.aborted) throw new Error('aborted'); // never let a stopped run finish with a partial digest
     hash.update(chunk as Buffer);
   }
 }
@@ -52,6 +53,8 @@ export function createDownloader(deps: {
     status = s;
     try { deps.onStatus?.(s); } catch { /* a throwing callback must not surface as a download failure */ }
   };
+  /** Only update status if this run hasn't been stopped meanwhile; a stopped run must never resurrect a stale status. */
+  const setIfLive = (signal: AbortSignal, s: ModelStatus): void => { if (!signal.aborted) set(s); };
   const final = (f: ModelFile): string => join(dir, f.name);
   const part = (f: ModelFile): string => join(dir, `${f.name}.part`);
 
@@ -89,29 +92,39 @@ export function createDownloader(deps: {
     let have = await sizeOf(part(f));
     if (have > f.size) { await fsp.rm(part(f), { recursive: true, force: true }); have = 0; }
     let hash = createHash('sha256');
-    if (have > 0) await feed(hash, part(f), signal);
+    if (have > 0) await feed(hash, part(f), signal); // throws if the signal aborts mid-read
     if (have < f.size) {
       const res = await deps.fetch(`${manifest.baseUrl}/${f.name}`, { headers: have ? { Range: `bytes=${have}-` } : {}, signal });
       if (res.status === 200 && have > 0) { have = 0; hash = createHash('sha256'); } // server ignored Range: start over
       else if (!res.ok || !res.body) throw new Error(`http ${res.status}`);
-      const fh = await fsp.open(part(f), have ? 'a' : 'w');
+      let fh: FileHandle;
+      try {
+        fh = await fsp.open(part(f), have ? 'a' : 'w');
+      } catch (err) {
+        await (res.body as unknown as { cancel: (reason?: unknown) => Promise<void> }).cancel().catch(() => {}); // don't leak the response body/socket
+        throw err;
+      }
       try {
         for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
           const b = Buffer.from(chunk);
-          have += b.length;
-          if (have > f.size) throw new Error(`overlong download ${f.name}: ${have}/${f.size}`);
-          hash.update(b);
-          await fh.write(b);
+          const remaining = f.size - have;
+          const toWrite = b.length > remaining ? b.subarray(0, remaining) : b; // never write past the expected size
+          have += toWrite.length;
+          hash.update(toWrite);
+          await fh.write(toWrite);
+          if (toWrite.length < b.length) break; // overlong body: stop reading; the size/hash check below decides (bad hash -> one retry -> bad_hash)
           const t = Date.now();
-          if (!signal.aborted && t - lastProgress >= PROGRESS_MS) { lastProgress = t; set({ state: 'downloading', received: done + have, total, retrying: false }); }
+          if (t - lastProgress >= PROGRESS_MS) { lastProgress = t; setIfLive(signal, { state: 'downloading', received: done + have, total, retrying: false }); }
         }
       } finally {
         await fh.close();
       }
     }
+    if (signal.aborted) throw new Error('aborted'); // never compare/rm/rename a stopped run
     const onDisk = await sizeOf(part(f));
     if (onDisk !== f.size) throw new Error(`short download ${f.name}: ${onDisk}/${f.size}`);
-    set({ state: 'verifying' });
+    setIfLive(signal, { state: 'verifying' });
+    if (signal.aborted) throw new Error('aborted');
     if (hash.digest('hex') !== f.sha256) { await fsp.rm(part(f), { recursive: true, force: true }); return false; }
     await fsp.rename(part(f), final(f));
     return true;
@@ -129,7 +142,7 @@ export function createDownloader(deps: {
       done += f.size;
     }
     await writeMarker();
-    set({ state: 'ready' });
+    setIfLive(signal, { state: 'ready' });
   }
 
   async function loop(signal: AbortSignal): Promise<void> {
@@ -138,12 +151,15 @@ export function createDownloader(deps: {
     while (!signal.aborted) {
       try { await downloadAll(signal); return; } catch (e) {
         if (signal.aborted) return;
-        if (e instanceof Fatal) { set({ state: 'error', reason: e.reason }); return; }
-        const delay = RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length - 1)];
+        if (e instanceof Fatal) { setIfLive(signal, { state: 'error', reason: e.reason }); return; }
         const after = await bytesOnDisk();
-        failures = after > before ? 0 : failures + 1; // a flaky link that keeps making progress shouldn't escalate to the long backoffs
+        if (signal.aborted) return; // re-check: stop() could have landed during the await above
+        const progressed = after > before;
+        if (progressed) failures = 0; // a flaky link that keeps making progress shouldn't escalate to the long backoffs
+        const delay = RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length - 1)]; // computed after the reset, so progress shortens THIS wait too
+        if (!progressed) failures++;
         before = after;
-        set({ state: 'downloading', received: after, total, retrying: true });
+        setIfLive(signal, { state: 'downloading', received: after, total, retrying: true });
         await wait(delay, signal);
       }
     }
@@ -155,8 +171,8 @@ export function createDownloader(deps: {
     controller = c;
     set({ state: 'downloading', received: 0, total, retrying: false });
     const prev = run;
-    // Chain onto the previous run so a start() shortly after a stop() can't launch a second loop
-    // while the old one is still unwinding (which could append to the same .part concurrently).
+    // Chain onto the previous run so a start() shortly after a stop() (or during a remove()) can't
+    // launch a second loop while the old one/the deletion is still unwinding.
     run = prev.catch(() => {}).then(() => loop(c.signal)).finally(() => { if (controller === c) controller = null; });
   }
 
@@ -186,15 +202,19 @@ export function createDownloader(deps: {
     stop: stopImpl,
     async remove() {
       stopImpl();
-      await run;
-      // Only the manifest's own files: `dir` may be a shared/dev folder with unrelated content.
-      for (const f of manifest.files) {
-        await fsp.rm(final(f), { force: true });
-        await fsp.rm(part(f), { recursive: true, force: true });
-      }
-      await fsp.rm(join(dir, MARKER), { force: true });
-      await fsp.rm(join(dir, `${MARKER}.tmp`), { force: true });
-      set({ state: 'missing' });
+      const prev = run;
+      const removal = prev.catch(() => {}).then(async () => {
+        // Only the manifest's own files: `dir` may be a shared/dev folder with unrelated content.
+        for (const f of manifest.files) {
+          await fsp.rm(final(f), { force: true });
+          await fsp.rm(part(f), { recursive: true, force: true });
+        }
+        await fsp.rm(join(dir, MARKER), { force: true });
+        await fsp.rm(join(dir, `${MARKER}.tmp`), { force: true });
+      });
+      run = removal; // so a start() called during remove() chains onto the removal, not the (already-stopped) old run
+      await removal;
+      if (run === removal) set({ state: 'missing' }); // only if no newer run (from a start() during remove()) has since begun
     },
     status: () => status,
     done: () => run
