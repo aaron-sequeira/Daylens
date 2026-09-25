@@ -9,7 +9,7 @@
 - TS sequence parity (sequences.json): 0 mismatches (want 0)
 - TS decision parity (fp32): DONE, see "Phase 4 — TS decision parity & latency/memory" below (96/96 choices, worst score error 0.0000). int8 not re-run.
 - Model files: laya.onnx 1686 MB, laya.int8.onnx 423 MB
-- **Decision:** GO approach A — ship fp32 ONNX (1.7 GB); int8 rejected (accuracy); TS decision-level parity pending re-run; question wording must be improved before Phase 4 (77% < 80%).
+- **Decision:** GO approach A — ship fp32 ONNX (1.7 GB); int8 rejected (accuracy); TS decision-level parity confirmed in Phase 4 (96/96); question wording must be improved before Phase 4 (77% < 80%).
 
 ## Windows OCR
 - PowerShell version: 5.1.26100.9444 · screen: 1707x1067
@@ -40,7 +40,7 @@
 ## Phase 4 — TS decision parity & latency/memory (2026-09-25)
 - Parity (`laya.onnx`, `LAYA_PARITY=1`, `test:parity`): sequence-build parity 0 mismatches (0 wanted); decision parity 96/96 choices match golden (100%, ≥ 98% gate), worst score error 0.0000 (≤ 0.05 gate). Both parity assertions PASS. This closes the Phase 0 "TS decision parity pending" item for fp32 (int8 not re-run).
 - Latency: ~540–548 ms/read, averaged per golden screen state across all 4 questions (24 golden states; two runs measured 540 ms/read and 548 ms/read).
-- Peak working set: ~4594 MB (~4.6 GB), of the electron.exe/vitest process running the parity test, isolated from the user's separately-running Daylens dev electron.exe instances by diffing against a pre-launch PID snapshot and sampling every 0.5 s across the ~29–30 s run. (A first attempt filtering by command-line text instead of a PID-diff undercounted at ~105 MB — Electron re-execs/re-PIDs itself under `ELECTRON_RUN_AS_NODE`, so that filter lost track of the process almost immediately; the PID-diff re-measurement above is the reliable figure.)
+- Peak working set: ~4594 MB (~4.6 GB), of the electron.exe/vitest process running the parity test, isolated from the user's separately-running Daylens dev electron.exe instances by diffing against a pre-launch PID snapshot and sampling every 0.5 s across the ~29–30 s run. (A first attempt filtering by command-line text instead of a PID-diff undercounted at ~105 MB — Electron re-execs/re-PIDs itself under `ELECTRON_RUN_AS_NODE`, so that filter lost track of the process almost immediately; the PID-diff re-measurement above is the reliable figure.) (upper bound: summed working sets of all new electron.exe processes during the run, may include shared pages or another Electron process; re-check against the real Brain process in the app)
 - Model load time: not separately instrumented by the harness. Total test wall time was ~29–30 s; the 24 golden-state reads accounted for roughly 13 s of that (24 × ~540 ms), leaving roughly 15–16 s for tokenizer/session setup and model load — an approximation, not a direct measurement.
 - Sizing implication for batch timeouts: once loaded, a single screen read (all 4 questions) takes ~540–550 ms; the ~15 s one-time load cost is paid once per Brain session/process lifetime, not per batch, so batch timeouts should be sized off the ~550 ms/read figure plus headroom, with a separate (larger) allowance for the one-time model load at startup.
 
@@ -65,4 +65,5 @@ User decision after reviewing Task 2's numbers: **trust Laya's own guess unless 
 
 - **Chosen:** round-1 wording (`QUESTIONS.category` in `questions.ts` now uses it) — higher "all final" (91.7% vs 86.1%). Gate (≥ 80% all, hold-out within 10 pts of tuning): **PASS** (91.7% ≥ 80%; tuning 89.6% vs hold-out 95.8%, a −6.2-pt gap, well inside the 10-pt bound). `GATE` in `laya.eval.test.ts` restored to `0.8`.
 - Confirms Task 2's root-cause analysis: raw Laya choice accuracy did not need to change at all for "final" accuracy to jump from 58–61% (old rule) to 86–92% (new rule) — the old rule's blanket app-name override (defaulting browsers/unknown apps to `other`) was discarding most of Laya's already-correct low-confidence guesses; keeping Laya's guess for unknown apps recovers nearly all of that.
+- Caveat: the hold-out score contributed to choosing the wording (rule: higher all-final), so it is not fully independent; 66/72 samples.
 - Remaining confusions (chosen round-1 wording, unchanged from Task 2's Step-3 measurement since raw Laya choices are wording-only): `social`→`work`/`entertainment` (3/13), `communication`→`entertainment`/`work` (5/13), `other`→`work`/`entertainment`/`learning` (4/10). These are now largely absorbed by the keep-Laya rule when the app is unknown (e.g. a browser), since Laya's own guess is kept instead of defaulting to `other`; they only cost real "final" accuracy on unsure reads from *known* apps whose app-rule category disagrees with Laya's (correct-or-not) guess.

@@ -101,7 +101,7 @@ New settings: `screenReadingAsked` (false). No schema change to `screen_reads` (
 
 ## 8. Testing
 
-Unit (Vitest): downloader (resume from `.part`, server ignoring Range, bad hash → retry → error, no space, network error backoff, stop mid-file, ready detection) with a local `http` test server; LabelScheduler (batch trigger rules, backlog guard, dedup-row label copy, purged-row marking, crash backoff/pause, timeout) with a fake Brain; label storage (uncertain threshold, scores); Today category from labels vs app fallback; onboarding step and Today card state logic (pure helpers); IPC zod schemas. Brain entry tested through a fake `LayaRunner`. Manual: eval script numbers; real download from the HF repo; real batch labelling in the app with memory returning after the batch.
+Unit (Vitest): downloader (resume from `.part`, server ignoring Range, bad hash → retry → error, no space, network error backoff, stop mid-file, ready detection) with a local `http` test server; LabelScheduler (batch trigger rules, backlog guard, dedup-row label copy, purged-row marking, crash backoff/pause, timeout) with a fake Brain; label storage (choice + confidence always stored, scores; legacy 'uncertain' rows ignored); Today category from labels vs app fallback; onboarding step and Today card state logic (pure helpers); IPC zod schemas. Brain entry tested through a fake `LayaRunner`. Manual: eval script numbers; real download from the HF repo; real batch labelling in the app with memory returning after the batch.
 
 ## 9. Out of scope
 

@@ -1,4 +1,3 @@
-export { finalCategory } from './finalCategory';
 import { finalCategory } from './finalCategory';
 
 export interface EvalRow { id: number; expected: string; choice: string; confidence: number; app: string; }

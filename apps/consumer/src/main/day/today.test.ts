@@ -155,6 +155,15 @@ describe('buildTodayView', () => {
     });
     expect(v.cards.map((c) => c.category)).toEqual(['entertainment']);
   });
+
+  it('counts a label with null confidence on a known app as the app rule', () => {
+    const v = view({
+      sessions: [session('Microsoft Teams', T(9), T(10))],
+      samples: run(T(9), 60, 1),
+      labels: [{ at: T(9, 5), appName: 'Microsoft Teams', category: 'entertainment', conf: null }]
+    });
+    expect(v.cards.map((c) => c.category)).toEqual(['communication']);
+  });
 });
 
 describe('loadTodayView', () => {

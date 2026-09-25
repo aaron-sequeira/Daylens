@@ -157,7 +157,7 @@ type BrainRequest =
 | `stuck` | score | 0 working smoothly · 1 minor friction, searching · 2 visible errors, failures, repeated attempts |
 | `distraction` | score | 0 on-task · 1 mild detour · 2 infinite feed, autoplay, clickbait, unrelated to recent work |
 
-- Choices with confidence < 0.5 are stored as `uncertain` and **never trigger rules**. Reads with `text = NULL` (dedupe) inherit the previous read's labels.
+- Choices with confidence < 0.5 are stored as `uncertain` and **never trigger rules**. Reads with `text = NULL` (dedupe) inherit the previous read's labels. (Superseded by the Phase 4 spec §3.1: Laya's choice is always stored with its confidence; rules act only when confidence ≥ 0.5.)
 
 ### 8.2 Writer
 - **Local:** `node-llama-cpp`, GPU auto-detected (CUDA/Vulkan, CPU fallback). Model tier by RAM: ≥ 12 GB → **Qwen3-4B-Instruct-2507 Q4_K_M** (~2.5 GB); < 12 GB → **Qwen3-1.7B Q4_K_M** (~1.1 GB, thinking disabled). Output constrained with a **JSON-schema grammar** → always parseable.
@@ -233,7 +233,7 @@ One fullscreen window per display; `backgroundMaterial: 'acrylic'` on Windows 11
 | Brain crash / OOM | Restart with backoff 1 s → 5 s → 30 s; > 3 crashes in 10 min → AI features paused, banner, tracking continues; unlabelled reads are labelled on recovery. |
 | OcrHelper dies | Restart; if no OCR language available → **metadata-only mode** (no screen_reads text) + banner linking `ms-settings:regionlanguage`. |
 | OCR/label backlog | If > 20 reads unlabelled, skip new captures until drained (bounded memory/CPU). |
-| Laya low confidence | `uncertain`, never triggers rules. |
+| Laya low confidence | `uncertain`, never triggers rules. (Superseded by the Phase 4 spec §3.1: Laya's choice is always stored with its confidence; rules act only when confidence ≥ 0.5.) |
 | Writer timeout/invalid JSON | One retry (cloud) / grammar-constrained (local); then `failed` + retry card. |
 | Download interrupted / bad hash | Resume / delete + re-download. |
 | DB | Reuse core `openDatabase` (better-sqlite3, WAL). Per-memory note: inspect DB via `ELECTRON_RUN_AS_NODE`. |

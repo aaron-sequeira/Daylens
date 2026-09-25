@@ -235,9 +235,14 @@ describe('downloader', () => {
     const { d } = make(); await d.init(); d.start(); await d.done();
     expect(d.status()).toEqual({ state: 'ready' });
     fsHooks.failNextRm = true;
-    await expect(d.remove()).rejects.toThrow(/EBUSY/);
-    await expect(d.done()).resolves.toBeUndefined(); // the failed deletion must not leave `run` a rejected promise
-    expect(d.status()).toEqual({ state: 'missing' }); // still reflects the intended end-state despite the partial failure
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(d.remove()).rejects.toThrow(/EBUSY/);
+      await expect(d.done()).resolves.toBeUndefined(); // the failed deletion must not leave `run` a rejected promise
+      expect(d.status()).toEqual({ state: 'missing' }); // still reflects the intended end-state despite the partial failure
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
   it('a start() during remove() runs after the deletion, and remove() does not clobber its status', async () => {
     // No timing tricks needed: everything up to remove()'s first `await` runs synchronously, so by the

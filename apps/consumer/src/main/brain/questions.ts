@@ -1,6 +1,6 @@
 import type { LayaQuestion } from './laya';
 
-/** Choices below this confidence are stored as 'uncertain' and never drive the UI or rules. */
+/** Confidence threshold consumers use: finalCategory keeps a guess below it only when the app isn't a known one; Phase 5 rules act only on labels at or above it. */
 export const CONFIDENT = 0.5;
 
 // Single source of truth for what the Brain asks. Only `category` wording is tuned (Task 2 of Phase 4).
