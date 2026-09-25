@@ -21,6 +21,7 @@ export function modelStatusText(m: ModelStatus): string {
 }
 
 export function labellingText(l: LabellingStatus): string {
+  if (l.state === 'deferred') return `Waiting for a quiet moment (${l.pending} reads queued)`;
   if (l.state === 'waiting') return 'Waiting for the model';
   if (l.state === 'paused') return 'Paused after repeated errors';
   if (l.state === 'running') return 'Labelling now…';

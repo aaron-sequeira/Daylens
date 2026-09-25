@@ -31,6 +31,9 @@ describe('model texts', () => {
     expect(labellingText({ state: 'idle', lastLabelledAt: null, pending: 0 })).toBe('Nothing labelled yet');
     expect(labellingText({ state: 'running', lastLabelledAt: null, pending: 30 })).toBe('Labelling now…');
   });
+  it('describes deferred labelling', () => {
+    expect(labellingText({ state: 'deferred', lastLabelledAt: null, pending: 12 })).toBe('Waiting for a quiet moment (12 reads queued)');
+  });
   it('shows a banner only while downloading with reading on', () => {
     expect(bannerText(true, { state: 'downloading', received: 845_000_000, total: 1_690_000_000, retrying: false }, idle)).toBe('Downloading the AI model: 50%');
     expect(bannerText(false, { state: 'downloading', received: 1, total: 2, retrying: false }, idle)).toBeNull();

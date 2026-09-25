@@ -13,3 +13,6 @@ export const LAYA_MANIFEST: Manifest = {
     { name: 'laya-meta.json', size: 519, sha256: '429b6917f0f855257f18500f163b6a01860fa6d53a0747f4e0f4ebad103a34e9' }
   ]
 };
+
+// Measured peak working set of one Brain batch with this model (tools/laya/SPIKE-RESULTS.md, Phase 4).
+export const LAYA_PEAK_BYTES = 3.2 * 1024 ** 3;

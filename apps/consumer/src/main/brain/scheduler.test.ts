@@ -238,10 +238,33 @@ describe('label scheduler', () => {
     expect(labeledAt(stuck)).toBe(now);
     warn.mockRestore();
   });
-  it('blocks new captures only while labelling cannot run and more than 20 reads wait', () => {
-    ready = false; add(20); const s = make();
+  it('blocks new captures only while labelling cannot run and more than 500 reads wait', () => {
+    ready = false; add(500); const s = make();
     expect(s.backlogBlocked()).toBe(false);
     add(1, now + 1); expect(s.backlogBlocked()).toBe(true);
     ready = true; expect(s.backlogBlocked()).toBe(false);
+  });
+  it('defers (no fork, no failure) while canStart is false, then runs when allowed', () => {
+    let allowed = false;
+    add(25);
+    const s = createLabelScheduler({ store, fork: () => { const b = new FakeBrain(); brains.push(b); return b; }, modelReady: () => ready, modelDir: 'M', now: () => now, canStart: () => allowed });
+    s.tick(); s.tick();
+    expect(brains).toHaveLength(0);
+    expect(s.status().state).toBe('deferred');
+    allowed = true; s.tick();
+    expect(brains).toHaveLength(1);
+  });
+  it('does not block the reader while merely deferred, even with a big backlog', () => {
+    add(600);
+    const s = createLabelScheduler({ store, fork: () => new FakeBrain(), modelReady: () => true, modelDir: 'M', now: () => now, canStart: () => false });
+    s.tick();
+    expect(s.backlogBlocked()).toBe(false);
+  });
+  it('blocks the reader only past 500 reads when the model is missing', () => {
+    ready = false; add(500);
+    const s = createLabelScheduler({ store, fork: () => new FakeBrain(), modelReady: () => ready, modelDir: 'M', now: () => now });
+    expect(s.backlogBlocked()).toBe(false);
+    add(1, now + 1);
+    expect(s.backlogBlocked()).toBe(true);
   });
 });

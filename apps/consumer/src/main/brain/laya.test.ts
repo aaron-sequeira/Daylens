@@ -77,10 +77,10 @@ describe('layaState', () => {
 });
 
 describe('sessionOptions', () => {
-  it('uses half the logical CPUs (at least 1) for intra-op work and a single inter-op thread', () => {
-    expect(sessionOptions(8)).toEqual({ intraOpNumThreads: 4, interOpNumThreads: 1 });
-    expect(sessionOptions(7)).toEqual({ intraOpNumThreads: 3, interOpNumThreads: 1 });
-    expect(sessionOptions(1)).toEqual({ intraOpNumThreads: 1, interOpNumThreads: 1 });
-    expect(sessionOptions(0)).toEqual({ intraOpNumThreads: 1, interOpNumThreads: 1 });
+  it('uses half the logical CPUs (at least 1) for intra-op work and a single inter-op thread, with the memory arena and pattern off', () => {
+    expect(sessionOptions(8)).toEqual({ intraOpNumThreads: 4, interOpNumThreads: 1, enableCpuMemArena: false, enableMemPattern: false });
+    expect(sessionOptions(7)).toEqual({ intraOpNumThreads: 3, interOpNumThreads: 1, enableCpuMemArena: false, enableMemPattern: false });
+    expect(sessionOptions(1)).toEqual({ intraOpNumThreads: 1, interOpNumThreads: 1, enableCpuMemArena: false, enableMemPattern: false });
+    expect(sessionOptions(0)).toEqual({ intraOpNumThreads: 1, interOpNumThreads: 1, enableCpuMemArena: false, enableMemPattern: false });
   });
 });

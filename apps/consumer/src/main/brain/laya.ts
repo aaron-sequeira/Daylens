@@ -88,9 +88,9 @@ export function layaState(app: string, title: string | null, text: string | null
   return `App: ${app}\nWindow: ${title ?? ''}\nScreen text: ${(text ?? '').slice(0, 1500)}`;
 }
 
-/** Leave half the CPUs to the user: labelling is background work. */
-export function sessionOptions(cpuCount = cpus().length): { intraOpNumThreads: number; interOpNumThreads: number } {
-  return { intraOpNumThreads: Math.max(1, Math.floor(cpuCount / 2)), interOpNumThreads: 1 };
+/** Leave half the CPUs to the user: labelling is background work. Arena/pattern off trims ONNX Runtime's memory footprint. */
+export function sessionOptions(cpuCount = cpus().length): { intraOpNumThreads: number; interOpNumThreads: number; enableCpuMemArena: boolean; enableMemPattern: boolean } {
+  return { intraOpNumThreads: Math.max(1, Math.floor(cpuCount / 2)), interOpNumThreads: 1, enableCpuMemArena: false, enableMemPattern: false };
 }
 
 export interface LayaRunner { ask(state: string, questions: Record<string, LayaQuestion>): Promise<Record<string, LayaAnswer>> }

@@ -1,7 +1,7 @@
 import type { LabelStore } from '../screen/labels';
 import { brainResponse, type BrainRequest } from './protocol';
 
-export type LabellingState = 'waiting' | 'idle' | 'running' | 'paused';
+export type LabellingState = 'waiting' | 'idle' | 'running' | 'paused' | 'deferred';
 export interface LabellingStatus { state: LabellingState; lastLabelledAt: number | null; pending: number; }
 export interface BrainChild {
   post(msg: BrainRequest): void;
@@ -18,7 +18,7 @@ export const MAX_WAIT_MS = 10 * 60_000;
 // batch lives as long as results keep coming. Model load gets a longer allowance than the gap between reads.
 export const LOAD_ALLOWANCE_MS = 90_000;
 export const RESULT_GAP_MS = 60_000;
-export const BACKLOG_LIMIT = 20;
+export const BACKLOG_LIMIT = 500;
 export const RETRY_DELAYS_MS = [1_000, 5_000, 30_000] as const;
 const FAIL_WINDOW_MS = 10 * 60_000;
 const MAX_FAILURES = 3; // more than this within the window → paused
@@ -27,8 +27,9 @@ const POISON_FAILURES = 2; // failed batches a read may be first in line for bef
 
 export function createLabelScheduler(deps: {
   store: LabelStore; fork(): BrainChild; modelReady(): boolean; modelDir: string; now(): number; onChange?(): void;
+  canStart?(): boolean;
 }): LabelScheduler {
-  let running = false, paused = false, retryAt = 0;
+  let running = false, paused = false, retryAt = 0, deferred = false;
   let failures: number[] = [];
   // In memory only: read id → failed batches it was the first unlabelled read of.
   const blamed = new Map<number, number>();
@@ -124,10 +125,13 @@ export function createLabelScheduler(deps: {
       const { count, oldest } = deps.store.unlabelledSummary();
       if (count === 0) return;
       if (count < BATCH_MIN && now - (oldest ?? now) < MAX_WAIT_MS) return;
+      const allowed = deps.canStart?.() ?? true;
+      if (allowed !== !deferred) { deferred = !allowed; change(); }
+      if (!allowed) return; // waiting for a quiet moment is never a failure
       runBatch();
     },
     status: () => ({
-      state: paused ? 'paused' : running ? 'running' : deps.modelReady() ? 'idle' : 'waiting',
+      state: paused ? 'paused' : running ? 'running' : !deps.modelReady() ? 'waiting' : deferred ? 'deferred' : 'idle',
       lastLabelledAt: deps.store.lastLabelledAt(),
       pending: deps.store.countUnlabelled()
     }),

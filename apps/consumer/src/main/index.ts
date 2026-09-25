@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { statfs } from 'node:fs/promises';
+import { freemem } from 'node:os';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
 import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
 import { localDate } from '@worksight/core/date';
@@ -17,6 +18,7 @@ import { createLabelStore } from './screen/labels';
 import { createLabelScheduler, type BrainChild } from './brain/scheduler';
 import { createDownloader } from './models/downloader';
 import { LAYA_MANIFEST } from './models/manifest';
+import { batchAllowed, LAYA_NEED_BYTES } from './brain/resources';
 
 app.setName('Daylens');
 const startHidden = process.argv.includes('--hidden');
@@ -96,7 +98,11 @@ if (!app.requestSingleInstanceLock()) {
     };
     const scheduler = createLabelScheduler({
       store: labelStore, fork: forkBrain, modelReady: () => downloader.status().state === 'ready',
-      modelDir, now: () => Date.now(), onChange: () => win?.webContents.send(CH.eventsUpdate)
+      modelDir, now: () => Date.now(), onChange: () => win?.webContents.send(CH.eventsUpdate),
+      canStart: () => batchAllowed({
+        freeBytes: freemem(), idleSec: powerMonitor.getSystemIdleTime(),
+        locked: powerMonitor.getSystemIdleState(60) === 'locked', needBytes: LAYA_NEED_BYTES
+      })
     });
     // Gate syncModel until the startup init() (which hashes the model on disk) has settled, so a settings
     // change landing mid-hash can't race it into starting/stopping a run init hasn't finished evaluating.
