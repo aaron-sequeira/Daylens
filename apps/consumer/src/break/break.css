@@ -12,9 +12,8 @@
 .overlay h3{font-size:26px;font-weight:500;letter-spacing:-.01em}
 .overlay p{font-size:14px;color:#4b4642;margin-top:-10px}
 .overlay .hint{font-size:13px;font-weight:600;letter-spacing:.02em;color:#2d6b54;height:18px}
-.pbtn{border:0;border-radius:999px;padding:10px 20px;font:600 13px 'DM Sans';cursor:pointer;background:var(--ink);color:#fff;transition:transform .25s var(--spring)}
+.pbtn{border:0;border-radius:999px;padding:10px 20px;font:600 13px 'DM Sans Variable', system-ui, sans-serif;cursor:pointer;background:var(--ink);color:#fff;transition:transform .25s var(--spring)}
 .pbtn:hover{transform:scale(1.05)}
-.pbtn.s{background:rgba(255,255,255,.8);color:var(--ink)}
 
 html, body { margin: 0; height: 100%; background: transparent; font-family: 'DM Sans Variable', system-ui, sans-serif; color: #171717; }
 .overlay { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }

@@ -15,7 +15,7 @@ const end = (completed: boolean): void => {
   if (ended) return;
   ended = true;
   clearInterval(timer);
-  window.brk.done({ completed, seconds: elapsed });
+  window.brk.done({ completed, seconds: Math.min(elapsed, 3600) });
 };
 
 function tick(): void {
@@ -23,7 +23,12 @@ function tick(): void {
   $('num').textContent = String(left);
   ring.style.strokeDashoffset = String(540 * (1 - left / total));
   $('hint').textContent = Math.floor(elapsed / 4) % 2 ? 'Breathe out…' : 'Breathe in…';
-  if (left <= 0) { clearInterval(timer); $('hint').textContent = 'Nice. Welcome back 🌿'; setTimeout(() => end(true), 1400); }
+  if (left <= 0) {
+    clearInterval(timer);
+    $('hint').textContent = 'Nice. Welcome back 🌿';
+    ($('more') as HTMLButtonElement).disabled = true;
+    setTimeout(() => end(true), 1400);
+  }
 }
 
 window.brk.onStart(({ kind, seconds }) => {

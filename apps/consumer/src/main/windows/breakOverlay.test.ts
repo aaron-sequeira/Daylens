@@ -62,26 +62,83 @@ describe('break overlay', () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it('fires after the allowance, and extend pushes it out by 60s', () => {
+    it('fires after the allowance, measured from the absolute deadline (not re-armed relative to now)', () => {
       const wins: FakeWin[] = []; const done: unknown[] = [];
       const o = createBreakOverlay({
         displays: () => [{ bounds: { x: 0, y: 0, width: 1, height: 1 }, primary: true }],
         makeWindow: () => { const w = new FakeWin(); wins.push(w); return w; }, onDone: (r) => done.push(r)
       });
-      o.start('eye'); // eye = 20s, +15s slack = 35s allowance
-      vi.advanceTimersByTime(34_000);
+      o.start('eye'); // eye = 20s, +15s slack = 35s allowance from t=0
+      vi.advanceTimersByTime(10_000); // t=10s
+      o.handle({ type: 'extend' }); // extendCount=1: absolute deadline becomes t=0+(20+60+15)s = t=95s.
+      // Under a buggy relative re-arm (35s/95s counted fresh from "now"=10s), the deadline
+      // would land at t=105s instead — this window (94.999s vs 95.001s) would not catch that bug.
+      vi.advanceTimersByTime(84_999); // t=94.999s: still just under the t=95s deadline
       expect(o.active()).toBe(true);
-      expect(done).toEqual([]);
-      o.handle({ type: 'extend' }); // pushes the watchdog out by 60s
-      vi.advanceTimersByTime(34_000); // 68s total; still within the extended 95s allowance
-      expect(o.active()).toBe(true);
-      vi.advanceTimersByTime(61_000); // 129s total; past the 95s allowance
+      vi.advanceTimersByTime(2); // t=95.001s: just past the t=95s deadline
       expect(o.active()).toBe(false);
-      expect(done).toEqual([{ kind: 'eye', seconds: 129, completed: false }]);
+      expect(done).toEqual([{ kind: 'eye', seconds: 95, completed: false }]);
       expect(wins.every((w) => w.closed)).toBe(true);
       // A late done arriving after the watchdog already ended the break must be ignored.
       o.handle({ type: 'done', completed: true, seconds: 999 });
-      expect(done).toEqual([{ kind: 'eye', seconds: 129, completed: false }]);
+      expect(done).toEqual([{ kind: 'eye', seconds: 95, completed: false }]);
+    });
+
+    it('leaves no pending timers after a normal done', () => {
+      const o = createBreakOverlay({
+        displays: () => [{ bounds: { x: 0, y: 0, width: 1, height: 1 }, primary: true }],
+        makeWindow: () => new FakeWin(), onDone: () => {}
+      });
+      o.start('eye');
+      expect(vi.getTimerCount()).toBeGreaterThan(0); // the watchdog is armed
+      o.handle({ type: 'done', completed: true, seconds: 20 });
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('ignores extend once the total allowance would pass 3600s', () => {
+      const wins: FakeWin[] = [];
+      const o = createBreakOverlay({
+        displays: () => [{ bounds: { x: 0, y: 0, width: 1, height: 1 }, primary: true }],
+        makeWindow: () => { const w = new FakeWin(); wins.push(w); return w; }, onDone: () => {}
+      });
+      o.start('stretch'); // 120s
+      // Allowance = 120 + 60*extends + 15. At extends=58 that's 3615s (>3600): the 58th extend must be ignored.
+      for (let i = 0; i < 57; i++) o.handle({ type: 'extend' });
+      wins[0].sent = [];
+      o.handle({ type: 'extend' }); // the 58th: must be ignored (no broadcast)
+      expect(wins[0].sent).toEqual([]);
+      expect(o.active()).toBe(true);
+    });
+  });
+
+  describe('start() failure handling', () => {
+    it('returns false and closes windows already made if makeWindow throws partway through', () => {
+      const wins: FakeWin[] = [];
+      let call = 0;
+      const o = createBreakOverlay({
+        displays: () => [{ bounds: { x: 0, y: 0, width: 1, height: 1 }, primary: true }, { bounds: { x: 1, y: 0, width: 1, height: 1 }, primary: false }],
+        makeWindow: () => {
+          call++;
+          if (call === 2) throw new Error('no window for you');
+          const w = new FakeWin(); wins.push(w); return w;
+        },
+        onDone: () => {}
+      });
+      vi.useFakeTimers();
+      expect(o.start('eye')).toBe(false);
+      expect(wins).toHaveLength(1);
+      expect(wins[0].closed).toBe(true);
+      expect(o.active()).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+      // A later start() must work normally.
+      expect(o.start('eye')).toBe(true);
+      vi.useRealTimers();
+    });
+
+    it('returns false without starting when there are no displays', () => {
+      const o = createBreakOverlay({ displays: () => [], makeWindow: () => new FakeWin(), onDone: () => {} });
+      expect(o.start('eye')).toBe(false);
+      expect(o.active()).toBe(false);
     });
   });
 });
