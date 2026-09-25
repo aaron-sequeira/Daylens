@@ -13,7 +13,11 @@ const devCsp = (): Plugin => ({
 
 // externalizeDepsPlugin externalizes package.json "dependencies" only; @worksight/core is a devDependency, so it is bundled.
 export default defineConfig({
-  main: { plugins: [externalizeDepsPlugin()] },
+  main: {
+    plugins: [externalizeDepsPlugin()],
+    // brain.js is the Laya utilityProcess entry (forked per batch from index.js).
+    build: { rollupOptions: { input: { index: resolve(__dirname, 'src/main/index.ts'), brain: resolve(__dirname, 'src/main/brain/worker.ts') } } }
+  },
   preload: { plugins: [externalizeDepsPlugin()] },
   renderer: {
     root: '.',
