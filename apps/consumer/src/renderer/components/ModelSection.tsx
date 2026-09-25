@@ -28,7 +28,7 @@ export function ModelSection({ settings }: { settings: DaylensSettings }) {
         </div>
       </div>
       <div className="srow">
-        <p>Labelling<small role="status">{labellingText(view.labelling)}{view.labelling.pending > 0 ? ` · ${view.labelling.pending} waiting` : ''}</small></p>
+        <p>Labelling<small role="status">{labellingText(view.labelling)}{view.labelling.state !== 'deferred' && view.labelling.pending > 0 ? ` · ${view.labelling.pending} waiting` : ''}</small></p>
         {view.labelling.state === 'paused' && <button className="btn s" onClick={() => act(api.models.retryLabelling())}>Retry</button>}
       </div>
     </div>

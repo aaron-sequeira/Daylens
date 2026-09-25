@@ -34,6 +34,9 @@ export function createLabelScheduler(deps: {
   // In memory only: read id → failed batches it was the first unlabelled read of.
   const blamed = new Map<number, number>();
   const change = (): void => deps.onChange?.();
+  // The backlog that made us defer can shrink away (purged, duplicates copied) without a batch ever
+  // running; a stale 'deferred' would otherwise survive until the next time there's enough to label.
+  const clearDeferred = (): void => { if (deferred) { deferred = false; change(); } };
 
   const countFailure = (): void => {
     const now = deps.now();
@@ -121,10 +124,10 @@ export function createLabelScheduler(deps: {
       const now = deps.now();
       deps.store.markPurged(now);
       deps.store.copyDupLabels(now);
-      if (!deps.modelReady() || now < retryAt) return;
+      if (!deps.modelReady() || now < retryAt) { clearDeferred(); return; }
       const { count, oldest } = deps.store.unlabelledSummary();
-      if (count === 0) return;
-      if (count < BATCH_MIN && now - (oldest ?? now) < MAX_WAIT_MS) return;
+      if (count === 0) { clearDeferred(); return; }
+      if (count < BATCH_MIN && now - (oldest ?? now) < MAX_WAIT_MS) { clearDeferred(); return; }
       const allowed = deps.canStart?.() ?? true;
       if (allowed !== !deferred) { deferred = !allowed; change(); }
       if (!allowed) return; // waiting for a quiet moment is never a failure

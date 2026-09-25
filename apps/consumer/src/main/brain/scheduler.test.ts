@@ -254,6 +254,15 @@ describe('label scheduler', () => {
     allowed = true; s.tick();
     expect(brains).toHaveLength(1);
   });
+  it('clears a stale deferred status once the backlog it was waiting on disappears without a batch', () => {
+    add(25);
+    const s = make({ canStart: () => false });
+    s.tick();
+    expect(s.status().state).toBe('deferred');
+    db.prepare('UPDATE screen_reads SET labeled_at = ? WHERE labeled_at IS NULL').run(now); // e.g. purged/labelled elsewhere
+    s.tick();
+    expect(s.status().state).toBe('idle');
+  });
   it('does not block the reader while merely deferred, even with a big backlog', () => {
     add(600);
     const s = createLabelScheduler({ store, fork: () => new FakeBrain(), modelReady: () => true, modelDir: 'M', now: () => now, canStart: () => false });
