@@ -1,6 +1,7 @@
 import type { Repositories } from '@worksight/core';
 import type { ActivitySampleRow, FocusSessionRow, ISODate } from '@worksight/core/types';
 import { CATEGORIES, categoryForApp, type Category } from '../../shared/categories';
+import { finalCategory } from '../brain/finalCategory';
 import type { DayLabel } from '../screen/labels';
 import { atLeast, clip, dayBounds, isActiveSample, restPeriods, sessionInterval, shiftDate, subtract, type Interval } from './time';
 import { computeHealth, type Health } from './health';
@@ -27,13 +28,16 @@ interface Piece extends Interval { appName: string; category: Category; }
 const sec = (ms: number): number => Math.round(ms / 1000);
 const zeroByCategory = (): Record<Category, number> => Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<Category, number>;
 
-/** Most frequent confident Laya category among this app's reads inside [start, end); null when there are none. */
+/** Most frequent `finalCategory` (Laya's choice, unless unsure and the app is a known one) among
+ * this app's reads inside [start, end); null when there are none. */
 function labelCategory(labels: DayLabel[] | undefined, appName: string, start: number, end: number): Category | null {
   if (!labels?.length) return null;
   const counts = new Map<Category, number>();
   for (const l of labels) {
-    if (l.appName !== appName || l.at < start || l.at >= end || !(CATEGORIES as readonly string[]).includes(l.category)) continue;
-    counts.set(l.category as Category, (counts.get(l.category as Category) ?? 0) + 1);
+    if (l.appName !== appName || l.at < start || l.at >= end) continue;
+    const fc = finalCategory(l.category, l.conf ?? 0, l.appName);
+    if (!(CATEGORIES as readonly string[]).includes(fc)) continue;
+    counts.set(fc as Category, (counts.get(fc as Category) ?? 0) + 1);
   }
   let best: Category | null = null;
   let n = 0;

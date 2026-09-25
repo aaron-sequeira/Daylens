@@ -110,10 +110,10 @@ describe('buildTodayView', () => {
       sessions: [session('Google Chrome', T(9), T(10))],
       samples: run(T(9), 60, 1),
       labels: [
-        { at: T(9, 5), appName: 'Google Chrome', category: 'social' },
-        { at: T(9, 20), appName: 'Google Chrome', category: 'social' },
-        { at: T(9, 40), appName: 'Google Chrome', category: 'learning' },
-        { at: T(9, 50), appName: 'Discord', category: 'entertainment' }
+        { at: T(9, 5), appName: 'Google Chrome', category: 'social', conf: 0.9 },
+        { at: T(9, 20), appName: 'Google Chrome', category: 'social', conf: 0.9 },
+        { at: T(9, 40), appName: 'Google Chrome', category: 'learning', conf: 0.9 },
+        { at: T(9, 50), appName: 'Discord', category: 'entertainment', conf: 0.9 }
       ]
     });
     expect(v.cards.map((c) => c.category)).toEqual(['social']);
@@ -124,9 +124,36 @@ describe('buildTodayView', () => {
     const v = view({
       sessions: [session('Microsoft Teams', T(9), T(10))],
       samples: run(T(9), 60, 1),
-      labels: [{ at: T(11), appName: 'Microsoft Teams', category: 'social' }]
+      labels: [{ at: T(11), appName: 'Microsoft Teams', category: 'social', conf: 0.9 }]
     });
     expect(v.cards.map((c) => c.category)).toEqual(['communication']);
+  });
+
+  it('counts an unsure read on an unknown app as Laya\'s own guess', () => {
+    const v = view({
+      sessions: [session('Google Chrome', T(9), T(10))],
+      samples: run(T(9), 60, 1),
+      labels: [{ at: T(9, 5), appName: 'Google Chrome', category: 'entertainment', conf: 0.2 }]
+    });
+    expect(v.cards.map((c) => c.category)).toEqual(['entertainment']);
+  });
+
+  it('counts an unsure read on a known app (Teams) as the app rule\'s category, even though Laya guessed differently', () => {
+    const v = view({
+      sessions: [session('Microsoft Teams', T(9), T(10))],
+      samples: run(T(9), 60, 1),
+      labels: [{ at: T(9, 5), appName: 'Microsoft Teams', category: 'entertainment', conf: 0.2 }]
+    });
+    expect(v.cards.map((c) => c.category)).toEqual(['communication']);
+  });
+
+  it('keeps a confident Laya choice on a known app (Teams) instead of the app rule', () => {
+    const v = view({
+      sessions: [session('Microsoft Teams', T(9), T(10))],
+      samples: run(T(9), 60, 1),
+      labels: [{ at: T(9, 5), appName: 'Microsoft Teams', category: 'entertainment', conf: 0.9 }]
+    });
+    expect(v.cards.map((c) => c.category)).toEqual(['entertainment']);
   });
 });
 
