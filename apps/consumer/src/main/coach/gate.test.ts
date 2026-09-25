@@ -25,6 +25,16 @@ describe('decide', () => {
     expect(decide(cand(), ctx({ history: h, weight: 2 })).status).toBe('drop');
     expect(decide(cand(), ctx({ history: h, fewer: { health: 2 } })).status).toBe('drop');
   });
+  it('gives eye_break/stretch their own 45-min gap scaled by weight, back-off and "show fewer"', () => {
+    const eye = cand({ ruleId: 'eye_break', key: 'eye_break:s:2' });
+    const h = [row({ at: now - 60 * MIN, ruleId: 'eye_break', key: 'eye_break:s:1' })];
+    expect(decide(eye, ctx({ history: h })).status).toBe('show');
+    expect(decide(eye, ctx({ history: h, weight: 2 }))).toEqual({ status: 'drop', reason: 'rule cooldown' });
+    expect(decide(eye, ctx({ history: h, fewer: { health: 2 } }))).toEqual({ status: 'drop', reason: 'rule cooldown' });
+    const dismissed = [1, 2, 3].map((d) => row({ at: now - d * 24 * 60 * MIN, status: 'dismissed', ruleId: 'r' + d, key: 'x' + d }));
+    expect(decide(eye, ctx({ history: [...h, ...dismissed] })).status).toBe('drop');
+    expect(decide(cand({ ruleId: 'stretch', key: 'stretch:s:2' }), ctx({ history: [row({ at: now - 60 * MIN, ruleId: 'stretch' })], weight: 2 })).status).toBe('drop');
+  });
   it('backs off after 3 dismissals of a kind and offers "show fewer"', () => {
     const h = [1, 2, 3].map((d) => row({ at: now - d * 24 * 60 * MIN, status: 'dismissed', ruleId: 'r' + d, key: 'x' + d }));
     expect(decide(cand(), ctx({ history: h }))).toEqual({ status: 'show', offerFewer: true });
