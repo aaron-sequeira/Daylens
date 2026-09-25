@@ -10,8 +10,10 @@ const label = z.object({
   activity: z.string().max(40).nullable(), activityConf: conf, stuck: lvl, distraction: lvl
 }).strict();
 // Main process trust boundary: anything the Brain sends is validated before it touches the database.
+// The Brain posts one 'label' per read as soon as it is done, then 'done' (or 'error' at any point).
 export const brainResponse = z.discriminatedUnion('op', [
-  z.object({ op: z.literal('labels'), results: z.array(label) }).strict(),
+  z.object({ op: z.literal('label'), result: label }).strict(),
+  z.object({ op: z.literal('done') }).strict(),
   z.object({ op: z.literal('error'), message: z.string() }).strict()
 ]);
 

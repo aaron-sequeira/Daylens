@@ -56,6 +56,15 @@ describe('label store', () => {
     expect(labels.markPurged(9000)).toBe(1);
     expect(row(p)).toMatchObject({ category: null, labeledAt: 9000 });
   });
+  it('marks a read that keeps failing as done with no labels, leaving labelled rows alone', () => {
+    const bad = add(1000, 'a', 'ha'); const good = add(2000, 'b', 'hb');
+    labels.applyLabels([{ id: good, category: 'work', categoryConf: 0.9, activity: null, activityConf: null, stuck: null, distraction: null }], 3000);
+    labels.markFailed(bad, 9000);
+    labels.markFailed(good, 9000);
+    expect(row(bad)).toMatchObject({ category: null, labeledAt: 9000 });
+    expect(row(good)).toMatchObject({ category: 'work', labeledAt: 3000 });
+    expect(labels.countUnlabelled()).toBe(0);
+  });
   it('returns only confident categories for a day', () => {
     const a = add(1000, 'a', 'ha', 'Chrome'); const b = add(2000, 'b', 'hb', 'Chrome'); add(3000, 'c', 'hc', 'Chrome', '2026-09-24');
     labels.applyLabels([

@@ -22,6 +22,8 @@ export interface LabelStore {
   applyLabels(results: StoredLabel[], now: number): void;
   copyDupLabels(now: number): number;
   markPurged(now: number): number;
+  /** A read that keeps breaking batches: mark it done with no labels so it can't block the rest. */
+  markFailed(id: number, now: number): void;
   lastLabelledAt(): number | null;
   confidentForDay(date: string): DayLabel[];
 }
@@ -41,6 +43,7 @@ export function createLabelStore(db: Database.Database): LabelStore {
     WHERE d.labeled_at IS NULL AND d.text IS NULL AND d.text_hash <> ''
       AND EXISTS (SELECT 1 FROM screen_reads s WHERE s.text_hash = d.text_hash AND s.labeled_at IS NOT NULL AND s.at <= d.at AND s.id <> d.id)`);
   const purged = db.prepare(`UPDATE screen_reads SET labeled_at = ? WHERE labeled_at IS NULL AND text IS NULL AND text_hash = ''`);
+  const failed = db.prepare('UPDATE screen_reads SET labeled_at = ? WHERE id = ? AND labeled_at IS NULL');
   const last = db.prepare('SELECT max(labeled_at) AS t FROM screen_reads');
   const day = db.prepare(`SELECT at, app_name AS appName, category FROM screen_reads WHERE date = ? AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
   const applyAll = db.transaction((results: StoredLabel[], now: number) => { for (const r of results) upd.run({ ...r, now }); });
@@ -51,6 +54,7 @@ export function createLabelStore(db: Database.Database): LabelStore {
     applyLabels: (results, now) => applyAll(results, now),
     copyDupLabels: (now) => copy.run({ now }).changes,
     markPurged: (now) => purged.run(now).changes,
+    markFailed: (id, now) => { failed.run(now, id); },
     lastLabelledAt: () => (last.get() as { t: number | null }).t,
     confidentForDay: (date) => day.all(date) as DayLabel[]
   };
