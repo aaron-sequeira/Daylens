@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ActivitySampleRow, FocusSessionRow } from '@worksight/core/types';
-import { restPeriods, MAX_SAMPLE_MS, atLeast, subtract, clip, dayBounds, shiftDate, sessionInterval, isLateNight } from './time';
+import { restPeriods, MAX_SAMPLE_MS, atLeast, subtract, clip, dayBounds, shiftDate, sessionInterval, isLateNight, nextEarlyMorning } from './time';
 
 const MIN = 60_000;
 const T = (h: number, m = 0): number => new Date(2026, 8, 23, h, m).getTime();
@@ -82,5 +82,14 @@ describe('isLateNight', () => {
     expect(isLateNight(T(5), '05:00')).toBe(false);
     expect(isLateNight(T(12), '05:00')).toBe(false);
     expect(isLateNight(T(23), '05:00')).toBe(false);
+  });
+});
+
+describe('nextEarlyMorning', () => {
+  it('is today 05:00 before 05:00, else tomorrow 05:00 (local time)', () => {
+    expect(nextEarlyMorning(new Date(2026, 8, 26, 2, 30).getTime())).toBe(new Date(2026, 8, 26, 5, 0).getTime());
+    expect(nextEarlyMorning(new Date(2026, 8, 26, 5, 0).getTime())).toBe(new Date(2026, 8, 27, 5, 0).getTime());
+    expect(nextEarlyMorning(new Date(2026, 8, 26, 22, 15).getTime())).toBe(new Date(2026, 8, 27, 5, 0).getTime());
+    expect(nextEarlyMorning(new Date(2026, 8, 30, 23, 0).getTime())).toBe(new Date(2026, 9, 1, 5, 0).getTime()); // month rollover
   });
 });

@@ -77,3 +77,10 @@ export function isLateNight(ms: number, windDownTime: string): boolean {
     ? minute >= windMin && minute < EARLY_MORNING_MIN
     : minute >= windMin || minute < EARLY_MORNING_MIN;
 }
+
+/** The next 05:00 local time (today's if `ms` is before 05:00): when an "until tomorrow" snooze ends. */
+export function nextEarlyMorning(ms: number): number {
+  const d = new Date(ms);
+  const at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, EARLY_MORNING_MIN).getTime();
+  return ms < at ? at : new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, EARLY_MORNING_MIN).getTime();
+}

@@ -28,3 +28,10 @@ export function parseFewer(json: string): Partial<Record<Kind, number>> {
 
 export const kindsInput = z.object({ health: z.boolean(), behaviour: z.boolean(), tip: z.boolean(), win: z.boolean() }).strict();
 export const snoozeInput = z.enum(['1h', 'tomorrow', 'off']);
+
+/** A kind switched from off to on starts fresh: its "show fewer" multiplier is dropped. */
+export function resetFewerOnEnable(prev: Record<Kind, boolean>, next: Record<Kind, boolean>, fewer: Partial<Record<Kind, number>>): Partial<Record<Kind, number>> {
+  const out = { ...fewer };
+  for (const k of KINDS) if (!prev[k] && next[k]) delete out[k];
+  return out;
+}

@@ -11,7 +11,8 @@ import { exclusionsInput, parseExclusions } from './screen/exclusions';
 import type { ModelStatus } from './models/downloader';
 import type { LabellingStatus } from './brain/scheduler';
 import type { DayLabel } from './screen/labels';
-import { kindsInput, limitsInput, snoozeInput, parseKinds, parseLimits } from './coach/settings';
+import { kindsInput, limitsInput, snoozeInput, parseFewer, parseKinds, parseLimits, resetFewerOnEnable } from './coach/settings';
+import { nextEarlyMorning } from './day/time';
 import type { AppLimit, Kind } from './coach/types';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
@@ -109,13 +110,19 @@ export function registerIpc(d: IpcDeps): void {
     return { kinds: parseKinds(s.nudgeKinds), snoozeUntil: s.snoozeUntil, limits: parseLimits(s.appLimits), held: d.coach.held() };
   };
   ipcMain.handle(CH.coachGet, () => coachView());
-  ipcMain.handle(CH.coachSetKinds, (_e, raw) => { d.settings.set({ nudgeKinds: JSON.stringify(kindsInput.parse(raw)) }); d.coach.onChanged(); return coachView(); });
+  ipcMain.handle(CH.coachSetKinds, (_e, raw) => {
+    const next = kindsInput.parse(raw);
+    const s = d.settings.get();
+    const fewer = resetFewerOnEnable(parseKinds(s.nudgeKinds), next, parseFewer(s.nudgeFewer));
+    d.settings.set({ nudgeKinds: JSON.stringify(next), nudgeFewer: JSON.stringify(fewer) });
+    d.coach.onChanged();
+    return coachView();
+  });
   ipcMain.handle(CH.coachSetLimits, (_e, raw) => { d.settings.set({ appLimits: JSON.stringify(limitsInput.parse(raw)) }); return coachView(); });
   ipcMain.handle(CH.coachSnooze, (_e, raw) => {
     const v = snoozeInput.parse(raw);
     const now = d.now();
-    const tomorrow = new Date(now); tomorrow.setHours(24, 0, 0, 0);
-    d.settings.set({ snoozeUntil: v === 'off' ? 0 : v === '1h' ? now + 3_600_000 : tomorrow.getTime() });
+    d.settings.set({ snoozeUntil: v === 'off' ? 0 : v === '1h' ? now + 3_600_000 : nextEarlyMorning(now) });
     d.coach.onChanged();
     return coachView();
   });
