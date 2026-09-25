@@ -8,9 +8,11 @@ process.parentPort.once('message', async (e) => {
     const req = brainRequest.parse(e.data);
     const laya = await loadLaya(req.modelDir);
     process.parentPort.postMessage({ op: 'labels', results: await labelReads(laya, req.reads) });
-    process.exit(0);
+    // Main process kills the Brain as soon as it has the result; this timer is only a fallback so the process never lingers.
+    setTimeout(() => process.exit(0), 2000);
   } catch (err) {
     process.parentPort.postMessage({ op: 'error', message: err instanceof Error ? err.message : String(err) });
-    process.exit(1);
+    // Main process kills the Brain as soon as it has the result; this timer is only a fallback so the process never lingers.
+    setTimeout(() => process.exit(1), 2000);
   }
 });
