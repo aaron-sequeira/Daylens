@@ -47,15 +47,20 @@ describe('decide', () => {
 
 describe('holdReason', () => {
   const display = { x: 0, y: 0, width: 1920, height: 1080 };
+  const sys = (state: number | null, micInUse = false) => ({ state, micInUse });
   it('detects Focus Assist / fullscreen / calls', () => {
-    expect(holdReason(null, [display], 6)).toBe('focus-assist');
-    expect(holdReason({ appName: 'Game', title: 'x', bounds: { x: 0, y: 0, width: 1920, height: 1080 } }, [display], 5)).toBe('fullscreen');
-    expect(holdReason({ appName: 'Google Chrome', title: 'Meet - abc-defg', bounds: null }, [display], 5)).toBe('call');
-    expect(holdReason({ appName: 'Zoom Workplace', title: 'Zoom', bounds: null }, [display], 5)).toBe('call');
-    expect(holdReason({ appName: 'Microsoft Teams', title: 'Meeting with Priya | Microsoft Teams', bounds: null }, [display], null)).toBe('call');
+    expect(holdReason(null, [display], sys(6))).toBe('focus-assist');
+    expect(holdReason({ appName: 'Game', title: 'x', bounds: { x: 0, y: 0, width: 1920, height: 1080 } }, [display], sys(5))).toBe('fullscreen');
+    expect(holdReason({ appName: 'Google Chrome', title: 'Meet - abc-defg', bounds: null }, [display], sys(5))).toBe('call');
+    expect(holdReason({ appName: 'Zoom Workplace', title: 'Zoom', bounds: null }, [display], sys(5))).toBe('call');
+    expect(holdReason({ appName: 'Microsoft Teams', title: 'Meeting with Priya | Microsoft Teams', bounds: null }, [display], sys(null))).toBe('call');
+  });
+  it('holds as a call while any microphone is in use, even with the call app in the background', () => {
+    expect(holdReason({ appName: 'Code', title: 'a.ts', bounds: null }, [display], sys(5, true))).toBe('call');
+    expect(holdReason(null, [display], sys(null, true))).toBe('call');
   });
   it('does not hold for a normal maximised window or the desktop', () => {
-    expect(holdReason({ appName: 'Code', title: 'a.ts', bounds: { x: 0, y: 0, width: 1920, height: 1040 } }, [display], 5)).toBeNull();
-    expect(holdReason({ appName: 'Windows Explorer', title: 'Program Manager', bounds: display }, [display], 5)).toBeNull();
+    expect(holdReason({ appName: 'Code', title: 'a.ts', bounds: { x: 0, y: 0, width: 1920, height: 1040 } }, [display], sys(5))).toBeNull();
+    expect(holdReason({ appName: 'Windows Explorer', title: 'Program Manager', bounds: display }, [display], sys(5))).toBeNull();
   });
 });

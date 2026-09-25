@@ -1,4 +1,5 @@
 import type { Candidate, Kind, NudgeRow, NudgeStatus } from './types';
+import type { HoldSignals } from './notifState';
 
 export const GLOBAL_COOLDOWN_MS = 20 * 60_000;
 export const RULE_COOLDOWN_MS = 2 * 3_600_000;
@@ -39,8 +40,9 @@ function isCall(appName: string, title: string): boolean {
   return /discord/i.test(appName) && /voice connected/i.test(title);
 }
 
-export function holdReason(fg: { appName: string; title: string | null; bounds: Rect | null } | null, displays: Rect[], notifState: number | null): string | null {
-  if (notifState !== null && SILENT_STATES.has(notifState)) return 'focus-assist';
+export function holdReason(fg: { appName: string; title: string | null; bounds: Rect | null } | null, displays: Rect[], sys: HoldSignals): string | null {
+  if (sys.state !== null && SILENT_STATES.has(sys.state)) return 'focus-assist';
+  if (sys.micInUse) return 'call'; // a call in a background window still has the mic open
   if (!fg) return null;
   const desktop = /explorer/i.test(fg.appName) && (fg.title ?? '') === 'Program Manager';
   if (!desktop && fg.bounds && displays.some((d) => near(d, fg.bounds as Rect))) return 'fullscreen';
