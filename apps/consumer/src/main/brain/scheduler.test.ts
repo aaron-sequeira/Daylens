@@ -61,8 +61,60 @@ describe('label scheduler', () => {
     expect(b0.killed).toBe(true);
     now += 999; s.tick(); expect(brains).toHaveLength(1);
     now += 1; failOnce(); expect(brains).toHaveLength(2);
-    now += 5000; failOnce(); expect(brains).toHaveLength(3);
-    now += 30_000; failOnce(); expect(brains).toHaveLength(4);
+    now += 4_999; s.tick(); expect(brains).toHaveLength(2);
+    now += 1; failOnce(); expect(brains).toHaveLength(3);
+    now += 29_999; s.tick(); expect(brains).toHaveLength(3);
+    now += 1; failOnce(); expect(brains).toHaveLength(4);
+    expect(s.status().state).toBe('paused');
+  });
+  it('recovers when storing labels throws (SQLITE_BUSY, disk full, ...): idle, killed, backs off', () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    add(20);
+    const throwingStore: LabelStore = { ...store, applyLabels: () => { throw new Error('boom'); } };
+    const s = createLabelScheduler({ store: throwingStore, fork: () => { const b = new FakeBrain(); brains.push(b); return b; }, modelReady: () => ready, modelDir: 'M', now: () => now });
+    s.tick();
+    brains[0].reply(labelsFor(brains[0]));
+    expect(brains[0].killed).toBe(true);
+    expect(errSpy).toHaveBeenCalledWith('[brain] storing labels failed:', expect.any(Error));
+    expect(s.status().state).toBe('idle');
+    now += 999; s.tick(); expect(brains).toHaveLength(1); // backoff applies, no new batch within 1 s
+    errSpy.mockRestore();
+  });
+  it('recovers immediately when child.post() throws synchronously (no 120 s stall)', () => {
+    add(20);
+    const s = createLabelScheduler({
+      store,
+      fork: () => { const b = new FakeBrain(); b.post = () => { throw new Error('IPC channel closed'); }; brains.push(b); return b; },
+      modelReady: () => ready, modelDir: 'M', now: () => now
+    });
+    s.tick();
+    expect(s.status().state).toBe('idle');
+    now += 999; s.tick(); expect(brains).toHaveLength(1); // backoff applies, no new batch within 1 s
+  });
+  it('recovers when fork() throws (idle, backs off, then succeeds once the backoff elapses)', () => {
+    add(20);
+    let calls = 0;
+    const s = createLabelScheduler({
+      store,
+      fork: () => { calls++; if (calls === 1) throw new Error('spawn failed'); const b = new FakeBrain(); brains.push(b); return b; },
+      modelReady: () => ready, modelDir: 'M', now: () => now
+    });
+    s.tick();
+    expect(brains).toHaveLength(0);
+    expect(s.status().state).toBe('idle');
+    now += 999; s.tick(); expect(brains).toHaveLength(0); // still within backoff
+    now += 1; s.tick(); expect(brains).toHaveLength(1); // backoff elapsed
+  });
+  it('ignores a label result whose id was not in the batch sent', () => {
+    add(20); const s = make(); s.tick();
+    add(1, now + 1); // a fresh read arrives after this batch was already fetched
+    const strayId = store.unlabelled(21).at(-1)!.id;
+    const results = [
+      ...brains[0].sent[0].reads.map((r) => ({ id: r.id, category: 'work', categoryConf: 0.9, activity: null, activityConf: null, stuck: null, distraction: null })),
+      { id: strayId, category: 'work', categoryConf: 0.9, activity: null, activityConf: null, stuck: null, distraction: null }
+    ];
+    brains[0].reply({ op: 'labels', results });
+    expect(s.status().pending).toBe(1); // only the stray row (outside the batch) is still unlabelled
   });
   it('pauses after more than 3 failures within 10 minutes and resumes on retry', () => {
     add(20); const s = make();
@@ -76,6 +128,18 @@ describe('label scheduler', () => {
     vi.advanceTimersByTime(120_000);
     expect(brains[0].killed).toBe(true);
     expect(s.status().state).toBe('idle');
+  });
+  it('ignores a late reply after the 120 s timeout (writes no labels)', () => {
+    add(20); const s = make(); s.tick();
+    vi.advanceTimersByTime(120_000);
+    brains[0].reply(labelsFor(brains[0])); // arrives after the child was already killed off
+    expect(s.status().pending).toBe(20);
+  });
+  it('counts a timeout as a failure (no new batch within 1 s after it)', () => {
+    add(20); const s = make(); s.tick();
+    vi.advanceTimersByTime(120_000);
+    s.tick(); expect(brains).toHaveLength(1); // still within the 1 s backoff (now unchanged)
+    now += 1000; s.tick(); expect(brains).toHaveLength(2);
   });
   it('blocks new captures only while labelling cannot run and more than 20 reads wait', () => {
     ready = false; add(20); const s = make();

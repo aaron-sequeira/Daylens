@@ -31,8 +31,9 @@ const PENDING = 'labeled_at IS NULL AND text IS NOT NULL';
 export function createLabelStore(db: Database.Database): LabelStore {
   const unl = db.prepare(`SELECT id, app_name AS app, window_title AS title, text FROM screen_reads WHERE ${PENDING} ORDER BY at, id LIMIT ?`);
   const cnt = db.prepare(`SELECT count(*) AS n, min(at) AS oldest FROM screen_reads WHERE ${PENDING}`);
+  // AND text IS NOT NULL: if the text was purged mid-batch, leave labels NULL (markPurged marks it done).
   const upd = db.prepare(`UPDATE screen_reads SET category = @category, category_conf = @categoryConf, activity = @activity, activity_conf = @activityConf,
-    stuck = @stuck, distraction = @distraction, labeled_at = @now WHERE id = @id`);
+    stuck = @stuck, distraction = @distraction, labeled_at = @now WHERE id = @id AND text IS NOT NULL`);
   // A duplicate (text NULL, hash kept) takes the labels of the latest earlier labelled read with the same hash.
   const copy = db.prepare(`UPDATE screen_reads AS d SET (category, category_conf, activity, activity_conf, stuck, distraction, labeled_at) =
     (SELECT s.category, s.category_conf, s.activity, s.activity_conf, s.stuck, s.distraction, @now FROM screen_reads s

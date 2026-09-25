@@ -46,6 +46,11 @@ describe('label store', () => {
     expect(labels.copyDupLabels(5000)).toBe(1);
     expect(row(dup)).toMatchObject({ category: 'work', activity: 'coding', labeledAt: 5000 });
   });
+  it('does not label a row whose text was purged before labels arrived', () => {
+    const a = add(1000, null, ''); // text already purged
+    labels.applyLabels([{ id: a, category: 'social', categoryConf: 0.9, activity: null, activityConf: null, stuck: null, distraction: null }], 5000);
+    expect(row(a)).toMatchObject({ category: null, labeledAt: null });
+  });
   it('marks purged unlabelled rows as done with no labels', () => {
     const p = add(1000, null, '');
     expect(labels.markPurged(9000)).toBe(1);

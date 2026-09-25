@@ -37,6 +37,7 @@ export function createLabelScheduler(deps: {
 
   function runBatch(): void {
     const reads = deps.store.unlabelled(BATCH_SIZE);
+    const batchIds = new Set(reads.map((r) => r.id));
     running = true;
     change();
     let child: BrainChild;
@@ -58,16 +59,25 @@ export function createLabelScheduler(deps: {
       if (settled) return;
       const r = brainResponse.safeParse(m);
       if (!r.success || r.data.op === 'error') { finish(false); return; }
-      const now = deps.now();
-      deps.store.applyLabels(r.data.results, now);
-      deps.store.copyDupLabels(now);
-      finish(true);
+      try {
+        const now = deps.now();
+        // Never let the Brain write to a row outside the batch it was actually sent.
+        const results = r.data.results.filter((x) => batchIds.has(x.id));
+        deps.store.applyLabels(results, now);
+        deps.store.copyDupLabels(now);
+        finish(true);
+      } catch (e) {
+        // SQLITE_BUSY, disk full, etc.: this listener runs inside the utilityProcess 'message'
+        // handler, so an uncaught exception here would escape into the main process.
+        console.error('[brain] storing labels failed:', e);
+        finish(false);
+      }
     });
     child.onExit((code) => {
       if (code === 0) setTimeout(() => finish(false), EXIT_GRACE_MS);
       else finish(false);
     });
-    child.post({ op: 'label', modelDir: deps.modelDir, reads });
+    try { child.post({ op: 'label', modelDir: deps.modelDir, reads }); } catch { finish(false); }
   }
 
   return {
