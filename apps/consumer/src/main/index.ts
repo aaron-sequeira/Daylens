@@ -75,7 +75,7 @@ if (!app.requestSingleInstanceLock()) {
       freeBytes: async (d) => { const s = await statfs(d); return s.bavail * s.bsize; },
       onStatus: (st) => {
         const t = Date.now();
-        if (st.state === 'downloading' && t - lastModelPush < 1000) return; // progress pushes at most 1/s
+        if (st.state === 'downloading' && t - lastModelPush < 2000) return; // progress pushes at most 1/2s
         lastModelPush = t;
         win?.webContents.send(CH.eventsUpdate);
       }
@@ -93,11 +93,16 @@ if (!app.requestSingleInstanceLock()) {
       store: labelStore, fork: forkBrain, modelReady: () => downloader.status().state === 'ready',
       modelDir, now: () => Date.now(), onChange: () => win?.webContents.send(CH.eventsUpdate)
     });
+    // Gate syncModel until the startup init() (which hashes the model on disk) has settled, so a settings
+    // change landing mid-hash can't race it into starting/stopping a run init hasn't finished evaluating.
+    let modelInitDone = false;
     const syncModel = (): void => {
+      if (!modelInitDone) return;
       const s = settings.get();
       if (s.screenReading && s.consentGranted) downloader.start(); else downloader.stop();
     };
-    setInterval(() => { try { scheduler.tick(); } catch (e) { console.error('[brain] tick failed:', e); } }, 60_000);
+    const tickScheduler = (): void => { try { scheduler.tick(); } catch (e) { console.error('[brain] tick failed:', e); } };
+    setInterval(tickScheduler, 60_000);
     // ponytail: dev path; Phase 7 packaging must ship resources/ocr-helper.ps1 via extraResources.
     const helperPath = app.isPackaged ? join(process.resourcesPath, 'ocr-helper.ps1') : join(__dirname, '../../resources/ocr-helper.ps1');
     const ocr = createOcrClient({
@@ -191,10 +196,24 @@ if (!app.requestSingleInstanceLock()) {
             console.warn('[models] DAYLENS_MODEL_DIR set: skipping redownload delete');
             return { model: downloader.status(), labelling: scheduler.status() };
           }
+          const s = settings.get();
+          if (!s.screenReading || !s.consentGranted) {
+            // Deleting without screen reading on would never trigger a re-download.
+            console.warn('[models] redownload requested with screen reading off: skipping delete');
+            return { model: downloader.status(), labelling: scheduler.status() };
+          }
+          if (scheduler.status().state === 'running') {
+            console.warn('[models] redownload requested while a labelling batch is running: skipping delete');
+            return { model: downloader.status(), labelling: scheduler.status() };
+          }
           try {
             await downloader.remove();
           } catch (e) {
             console.error('[models] redownload delete failed:', e);
+            // remove() leaves status 'missing' even when the deletion itself failed; re-verify what's
+            // actually on disk so labelling isn't stuck waiting on a model that's still there.
+            await downloader.init().catch((ie) => console.error('[models] re-check failed:', ie));
+            syncModel();
             return { model: downloader.status(), labelling: scheduler.status() };
           }
           syncModel();
@@ -204,6 +223,10 @@ if (!app.requestSingleInstanceLock()) {
           if (process.env['DAYLENS_MODEL_DIR']) {
             // The dev folder holds the only exported copy of the model: never delete it.
             console.warn('[models] DAYLENS_MODEL_DIR set: skipping delete');
+            return { deleted: false };
+          }
+          if (scheduler.status().state === 'running') {
+            console.warn('[models] delete requested while a labelling batch is running: skipping (no dialog)');
             return { deleted: false };
           }
           const r = await dialog.showMessageBox(win!, {
@@ -216,12 +239,15 @@ if (!app.requestSingleInstanceLock()) {
             await downloader.remove();
           } catch (e) {
             console.error('[models] delete failed:', e);
+            // Same re-check as redownload: don't leave status falsely 'missing' after a failed deletion.
+            await downloader.init().catch((ie) => console.error('[models] re-check failed:', ie));
+            syncModel();
             return { deleted: false };
           }
           syncModel();
           return { deleted: true };
         },
-        retryLabelling: () => { scheduler.retry(); scheduler.tick(); return { model: downloader.status(), labelling: scheduler.status() }; }
+        retryLabelling: () => { scheduler.retry(); tickScheduler(); return { model: downloader.status(), labelling: scheduler.status() }; }
       },
       privacy: {
         ocrStatus: () => ocr.status(),
@@ -270,7 +296,9 @@ if (!app.requestSingleInstanceLock()) {
     applyLoginItem();
     syncOcr();
     retention();
-    downloader.init().then(() => syncModel()).catch((e) => console.error('[models] init failed:', e));
+    downloader.init()
+      .then(() => { modelInitDone = true; syncModel(); })
+      .catch((e) => { modelInitDone = true; console.error('[models] init failed:', e); });
 
     try {
       tray = new Tray(app.isPackaged ? join(process.resourcesPath, 'tray.png') : join(__dirname, '../../resources/tray.png'));
