@@ -2,7 +2,7 @@ import { MAX_DISTRACTIONS, type Goal, type Profile, type Role } from '../../shar
 
 export interface OrbitCard { icon: string; title: string; sub: string; color: string }
 export interface SummaryRow { icon: string; color: string; text: string; strong: string }
-export const STEP_COUNT = 6;
+export const STEP_COUNT = 7;
 export const MAX_ORBIT_CARDS = 10;
 
 function c(icon: string, title: string, sub: string, color: string): OrbitCard {
@@ -90,6 +90,14 @@ export function cardsFor(step: number, p: Profile): OrbitCard[] {
       ];
     case 4:
       return p.distractions.length ? cap(p.distractions.map((d) => c('👀', d, 'gentle eye on it', 'var(--pink)'))) : [c('🧲', 'Nothing? Lucky you', 'or pick a few', 'var(--panel)')];
+    case 5:
+      return [
+        c('💻', 'Coding in VS Code', 'work', 'var(--lav)'),
+        c('📺', 'Watching YouTube', 'entertainment', 'var(--peach)'),
+        c('📚', 'Reading docs', 'learning', 'var(--mint)'),
+        c('💬', 'Team chat', 'communication', 'var(--sky)'),
+        c('🔒', 'Text only, on this PC', 'screenshot never saved', 'var(--mint)')
+      ];
     default:
       return cap([
         c('👋', name || 'Friend', p.roles.length ? `${p.roles.length} kind${p.roles.length === 1 ? '' : 's'} of work` : 'all-rounder', 'var(--lav)'),
@@ -101,7 +109,7 @@ export function cardsFor(step: number, p: Profile): OrbitCard[] {
   }
 }
 
-export function bubbleFor(step: number, p: Profile): string {
+export function bubbleFor(step: number, p: Profile, screen = false): string {
   const name = p.name.trim();
   switch (step) {
     case 0: return "Hi! I'm Daylens. Let's get to know each other.";
@@ -112,6 +120,7 @@ export function bubbleFor(step: number, p: Profile): string {
       return p.distractions.length
         ? `Noted. I'll keep a gentle eye on ${p.distractions.slice(0, 2).join(' & ')}${p.distractions.length > 2 ? ' and more' : ''}.`
         : 'Anything that steals your time? Totally optional.';
+    case 5: return screen ? "Thanks! I'll learn what you're working on, privately." : 'Totally optional. Everything else works without it.';
     default: return `Ready when you are${name ? `, ${name}` : ''}! Your dashboard fills in as you use your PC.`;
   }
 }

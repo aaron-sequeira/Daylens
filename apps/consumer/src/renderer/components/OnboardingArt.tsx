@@ -8,6 +8,7 @@ const LOOK = [
   { bg: 'var(--peach)', hue: '-30deg', face: '🎯' },
   { bg: 'var(--sky)', hue: '80deg', face: '🗓️' },
   { bg: 'var(--pink)', hue: '-60deg', face: '🧲' },
+  { bg: 'var(--sky)', hue: '120deg', face: '👀' },
   { bg: 'linear-gradient(135deg, #BFEBD3, #D8D2FC 50%, #F9DDB9)', hue: '0deg', face: '✨' }
 ];
 const CONFETTI = ['#C9BEFF', '#9FE3C0', '#FFD19A', '#FFB4BA', '#A9D3FA', '#171717'];

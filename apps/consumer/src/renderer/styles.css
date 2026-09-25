@@ -251,6 +251,7 @@ button { font: inherit; color: inherit; }
 .peek { background: var(--panel); border-radius: 14px; padding: 12px 14px; font: 12px/1.5 ui-monospace, Consolas, monospace; color: #4B4642; max-height: 180px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 .btn.danger { color: #B42318; border-color: #F3C1BD; }
 .srow-note { color: var(--muted); font-size: 12.5px; padding: 0 0 10px; }
+.ob-screen { display: flex; align-items: center; justify-content: space-between; max-width: 520px; background: #fff; border: 2px solid var(--line); border-radius: 18px; padding: 12px 16px; margin: 6px 0 10px; font-weight: 600; font-size: 14.5px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

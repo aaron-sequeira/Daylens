@@ -39,9 +39,14 @@ describe('cardsFor', () => {
     expect(titles(4, p())).toEqual(['Nothing? Lucky you']);
   });
   it('summary step leads with the name and ends with privacy', () => {
-    const t = titles(5, p({ name: 'Aaron', goals: ['focus'] }));
+    const t = titles(6, p({ name: 'Aaron', goals: ['focus'] }));
     expect(t[0]).toBe('Aaron');
     expect(t[t.length - 1]).toBe('All on this PC');
+  });
+  it('screen step shows example labels and a privacy card', () => {
+    const t = titles(5, p());
+    expect(t).toContain('Coding in VS Code');
+    expect(t[t.length - 1]).toBe('Text only, on this PC');
   });
   it('never puts more than 10 cards around the orb, even with every answer ticked', () => {
     const maxed = p({ name: 'A', roles: [...ROLES], goals: [...GOALS], distractions: Array.from({ length: 12 }, (_, i) => `app${i}`) });
@@ -58,6 +63,14 @@ describe('bubbleFor', () => {
     expect(bubbleFor(1, p({ name: 'Aaron' }))).toContain('Aaron');
     expect(bubbleFor(4, p({ distractions: ['Instagram', 'YouTube', 'Reddit'] }))).toBe("Noted. I'll keep a gentle eye on Instagram & YouTube and more.");
     for (let s = 0; s < STEP_COUNT; s++) expect(bubbleFor(s, p()).length).toBeGreaterThan(0);
+  });
+});
+
+describe('screen step bubble', () => {
+  it('reacts to the switch', () => {
+    expect(bubbleFor(5, p(), false)).toMatch(/optional/i);
+    expect(bubbleFor(5, p(), true)).toMatch(/privately/i);
+    expect(STEP_COUNT).toBe(7);
   });
 });
 

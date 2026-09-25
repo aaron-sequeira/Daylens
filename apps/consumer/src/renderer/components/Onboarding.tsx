@@ -10,11 +10,12 @@ const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x)
 const cleanName = (s: string): string => s.replace(/\s+/g, ' ').trim(); // a pasted tab/newline would fail validation
 const hasText = (list: string[], v: string): boolean => list.some((x) => x.toLowerCase() === v.toLowerCase());
 
-export function Onboarding({ mode, initial, onDone, onCancel }: {
-  mode: 'first' | 'redo'; initial: Profile; onDone: (s: DaylensSettings) => void; onCancel?: () => void;
+export function Onboarding({ mode, initial, initialScreen, onDone, onCancel }: {
+  mode: 'first' | 'redo'; initial: Profile; initialScreen: boolean; onDone: (s: DaylensSettings) => void; onCancel?: () => void;
 }) {
   const [step, setStep] = useState(0);
   const [a, setA] = useState<Profile>(initial);
+  const [screen, setScreen] = useState(initialScreen);
   const [other, setOther] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -81,6 +82,8 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
       let s = await api.profile.save({ ...a, name: cleanName(a.name) });
       if (cancelled.current) return;
       if (mode === 'first') s = await api.consent.grant(); // consent only when onboarding is finished
+      if (cancelled.current) return;
+      s = await api.settings.set({ screenReading: screen, screenReadingAsked: true });
       if (cancelled.current) return;
       setCelebrate(true);
       doneTimer.current = setTimeout(() => onDone(s), 1600);
@@ -197,6 +200,23 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
           <p className="ob-why">💡 <span><b>Why I ask:</b> I'll flag long scrolls on these and can set soft limits later.</span></p>
           {nav('Continue →')}
         </>);
+      case 5:
+        return (<>
+          <p className="ob-kicker"><i style={{ background: 'var(--sky)' }}>👀</i>Your screen</p>
+          <h1 tabIndex={-1}>Let me understand<br /><b>your screen?</b></h1>
+          <p className="lead" style={{ marginBottom: 14 }}>With this on, Daylens reads the text of the window in front every 30 seconds, so it can tell coding from scrolling and give you better tips.</p>
+          <div className="promise">
+            <div><i style={{ background: 'var(--mint)' }}>🔒</i><span><b>Text only, on this PC.</b> The screenshot is never saved or sent anywhere.</span></div>
+            <div><i style={{ background: 'var(--lav)' }}>🙈</i><span>Skips <b>password managers, banking and private windows</b>. You can add more in Settings.</span></div>
+            <div><i style={{ background: 'var(--peach)' }}>⬇️</i><span>Needs a one-time <b>1.7 GB</b> download, which runs in the background.</span></div>
+          </div>
+          <div className="ob-screen">
+            <span>Read on-screen text</span>
+            <button className={`sw${screen ? ' on' : ''}`} aria-label="Read on-screen text" aria-pressed={screen} onClick={() => setScreen((v) => !v)} />
+          </div>
+          <p className="ob-why">💡 <span><b>Good to know:</b> it's off unless you turn it on, and you can change it any time in Settings → Privacy.</span></p>
+          {nav('Continue →')}
+        </>);
       default:
         return (<>
           <p className="ob-kicker"><i style={{ background: 'var(--mint)' }}>✨</i>All set</p>
@@ -224,7 +244,7 @@ export function Onboarding({ mode, initial, onDone, onCancel }: {
         </div>
         <section className="ob-step" key={step} ref={stepRef}>{body()}</section>
       </div>
-      <OnboardingArt step={step} cards={cardsFor(step, art)} bubble={bubbleFor(step, art)} celebrate={celebrate} />
+      <OnboardingArt step={step} cards={cardsFor(step, art)} bubble={bubbleFor(step, art, screen)} celebrate={celebrate} />
     </div>
   );
 }
