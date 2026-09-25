@@ -236,6 +236,22 @@ button { font: inherit; color: inherit; }
 @keyframes ob-swap { from { opacity: .2; } }
 @keyframes ob-fall { to { transform: translateY(780px) rotate(720deg); opacity: .2; } }
 
+/* ---------- privacy section ---------- */
+.srow.stack { flex-direction: column; align-items: stretch; gap: 10px; }
+.privacy-status b { font-weight: 600; }
+.segc { display: flex; background: var(--panel); border-radius: 999px; padding: 3px; }
+.segc button { border: 0; background: none; font: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.segc button[aria-pressed="true"] { background: #fff; font-weight: 600; box-shadow: 0 2px 6px rgba(0, 0, 0, .1); }
+.xchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.xchip { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; border-radius: 999px; padding: 4px 6px 4px 11px; background: var(--panel); }
+.xchip button { border: 0; background: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1; color: var(--muted); }
+.xchip button:hover { background: rgba(0, 0, 0, .08); color: var(--ink); }
+.xadd { display: flex; gap: 8px; align-items: center; }
+.xadd input[type=text] { flex: 1; width: auto; }
+.peek { background: var(--panel); border-radius: 14px; padding: 12px 14px; font: 12px/1.5 ui-monospace, Consolas, monospace; color: #4B4642; max-height: 180px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.btn.danger { color: #B42318; border-color: #F3C1BD; }
+.srow-note { color: var(--muted); font-size: 12.5px; padding: 0 0 10px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
