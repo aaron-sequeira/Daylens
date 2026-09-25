@@ -27,6 +27,19 @@ export function labellingText(l: LabellingStatus): string {
   return l.lastLabelledAt === null ? 'Nothing labelled yet' : `Last labelled at ${formatClock(l.lastLabelledAt)}`;
 }
 
-export function bannerText(screenReading: boolean, m: ModelStatus): string | null {
-  return screenReading && m.state === 'downloading' && !m.retrying ? `Downloading the AI model: ${pct(m)}%` : null;
+export function bannerText(screenReading: boolean, m: ModelStatus, l: LabellingStatus): string | null {
+  if (!screenReading) return null;
+  if (m.state === 'downloading' && !m.retrying) return `Downloading the AI model: ${pct(m)}%`;
+  // A paused labeller soon stops screen reading (backlog guard): say why on Today.
+  if (l.state === 'paused') return 'Labelling paused after errors. See Settings → AI model.';
+  return null;
+}
+
+/** 'Download again' only makes sense when there is no usable model and no download under way. */
+export function canRedownload(m: ModelStatus): boolean {
+  return m.state === 'missing' || m.state === 'error';
+}
+
+export function modelHint(s: DaylensSettings, m: ModelStatus): string | null {
+  return !s.screenReading && m.state !== 'ready' ? 'Turn on screen reading to download the model.' : null;
 }

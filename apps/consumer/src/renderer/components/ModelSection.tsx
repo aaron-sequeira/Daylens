@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import type { DaylensSettings } from '../../main/settings';
 import type { ModelsView } from '../../main/ipc';
 import { api } from '../lib/api';
-import { labellingText, modelStatusText } from '../lib/models';
+import { canRedownload, labellingText, modelHint, modelStatusText } from '../lib/models';
 
-export function ModelSection() {
+export function ModelSection({ settings }: { settings: DaylensSettings }) {
   const [view, setView] = useState<ModelsView | null>(null);
   const load = (): void => { api.models.get().then(setView).catch((e) => console.error('[renderer] models.get failed:', e)); };
   useEffect(() => {
@@ -14,14 +15,15 @@ export function ModelSection() {
   }, []);
   if (!view) return null;
   const act = (p: Promise<unknown>): void => { p.then(load).catch((e) => { console.error(e); load(); }); };
+  const hint = modelHint(settings, view.model);
 
   return (
     <div className="grp">
       <h4>AI model</h4>
       <div className="srow">
-        <p>Laya (on-device)<small role="status">{modelStatusText(view.model)}</small></p>
+        <p>Laya (on-device)<small role="status">{modelStatusText(view.model)}</small>{hint && <small>{hint}</small>}</p>
         <div className="srow-btns">
-          <button className="btn s" onClick={() => act(api.models.redownload())}>Download again</button>
+          {canRedownload(view.model) && <button className="btn s" onClick={() => act(api.models.redownload())}>Download again</button>}
           <button className="btn s danger" disabled={view.model.state === 'missing'} onClick={() => act(api.models.delete())}>Delete model</button>
         </div>
       </div>

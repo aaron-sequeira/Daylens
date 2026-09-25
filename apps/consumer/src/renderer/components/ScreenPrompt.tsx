@@ -35,6 +35,6 @@ export function ScreenPrompt({ settings, onChange }: { settings: DaylensSettings
       </div>
     );
   }
-  const text = models ? bannerText(settings.screenReading, models.model) : null;
+  const text = models ? bannerText(settings.screenReading, models.model, models.labelling) : null;
   return text ? <div className="sp-banner" role="status">{text}</div> : null;
 }

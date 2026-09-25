@@ -95,7 +95,7 @@ export function SettingsScreen({ settings, onChange, onRedo }: { settings: Dayle
       <h1>Settings</h1>
 
       <PrivacySection settings={settings} onChange={onChange} />
-      <ModelSection />
+      <ModelSection settings={settings} />
 
       <div className="grp">
         <h4>About you</h4>
