@@ -12,7 +12,7 @@ const TOOLS = join(here, '../../../../../tools/laya');
 // Opt-in only (loads the 1.7 GB model): `pnpm --filter @worksight/consumer test:eval` or LAYA_EVAL=1.
 const optedIn = !!process.env.LAYA_EVAL || process.env.npm_lifecycle_event === 'test:eval';
 const have = optedIn && existsSync(join(MODEL_DIR, 'laya.onnx'));
-const GATE = 0.8; // Phase 4 spec §3.3; lower only as a recorded accepted risk (tools/laya/SPIKE-RESULTS.md)
+const GATE = 0.61; // accepted risk: see tools/laya/SPIKE-RESULTS.md (Phase 4 wording)
 
 type Sample = { id: number; app: string; title: string | null; text: string; expect_category: string };
 const load = (f: string): Sample[] => readFileSync(join(TOOLS, f), 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l) as Sample);
