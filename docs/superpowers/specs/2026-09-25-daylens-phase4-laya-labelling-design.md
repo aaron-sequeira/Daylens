@@ -15,6 +15,7 @@ Turn stored screen reads into activity labels with the local Laya model, and mak
 | Memory (~2 GB while loaded) | **Batch, then unload:** a Brain `utilityProcess` is started per batch, labels, and exits. |
 | Opt-in / download | New onboarding step (off by default); the model downloads **in the background** after onboarding; existing users get a one-time Today card. |
 | Brain shape | **Approach A:** a fresh utilityProcess per batch (process exit is the only reliable way to return ONNX Runtime memory). |
+| Unsure labels | Keep Laya's guess; the app-name list overrides only for known apps (user decision after Task 2 measurements). |
 
 ## 3. Brain & labelling
 
@@ -31,7 +32,7 @@ Main: write labels (one transaction), set labeled_at; post events:update
 ```
 
 - **Dedup rows** (`text IS NULL`, not purged) are not sent to the Brain: they copy the labels of the most recent earlier labelled read with the same `text_hash` (or stay unlabelled until that read is labelled). **Purged rows** (`text IS NULL AND text_hash = ''`) that were never labelled are marked `labeled_at = now` with all labels NULL (nothing left to label).
-- **Stored values:** `category` = Laya's choice, or **`uncertain`** when its confidence < 0.5 (the confidence is still stored in `category_conf`). Same for `activity`. `stuck` / `distraction` = the score's expected value (0..2).
+- **Stored values:** `category` = Laya's choice, **always**, with its confidence in `category_conf` (no more `uncertain`; consumers decide what to do with a low-confidence label using the stored confidence). Same for `activity`. `stuck` / `distraction` = the score's expected value (0..2). Phase 5 rules that act on `category`/`activity` should only fire when confidence ≥ 0.5 (`CONFIDENT`).
 - **Brain protocol** (MessagePort / `process.parentPort`, typed, zod-validated on the main side): main → `{ op: 'label', reads }`; Brain → `{ op: 'labels', results }` then exits, or `{ op: 'error', message }` then exits 1. Brain never touches the database.
 - **Timeouts & crashes:** a batch has a 120 s timeout (kill). Crash/timeout → backoff 1 s → 5 s → 30 s (per-batch retry); > 3 failures within 10 min → labelling `paused` until the app restarts or the user presses "Retry" in Settings. Tracking and reading are unaffected.
 - **Backlog guard:** while labelling cannot run (model not ready, paused) and > 20 reads are unlabelled, the ScreenReader skips new captures (outcome `skipped-backlog`).
@@ -39,13 +40,13 @@ Main: write labels (one transaction), set labeled_at; post events:update
 
 ### 3.2 Timeline categories
 
-`loadTodayView` gains the day's labelled reads. For each focus-session piece, the category is the **most frequent confident Laya category** (not `uncertain`, not NULL) among reads whose `at` falls inside the piece and whose `app_name` matches; if none, `categoryForApp(app)` (existing rules — the "app-name tie-breaker"). Category cards and the timeline use the result. The Today view never shows `uncertain`.
+`loadTodayView` gains the day's labelled reads. For each read, its counted category is `finalCategory(choice, confidence, app)`: `confidence >= CONFIDENT ? choice : (categoryForApp(app) !== 'other' ? categoryForApp(app) : choice)` — Laya's choice when confident, otherwise the app-name rule only when it recognizes the app, otherwise Laya's own (unsure) guess is kept (user decision after Task 2 measurements — see §2 and `tools/laya/SPIKE-RESULTS.md`). For each focus-session piece, the category is the **most frequent `finalCategory`** among reads whose `at` falls inside the piece and whose `app_name` matches; if none, `categoryForApp(app)` (existing rules — the unchanged no-labels fallback). Category cards and the timeline use the result.
 
 ### 3.3 Questions & accuracy work
 
 - Questions live in `src/main/brain/questions.ts` (single source; `tools/laya/questions.json` is regenerated from it for the Python tools or left as history).
 - `scripts/eval-laya.mjs` (Node, runs ONNX via `loadLaya`; manual only, needs ~2 GB free RAM) scores a question set on `tools/laya/samples.jsonl` (48, tuning) and `tools/laya/samples.holdout.jsonl` (~24 new hand-written samples weighted to social/communication/entertainment/learning and browser tabs). Prints accuracy (Laya alone, and Laya + app tie-breaker), a confusion table, and per-sample confidence.
-- **Gate:** ≥ 80 % on all samples combined (Laya + tie-breaker) with hold-out accuracy no more than 10 points below tuning. If not reached after 5 wording rounds, ship the best wording and record the numbers as an accepted risk in `tools/laya/SPIKE-RESULTS.md`.
+- **Gate:** ≥ 80 % on all samples combined, scored through `finalCategory` (§3.2's keep-Laya rule), with hold-out accuracy no more than 10 points below tuning. If not reached after 5 wording rounds, ship the best wording and record the numbers as an accepted risk in `tools/laya/SPIKE-RESULTS.md`. (Task 2 measured "final" under an earlier rule that always applied the app-name tie-breaker below 0.5 confidence, capping it at 58–61 %; Task 2b re-measured under the keep-Laya rule and reached 91.7 %, meeting the gate — see `tools/laya/SPIKE-RESULTS.md`.)
 - Only `category` wording is tuned; `activity`, `stuck`, `distraction` keep their wording.
 
 ## 4. Model download
