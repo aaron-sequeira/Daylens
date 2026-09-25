@@ -7,14 +7,14 @@ export const CONFIDENT = 0.5;
 export const QUESTIONS: Record<'category' | 'activity' | 'stuck' | 'distraction', LayaQuestion> = {
   category: {
     type: 'choice',
-    instructions: 'Which kind of activity is the user doing on this screen?',
+    instructions: 'What is this screen mainly for? Judge by the content on screen, not only the app name.',
     criteria: {
-      work: 'job or study tasks: coding, documents, spreadsheets, design, admin',
-      learning: 'tutorials, documentation, courses, educational videos',
-      social: 'social media feeds, personal messaging, forums',
-      entertainment: 'videos, streaming, games, memes, music for fun',
-      communication: 'email, work chat, calendars, meetings',
-      other: 'system settings, file management, shopping, anything else'
+      work: 'doing a job or study task: writing code, documents, spreadsheets, slides, design files, code review, admin forms',
+      learning: 'deliberately studying: tutorials, courses, lectures, documentation or reference pages, flashcards, practice exercises',
+      social: 'personal social life: social media feeds, posts and comments, chatting with friends or family, community servers and forums',
+      entertainment: 'watching, listening or playing for fun: videos for fun, streams, movies and shows, music players, games, memes',
+      communication: 'work or school communication: email inboxes, work chat channels, calendars, meeting and call windows',
+      other: 'anything else: system settings, file management, installers, online shopping, maps, banking-free admin'
     }
   },
   activity: {
