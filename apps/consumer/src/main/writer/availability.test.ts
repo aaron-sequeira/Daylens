@@ -28,20 +28,23 @@ describe('local writer availability', () => {
 describe('countsAsFailure', () => {
   const missing: ModelStatus = { state: 'missing' };
   const downloading = (retrying: boolean, received = 0): ModelStatus => ({ state: 'downloading', received, total: 10, retrying });
-  it('counts a fresh retry (not-retrying -> retrying) once', () => {
-    expect(countsAsFailure(downloading(false), downloading(true))).toBe(true);
+  const retry = (received: number): ModelStatus => downloading(true, received);
+
+  it('counts two consecutive retries with no progress between them (a fully blocked link)', () => {
+    expect(countsAsFailure(downloading(false), retry(100), null)).toBe(true); // first retry: always counts
+    expect(countsAsFailure(retry(100), retry(100), 100)).toBe(true); // second retry: same bytes on disk as the last one
   });
-  it('does not count staying in retrying', () => {
-    expect(countsAsFailure(downloading(true, 1), downloading(true, 5))).toBe(false);
+  it('does not count a retry that shows progress since the last one (a flaky but progressing link)', () => {
+    expect(countsAsFailure(retry(100), retry(200), 100)).toBe(false);
   });
   it('counts reaching an error state', () => {
-    expect(countsAsFailure(downloading(false), { state: 'error', reason: 'no_space' })).toBe(true);
-    expect(countsAsFailure(downloading(true), { state: 'error', reason: 'bad_hash' })).toBe(true);
+    expect(countsAsFailure(downloading(false), { state: 'error', reason: 'no_space' }, null)).toBe(true);
+    expect(countsAsFailure(retry(100), { state: 'error', reason: 'bad_hash' }, 100)).toBe(true);
   });
-  it('does not count plain progress', () => {
-    expect(countsAsFailure(downloading(false, 1), downloading(false, 5))).toBe(false);
-    expect(countsAsFailure(missing, downloading(false))).toBe(false);
-    expect(countsAsFailure(downloading(false), { state: 'ready' })).toBe(false);
-    expect(countsAsFailure(downloading(false), { state: 'verifying' })).toBe(false);
+  it('does not count plain progress (no retry involved)', () => {
+    expect(countsAsFailure(downloading(false, 1), downloading(false, 5), null)).toBe(false);
+    expect(countsAsFailure(missing, downloading(false), null)).toBe(false);
+    expect(countsAsFailure(downloading(false), { state: 'ready' }, null)).toBe(false);
+    expect(countsAsFailure(downloading(false), { state: 'verifying' }, null)).toBe(false);
   });
 });

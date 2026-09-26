@@ -288,14 +288,18 @@ if (!app.requestSingleInstanceLock()) {
     const writerDirFor = (t: WriterTier): string => join(app.getPath('userData'), 'models', 'writer', t);
     const makeWriterDownloader = (t: WriterTier) => {
       let prevStatus: ModelStatus = { state: 'missing' };
+      let lastRetryReceived: number | null = null;
       let lastPush = 0;
       return createDownloader({
         dir: writerDirFor(t), manifest: writerManifest(t), fetch: globalThis.fetch,
         freeBytes: async (d) => { const s = await statfs(d); return s.bavail * s.bsize; },
         onStatus: (st) => {
-          // "Download failed twice" must be reachable: count real failed attempts (a fresh retry, or an
-          // error), not every progress tick. An installed model makes past failures irrelevant.
-          if (countsAsFailure(prevStatus, st)) writerHealth.downloadFailures++;
+          // "Download failed twice" must be reachable: count real failed attempts, not every progress
+          // tick. A fully blocked link retries forever with the same bytes on disk, so each retry that
+          // makes no further progress since the last one counts on its own (not just the first), plus
+          // every error. An installed model makes past failures irrelevant.
+          if (countsAsFailure(prevStatus, st, lastRetryReceived)) writerHealth.downloadFailures++;
+          if (st.state === 'downloading' && st.retrying) lastRetryReceived = st.received;
           if (st.state === 'ready') writerHealth.downloadFailures = 0;
           if (st.state === 'error' && st.reason === 'no_space') refreshFreeDisk();
           prevStatus = st;

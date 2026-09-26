@@ -21,13 +21,16 @@ export function localUnavailable(i: AvailabilityInput): Unavailable | null {
   return null;
 }
 
-/** One failed download attempt: entering `error`, or a fresh retry (not already retrying). Plain
- * progress (received bytes moving, or staying in the same retrying/non-retrying state) never counts. */
-export function countsAsFailure(prev: ModelStatus, next: ModelStatus): boolean {
+/** One failed download attempt: entering `error`, or a retry (`retrying: true`) that shows no more bytes
+ * on disk than the previous retry did. A fully blocked link retries forever with the same `received`, so
+ * every one of those must count, not just the first — but a retry whose `received` grew since the last one
+ * is a flaky-but-progressing link, and doesn't count. `lastRetryReceived` is the `received` of the previous
+ * retrying emission (from the caller's own tracking), or null before the first one. */
+export function countsAsFailure(prev: ModelStatus, next: ModelStatus, lastRetryReceived: number | null): boolean {
   if (next.state === 'error') return true;
+  if (next.state !== 'downloading' || !next.retrying) return false;
   const wasRetrying = prev.state === 'downloading' && prev.retrying;
-  const isRetrying = next.state === 'downloading' && next.retrying;
-  return isRetrying && !wasRetrying;
+  return !wasRetrying || lastRetryReceived === null || next.received <= lastRetryReceived;
 }
 
 export const UNAVAILABLE_TEXT: Record<Unavailable, string> = {
