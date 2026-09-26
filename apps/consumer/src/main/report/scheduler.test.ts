@@ -65,4 +65,28 @@ describe('report scheduler', () => {
     s.resume();
     expect(s.autoPaused()).toBe(false);
   });
+  it('clears running when generate rejects, allowing next request to run', async () => {
+    let rejectGen!: () => void;
+    const { s, ran, rows } = mk({ hasActivity: () => false, generate: (date) => new Promise((_, rej) => { ran.push(date); rows.set(date, 'failed'); rejectGen = () => rej(new Error('boom')); }) });
+    s.request('2026-09-21');
+    const first = s.tick(); await Promise.resolve();
+    expect(s.running()).toBe('2026-09-21');
+    s.request('2026-09-22'); await s.tick();
+    expect(ran).toEqual(['2026-09-21']);
+    rejectGen(); await Promise.resolve();
+    expect(s.running()).toBeNull();
+    await s.tick();
+    expect(ran).toEqual(['2026-09-21', '2026-09-22']);
+  });
+  it('prevents re-entrancy: two tick calls while lowBattery is slow generates only once', async () => {
+    let slowResolve!: () => void;
+    const { s, ran, setNow } = mk({ lowBattery: () => new Promise((r) => { slowResolve = () => r(false); }), hasActivity: (d) => d === '2026-09-26' });
+    setNow(at(26, 23, 0)); // at wind-down, so automatic run will be checked
+    s.tick(); s.tick();
+    await Promise.resolve();
+    expect(ran).toEqual([]);
+    slowResolve(); await Promise.resolve();
+    await s.tick();
+    expect(ran).toEqual(['2026-09-26']);
+  });
 });

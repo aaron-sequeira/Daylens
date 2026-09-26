@@ -13,8 +13,14 @@ export async function generateReport(date: string, deps: { build(date: string): 
   try { built = deps.build(date); } catch (e) { deps.store.setFailed(date, `Could not gather the day: ${String(e)}`, deps.now()); return 'failed'; }
   deps.store.setPending(date, deps.now());
   const { system, user } = reportPrompt(built.input);
-  const r = await deps.writer.write<ReportJson>({ kind: 'report', system, user, schema: REPORT_JSON_SCHEMA, maxTokens: MAX_TOKENS,
-    parse: (v) => parseReport(v, built.candidateIds) });
+  let r;
+  try {
+    r = await deps.writer.write<ReportJson>({ kind: 'report', system, user, schema: REPORT_JSON_SCHEMA, maxTokens: MAX_TOKENS,
+      parse: (v) => parseReport(v, built.candidateIds) });
+  } catch (e) {
+    deps.store.setFailed(date, 'The writer stopped unexpectedly.', deps.now());
+    return 'failed';
+  }
   if (r.ok) { deps.store.setReady(date, r.value, r.model, deps.now()); return 'ok'; }
   deps.store.setFailed(date, r.reason, deps.now());
   return r.local === 'timeout' || r.local === 'crash' || r.local === 'load' ? r.local : 'failed';

@@ -13,7 +13,7 @@ const CRASH_WINDOW_MS = 10 * 60_000;
 const minutesOf = (hhmm: string): number => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
 
 export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {
-  let running: string | null = null, waiting: string | null = null, paused = false;
+  let running: string | null = null, waiting: string | null = null, paused = false, checking = false;
   let crashes: number[] = [];
   const manual: string[] = [];
   const change = (): void => d.onChange?.();
@@ -30,25 +30,30 @@ export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {
 
   return {
     async tick() {
-      if (running) return;
-      const isManual = manual.length > 0;
-      const date = isManual ? manual[0] : paused ? null : autoDue();
-      const wait = (w: string | null): void => { if (w !== waiting) { waiting = w; change(); } };
-      if (!date || !d.canWrite()) { wait(date && isManual ? date : null); return; }
-      if (!isManual && await d.lowBattery()) { wait(null); return; }
-      if (!d.gateOk() || d.otherJobRunning()) { wait(date); return; }
-      if (isManual) manual.shift();
-      running = date; wait(null); change();
-      void (async () => {
-        try {
-          const outcome = await d.generate(date);
-          if (outcome === 'crash') {
-            const now = d.now();
-            crashes = [...crashes.filter((t) => now - t < CRASH_WINDOW_MS), now];
-            if (crashes.length >= 3) paused = true;
-          }
-        } finally { running = null; change(); }
-      })();
+      if (running || checking) return;
+      checking = true;
+      try {
+        const isManual = manual.length > 0;
+        const date = isManual ? manual[0] : paused ? null : autoDue();
+        const wait = (w: string | null): void => { if (w !== waiting) { waiting = w; change(); } };
+        if (!date || !d.canWrite()) { wait(date && isManual ? date : null); return; }
+        if (!isManual && await d.lowBattery()) { wait(null); return; }
+        if (!d.gateOk() || d.otherJobRunning()) { wait(date); return; }
+        if (isManual) manual.shift();
+        running = date; wait(null); change();
+        void (async () => {
+          try {
+            const outcome = await d.generate(date);
+            if (outcome === 'crash') {
+              const now = d.now();
+              crashes = [...crashes.filter((t) => now - t < CRASH_WINDOW_MS), now];
+              if (crashes.length >= 3) paused = true;
+            }
+          } catch (e) {
+            console.error('Generate failed:', date, String(e).slice(0, 100));
+          } finally { running = null; change(); }
+        })();
+      } finally { checking = false; }
     },
     request(date) { if (!manual.includes(date)) manual.push(date); change(); },
     running: () => running,

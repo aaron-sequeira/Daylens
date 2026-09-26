@@ -14,4 +14,8 @@ describe('batteryPercent', () => {
     const percent = await batteryPercent(async () => { throw new Error('cmd failed'); });
     expect(percent).toBeNull();
   });
+  it('returns null for out-of-range values', async () => {
+    expect(await batteryPercent(async () => '101\r\n')).toBeNull();
+    expect(await batteryPercent(async () => '-1\r\n')).toBeNull();
+  });
 });

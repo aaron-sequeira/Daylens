@@ -32,4 +32,10 @@ describe('generateReport', () => {
     expect(await generateReport('2026-09-26', { build: () => { throw new Error('db'); }, writer, store: s, now: () => 1 })).toBe('failed');
     expect(log).toEqual(['failed 2026-09-26 Could not gather the day: Error: db']);
   });
+  it('handles writer.write throwing unexpectedly', async () => {
+    const { s, log } = store();
+    const writer = { write: async () => { throw new Error('writer crash'); } } as never;
+    expect(await generateReport('2026-09-26', { build, writer, store: s, now: () => 1 })).toBe('failed');
+    expect(log).toEqual(['pending 2026-09-26', 'failed 2026-09-26 The writer stopped unexpectedly.']);
+  });
 });
