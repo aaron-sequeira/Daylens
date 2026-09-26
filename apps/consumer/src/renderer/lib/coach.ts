@@ -6,9 +6,12 @@ export function snoozeText(snoozeUntil: number, now: number): string {
   return snoozeUntil > now ? `Snoozed until ${formatClock(snoozeUntil)}` : 'Pop-ups are on';
 }
 
+// Onboarding categories no app name or window title contains, so a limit on them could never fire.
+const UNMATCHABLE = new Set(['games', 'news']);
+
 export function limitSuggestions(distractions: string[], existing: { app: string }[]): string[] {
   const have = new Set(existing.map((l) => l.app.toLowerCase()));
-  return distractions.filter((d) => !have.has(d.toLowerCase()));
+  return distractions.filter((d) => !have.has(d.toLowerCase()) && !UNMATCHABLE.has(d.toLowerCase()));
 }
 
 export function addLimit(list: { app: string; minutes: number }[], raw: string, minutes: number): { app: string; minutes: number }[] {

@@ -9,6 +9,7 @@ describe('coach UI helpers', () => {
   });
   it('suggests distraction apps not already limited', () => {
     expect(limitSuggestions(['YouTube', 'Discord'], [{ app: 'discord' }])).toEqual(['YouTube']);
+    expect(limitSuggestions(['Games', 'News', 'X / Twitter'], [])).toEqual(['X / Twitter']);
   });
   it('adds limits case-insensitively unique, max 20', () => {
     expect(addLimit([{ app: 'Discord', minutes: 30 }], ' discord ', 60)).toEqual([{ app: 'Discord', minutes: 30 }]);

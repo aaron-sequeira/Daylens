@@ -10,10 +10,13 @@ const FRESH_MS = 30 * MIN; // spec §4.2: labels may arrive up to 30 min after t
 const GAP_MS = 5 * MIN;   // reads further apart than this break a run
 const DISTRACTED = 1.5, STUCK = 1.5;
 
-/** First entry of `list` contained (case-insensitive) in the app name or window title. */
+// Names whose own text never shows up in titles: X tabs end in " / X".
+const ALIASES: Record<string, string[]> = { 'x / twitter': ['twitter', ' / x'] };
+
+/** First entry of `list` contained (case-insensitive, via ALIASES) in the app name or window title. */
 function matchDistraction(r: { appName: string; windowTitle: string | null }, list: string[]): string | null {
   const hay = `${r.appName} ${r.windowTitle ?? ''}`.toLowerCase();
-  return list.find((d) => hay.includes(d.toLowerCase())) ?? null;
+  return list.find((d) => (ALIASES[d.toLowerCase()] ?? [d.toLowerCase()]).some((n) => hay.includes(n))) ?? null;
 }
 
 export const doomscroll: Rule = (s) => {
