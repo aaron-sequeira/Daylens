@@ -24,12 +24,15 @@ describe('runLocal', () => {
     let f = fake(); let p = runLocal(req, { fork: () => f.child, timeoutMs: 1000 });
     f.msg({ op: 'error', message: 'load: bad file' });
     expect(await p).toMatchObject({ ok: false, reason: 'load' });
+    expect(f.child.killed).toBe(true);
     f = fake(); p = runLocal(req, { fork: () => f.child, timeoutMs: 1000 });
     f.msg({ op: 'error', message: 'boom' });
     expect(await p).toMatchObject({ ok: false, reason: 'error' });
+    expect(f.child.killed).toBe(true);
     f = fake(); p = runLocal(req, { fork: () => f.child, timeoutMs: 1000 });
     f.exit(3221225477);
     expect(await p).toMatchObject({ ok: false, reason: 'crash' });
+    expect(f.child.killed).toBe(true);
     vi.useFakeTimers();
     f = fake(); p = runLocal(req, { fork: () => f.child, timeoutMs: 1000 });
     vi.advanceTimersByTime(1001);
@@ -40,6 +43,7 @@ describe('runLocal', () => {
     const f = fake(); const p = runLocal(req, { fork: () => f.child, timeoutMs: 1000 });
     f.msg({ op: 'nope' });
     expect(await p).toMatchObject({ ok: false, reason: 'error' });
+    expect(f.child.killed).toBe(true);
     expect(await runLocal(req, { fork: () => { throw new Error('x'); }, timeoutMs: 1000 })).toMatchObject({ ok: false, reason: 'crash' });
   });
 });

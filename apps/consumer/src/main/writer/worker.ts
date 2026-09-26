@@ -27,6 +27,11 @@ process.parentPort.once('message', async (e) => {
     process.parentPort.postMessage({ op: 'written', json: grammar.parse(text) });
     setTimeout(() => process.exit(0), 2000);
   } catch (err) {
-    fail(err instanceof Error ? err.message : String(err), 1);
+    // grammar.parse() JSON.parses the model's raw text, then validates it against the schema; both failure paths
+    // (LlamaJsonSchemaValidationError, JSON SyntaxError) embed the model's raw output in err.message. The load-error
+    // path above is safe to forward verbatim (it describes the file, not the model), but this one is not: never let
+    // model output reach the main process's logs or stored error text, so post a fixed message instead.
+    const invalidOutput = err instanceof SyntaxError || (err as { constructor?: { name?: string } })?.constructor?.name === 'LlamaJsonSchemaValidationError';
+    fail(invalidOutput ? 'invalid output' : 'generation failed', 1);
   }
 });
