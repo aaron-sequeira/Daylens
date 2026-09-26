@@ -16,6 +16,11 @@ export function parseJsonText(text: string): unknown | null {
   try { return JSON.parse(t); } catch { return null; }
 }
 
+/** The job's system prompt plus the schema, spelled out: the cloud has no grammar, and node-llama-cpp's docs
+ * recommend describing the schema to the local model as well as constraining it with the grammar. */
+const systemWithSchema = (job: Pick<WriteJob<unknown>, 'system' | 'schema'>): string =>
+  job.system + '\n\nReply with only one JSON object matching this JSON schema (no prose, no code fences):\n' + JSON.stringify(job.schema);
+
 export function createWriter(deps: {
   mode(): 'local' | 'cloud';
   local(): { modelPath: string; model: string } | null;
@@ -25,9 +30,10 @@ export function createWriter(deps: {
 }): Writer {
   return {
     async write<T>(job: WriteJob<T>): Promise<WriteResult<T>> {
+      const system = systemWithSchema(job);
       if (deps.mode() === 'cloud') {
         for (let attempt = 0; attempt < 2; attempt++) {
-          const r = await deps.cloud({ system: job.system, user: job.user, maxTokens: job.maxTokens, json: true }, CLOUD_TIMEOUT_MS[job.kind]);
+          const r = await deps.cloud({ system, user: job.user, maxTokens: job.maxTokens, json: true }, CLOUD_TIMEOUT_MS[job.kind]);
           if (!r.ok) return { ok: false, reason: r.message ?? r.error };
           const parsed = parseJsonText(r.text);
           const value = parsed === null ? null : job.parse(parsed);
@@ -37,7 +43,7 @@ export function createWriter(deps: {
       }
       const m = deps.local();
       if (!m) return { ok: false, reason: 'no_model' };
-      const r = await deps.runLocal({ op: 'write', modelPath: m.modelPath, gpu: 'auto', schema: job.schema, system: job.system,
+      const r = await deps.runLocal({ op: 'write', modelPath: m.modelPath, gpu: 'auto', schema: job.schema, system,
         user: job.user, maxTokens: job.maxTokens, contextSize: CONTEXT_SIZE }, LOCAL_TIMEOUT_MS[job.kind]);
       if (!r.ok) return { ok: false, reason: r.message, local: r.reason };
       const value = job.parse(r.json);

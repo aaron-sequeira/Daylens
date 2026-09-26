@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createWriter, parseJsonText, type WriteJob } from './writer';
+import { REPORT_JSON_SCHEMA } from '../report/schema';
 
 const job: WriteJob<{ h: string }> = { kind: 'report', system: 's', user: 'u', schema: { type: 'object' }, maxTokens: 900,
   parse: (v) => (v && typeof (v as any).h === 'string' ? { h: (v as any).h } : null) };
@@ -14,8 +15,20 @@ describe('writer', () => {
     let seen: any; let t = 0;
     const w = createWriter(deps({ runLocal: async (r, ms) => { seen = r; t = ms; return { ok: true, json: { h: 'hi' } }; } }));
     expect(await w.write(job)).toEqual({ ok: true, value: { h: 'hi' }, model: 'Qwen3 4B' });
-    expect(seen).toMatchObject({ op: 'write', modelPath: 'C:/m.gguf', schema: { type: 'object' }, system: 's', user: 'u', maxTokens: 900 });
+    expect(seen).toMatchObject({ op: 'write', modelPath: 'C:/m.gguf', schema: { type: 'object' }, user: 'u', maxTokens: 900 });
+    expect(seen.system.startsWith('s\n\n')).toBe(true);
     expect(t).toBe(180_000);
+  });
+  it('tells both writers to reply with one JSON object matching the schema', async () => {
+    const rjob = { ...job, schema: REPORT_JSON_SCHEMA };
+    let cloudSystem = '', localSystem = '';
+    await createWriter(deps({ mode: () => 'cloud', cloud: async (r) => { cloudSystem = r.system; return { ok: true, text: '{"h":"x"}' }; } })).write(rjob);
+    await createWriter(deps({ runLocal: async (r) => { localSystem = r.system; return { ok: true, json: { h: 'x' } }; } })).write(rjob);
+    for (const s of [cloudSystem, localSystem]) {
+      expect(s).toMatch(/JSON/);
+      for (const k of ['headline', 'doBetter', 'candidateId']) expect(s).toContain(`"${k}"`);
+    }
+    expect(localSystem).toBe(cloudSystem);
   });
   it('fails when the local model is missing, and passes local failure reasons through', async () => {
     expect(await createWriter(deps({ local: () => null })).write(job)).toMatchObject({ ok: false, reason: 'no_model' });
