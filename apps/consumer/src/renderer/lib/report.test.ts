@@ -13,11 +13,13 @@ describe('report UI helpers', () => {
     const v = (o: object) => ({ status: 'none', writer: { state: 'ready', mode: 'local', model: 'm' }, waiting: false, running: false, stats: { screenSec: 100 }, ...o }) as never;
     expect(reportCardKind(v({ status: 'ready' }))).toBe('report');
     expect(reportCardKind(v({ running: true }))).toBe('writing');
+    expect(reportCardKind(v({ status: 'pending' }))).toBe('writing');
     expect(reportCardKind(v({ waiting: true }))).toBe('waiting');
     expect(reportCardKind(v({ status: 'failed' }))).toBe('failed');
     expect(reportCardKind(v({ writer: { state: 'missing', tier: '4b', sizeBytes: 1 } }))).toBe('download');
     expect(reportCardKind(v({ writer: { state: 'unavailable', reason: 'low_ram', text: 't' } }))).toBe('cloud_offer');
     expect(reportCardKind(v({ writer: { state: 'cloud_setup' } }))).toBe('cloud_offer');
+    expect(reportCardKind(v({ status: 'failed', writer: { state: 'unavailable', reason: 'low_ram', text: 't' } }))).toBe('cloud_offer');
     expect(reportCardKind(v({ stats: { screenSec: 0 } }))).toBe('empty');
     expect(reportCardKind(v({}))).toBe('generate');
   });

@@ -1,28 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReportView, WriterView } from '../../main/report/view';
 import type { PlanKind } from '../../main/report/schema';
-import { CATEGORY_LABEL, displayAppName, type Category } from '../../shared/categories';
+import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
 import { appColor, appInitials, formatHm } from '../lib/format';
 import { goalPercent, reportCardKind, reportDateLabel, useCountUp, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
+import { Timeline } from './Timeline';
 
 const PLAN_KIND_LABEL: Record<PlanKind, string> = {
   focus_block: 'focus mode', app_cap: 'app limit', break_interval: 'health nudge', wind_down: 'wind-down'
 };
+const sizeGb = (bytes: number): string => `${(bytes / 1e9).toFixed(1)} GB`;
 
 export function ReportsScreen({ print = false, date: fixedDate }: { print?: boolean; date?: string }) {
   const [date, setDate] = useState<string | null>(fixedDate ?? null);
   const [view, setView] = useState<ReportView | null>(null);
   const [writer, setWriter] = useState<WriterView | null>(null);
   const [showCloud, setShowCloud] = useState(false);
+  const [planError, setPlanError] = useState(false);
+
+  // Guards stale IPC results: only apply a resolved ReportView if it's still for the date on screen.
+  const dateRef = useRef<string | null>(date);
+  useEffect(() => { dateRef.current = date; }, [date]);
+  const accept = (v: ReportView): boolean => dateRef.current === null || dateRef.current === v.date;
 
   const load = (): void => {
-    api.reports.get(date).then(setView).catch((e) => console.error('[renderer] reports.get failed:', e)); // Task 11 adds the print-ready signal
-    api.writer.get().then(setWriter).catch(() => {});
+    api.reports.get(date).then((v) => { if (accept(v)) setView(v); }).catch((e) => console.error('[renderer] reports.get failed:', e)); // Task 11 adds the print-ready signal
+    api.writer.get().then(setWriter).catch((e) => console.error('[renderer] writer.get failed:', e));
   };
-  useEffect(() => { load(); if (print) return; return api.onUpdate(load); }, [date]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    let alive = true;
+    const guarded = (): void => { if (alive) load(); };
+    guarded();
+    if (print) return () => { alive = false; };
+    const off = api.onUpdate(guarded);
+    return () => { alive = false; off(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
 
   const animate = !print;
   const score = useCountUp(view?.stats?.health.score ?? 0, animate);
@@ -33,7 +49,19 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   const stats = view.stats;
   const report = view.report;
 
-  const regenerate = (): void => { api.reports.generate(view.date).then(setView).catch(() => {}); };
+  const act = (p: Promise<ReportView>, label: string): void => {
+    p.then((v) => { if (accept(v)) setView(v); }).catch((e) => { console.error(`[renderer] ${label} failed:`, e); load(); });
+  };
+  const regenerate = (): void => { act(api.reports.generate(view.date), 'reports.generate'); };
+  const download = (): void => {
+    api.writer.download().then(setWriter).catch((e) => { console.error('[renderer] writer.download failed:', e); load(); });
+  };
+  const tick = (i: number, on: boolean): void => {
+    setPlanError(false);
+    api.reports.tickPlan(view.date, i, on).then((v) => { if (accept(v)) setView(v); })
+      .catch((e) => { console.error('[renderer] reports.tickPlan failed:', e); setPlanError(true); load(); });
+  };
+  const canRegenerate = (view.status === 'ready' || view.status === 'failed') && view.writer.state === 'ready';
 
   const statusCard = () => {
     switch (kind) {
@@ -45,38 +73,45 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
         return (
           <div className="report-card">
             <p>Couldn't write this report: {view.error}</p>
-            <div className="btn-row"><button className="btn" onClick={regenerate}>Retry</button></div>
+            {!print && <div className="btn-row"><button className="btn" onClick={regenerate}>Retry</button></div>}
           </div>
         );
-      case 'download':
+      case 'download': {
+        const w = view.writer;
+        const missing = w.state === 'missing';
         return (
           <div className="report-card">
-            <p>Download the writer ({writerStatusText(view.writer)}) for written reports</p>
-            <div className="btn-row">
-              <button className="btn" onClick={() => { api.writer.download().then(setWriter).catch(() => {}); }}>Download</button>
-              <button className="btn s" onClick={() => setShowCloud((v) => !v)}>Use cloud instead</button>
-            </div>
-            {showCloud && writer && <CloudSetup view={writer} onSaved={(v) => { setWriter(v); load(); }} />}
+            <p>{missing ? `Download the writer (${sizeGb(w.sizeBytes)}) for written reports` : writerStatusText(w)}</p>
+            {!print && (
+              <div className="btn-row">
+                {missing && <button className="btn" onClick={download}>Download</button>}
+                <button className="btn s" onClick={() => setShowCloud((v) => !v)}>Use cloud instead</button>
+              </div>
+            )}
+            {!print && showCloud && writer && <CloudSetup view={writer} onSaved={(v) => { setWriter(v); load(); }} />}
           </div>
         );
-      case 'cloud_offer':
+      }
+      case 'cloud_offer': {
+        const w = view.writer;
         return (
           <div className="report-card">
-            <p>Can't write reports on this PC? Use your own AI key</p>
-            {view.writer.state === 'unavailable' && <p className="report-note">{view.writer.text}</p>}
-            {writer && (
+            {w.state === 'unavailable' && (
               <>
-                <p className="report-note">Or use your own AI key:</p>
-                <CloudSetup view={writer} onSaved={(v) => { setWriter(v); load(); }} />
+                <p>Can't write reports on this PC?</p>
+                <p className="report-note">{w.text}</p>
+                <p className="report-note">Use your own AI key:</p>
               </>
             )}
+            {!print && writer && <CloudSetup view={writer} onSaved={(v) => { setWriter(v); load(); }} />}
           </div>
         );
+      }
       case 'generate':
         return (
           <div className="report-card">
             <p>No report yet for this day</p>
-            <div className="btn-row"><button className="btn" onClick={regenerate}>Generate</button></div>
+            {!print && <div className="btn-row"><button className="btn" onClick={regenerate}>Generate</button></div>}
           </div>
         );
       case 'empty':
@@ -90,6 +125,8 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   const activePct = stats && stats.screenSec > 0 ? Math.round((stats.activeSec / stats.screenSec) * 100) : 0;
   const deepPct = stats && stats.activeSec > 0 ? Math.round((stats.deepWorkSec / stats.activeSec) * 100) : 0;
   const topMax = stats?.topApps[0]?.seconds ?? 0;
+  const [ty, tm, td] = view.date.split('-').map(Number);
+  const timelineNow = view.date === view.today ? Date.now() : new Date(ty, tm - 1, td + 1).getTime();
 
   return (
     <>
@@ -101,7 +138,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
           {kind === 'report' && view.model && (
             <span className="badge"><i />Written {view.writer.state === 'ready' && view.writer.mode === 'local' ? 'on-device' : 'in the cloud'} · {view.model}</span>
           )}
-          {!print && <button className="btn s" onClick={regenerate}>Regenerate</button>}
+          {!print && canRegenerate && <button className="btn s" onClick={regenerate}>Regenerate</button>}
         </div>
 
         {kind === 'report' && report ? (
@@ -117,11 +154,31 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
         ) : statusCard()}
 
         {stats && stats.screenSec > 0 && (
+          <Timeline date={view.date} segments={view.timeline} now={timelineNow} longestStretchSec={stats.health.longestStretchSec} highlight="all" />
+        )}
+
+        {kind !== 'report' && kind !== 'empty' && view.candidates.length > 0 && (
+          <div className="report-card">
+            <h2>What Daylens noticed</h2>
+            <ul className="candidates">
+              {view.candidates.map((c) => (
+                <li key={c.id}>
+                  {c.text}
+                  {!print && c.sample && <details><summary>Screen extract</summary><p>{c.sample}</p></details>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {stats && stats.screenSec > 0 && (
           <div className="stats">
             <div className="stat" style={{ animationDelay: '.1s' }}>
               <small>Screen time</small><b>{formatHm(stats.screenSec)}</b>
               {screenDeltaPct !== null && (
-                <em className={screenDeltaPct <= 0 ? 'down' : 'up'}>{screenDeltaPct <= 0 ? '↓' : '↑'} {Math.abs(screenDeltaPct)}% vs avg</em>
+                screenDeltaPct === 0
+                  ? <em className="flat">same as avg</em>
+                  : <em className={screenDeltaPct < 0 ? 'down' : 'up'}>{screenDeltaPct < 0 ? '↓' : '↑'} {Math.abs(screenDeltaPct)}% vs avg</em>
               )}
             </div>
             <div className="stat" style={{ animationDelay: '.16s' }}><small>Actively used</small><b>{formatHm(stats.activeSec)}</b><em className="flat">{activePct}% of screen time</em></div>
@@ -170,10 +227,11 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
                 {report.plan.map((p, i) => (
                   <label key={i}>
                     <input type="checkbox" checked={view.ticked.includes(p.text)} disabled={print}
-                      onChange={(e) => { api.reports.tickPlan(view.date, i, e.target.checked).then(setView).catch(() => {}); }} />
+                      onChange={(e) => tick(i, e.target.checked)} />
                     {p.text}<span className="add">{PLAN_KIND_LABEL[p.kind]}</span>
                   </label>
                 ))}
+                {planError && <p className="report-note" role="alert">Couldn't update the plan, try again.</p>}
               </div>
             )}
 
@@ -202,15 +260,6 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
                   <div>{displayAppName(a.appName)}<div className="tr"><div style={{ width: `${topMax > 0 ? Math.round((a.seconds / topMax) * 100) : 0}%` }} /></div></div>
                   <em>{formatHm(a.seconds)}</em>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {stats.categories.length > 0 && (
-            <div className="box" style={{ animationDelay: '.36s' }}>
-              <h3>Time by category</h3>
-              {[...stats.categories].sort((a, b) => b.seconds - a.seconds).map((c) => (
-                <div className="hrow" key={c.category}><span>{CATEGORY_LABEL[c.category as Category] ?? c.category}</span><span>{formatHm(c.seconds)}</span></div>
               ))}
             </div>
           )}
