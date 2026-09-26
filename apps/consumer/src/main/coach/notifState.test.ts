@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { execFile } from 'node:child_process';
-import { parseHoldSignals, queryNotificationState, SCRIPT } from './notifState';
+import { MEETING_EXE, MEETING_PKG, parseHoldSignals, queryNotificationState, SCRIPT } from './notifState';
 
 // The script reads the live HKCU consent store and process list, so its filtering can't be driven with fixtures
 // without writing fake keys into the user's registry. These checks pin its shape; the Windows-only run proves it
@@ -13,6 +13,15 @@ describe('hold-signals script', () => {
     expect(SCRIPT.match(/Get-Process/g)).toHaveLength(1);
     expect(SCRIPT).toContain('if ($null -eq $run)'); // lazily, once
     expect(SCRIPT).toContain('$run = @{}'); // PowerShell hashtables compare keys case-insensitively
+  });
+  it('counts only meeting/call apps, not Discord or games', () => {
+    const exe = new RegExp(MEETING_EXE, 'i'), pkg = new RegExp(MEETING_PKG, 'i');
+    for (const n of ['Zoom', 'ms-teams', 'chrome', 'msedge', 'Slack', 'firefox']) expect(exe.test(n)).toBe(true);
+    for (const n of ['Discord', 'deadlock', 'steam', 'searchapp', 'obs64']) expect(exe.test(n)).toBe(false);
+    expect(pkg.test('MSTeams_8wekyb3d8bbwe')).toBe(true);
+    expect(pkg.test('Microsoft.WindowsSoundRecorder_8wekyb3d8bbwe')).toBe(false);
+    expect(SCRIPT).toContain('-match $mp');
+    expect(SCRIPT).toContain("-replace '\\.exe$', '') -match $me");
   });
   it('prints nothing but "<state> <mic>"', () => {
     expect(SCRIPT.trim().endsWith("'{0} {1}' -f $s, $m")).toBe(true);
