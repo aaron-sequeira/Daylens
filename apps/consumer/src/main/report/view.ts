@@ -1,6 +1,6 @@
 import type { ModelStatus } from '../models/downloader';
 import { UNAVAILABLE_TEXT, type Unavailable } from '../writer/availability';
-import { WRITER_MODELS, type WriterTier } from '../writer/config';
+import { WRITER_MODELS, writerNeedBytes, type WriterTier } from '../writer/config';
 import type { TimelineSegment } from '../day/today';
 import type { ReportCandidate } from './candidates';
 import type { ReportStats } from './input';
@@ -18,12 +18,17 @@ export interface ReportView {
   status: 'none' | 'pending' | 'ready' | 'failed'; report: ReportJson | null; error: string | null; model: string | null;
   stats: ReportStats | null; timeline: TimelineSegment[]; candidates: ReportCandidate[];
   ticked: string[]; writer: WriterState; waiting: boolean; running: boolean; autoPaused: boolean;
+  /** GB of free memory the local writer waits for. */
+  needGb: number;
 }
 // Kept here (rather than in ipc.ts, which imports electron) so the renderer can type-import it too.
 export interface WriterView {
   state: WriterState; mode: 'local' | 'cloud'; tier: '' | WriterTier; autoTier: WriterTier;
   provider: string; model: string; baseUrl: string; hasKey: boolean; attribution: string;
 }
+
+/** Free memory a local write needs (the Phase 5 gate's writer need), in GB with one decimal, for the waiting card. */
+export const needGb = (tier: WriterTier): number => Math.round(writerNeedBytes(tier) / 1e8) / 10;
 
 export function writerState(i: { mode: 'local' | 'cloud'; hasKey: boolean; cloudModel: string; tier: WriterTier; model: ModelStatus; unavailable: Unavailable | null }): WriterState {
   if (i.mode === 'cloud') return i.hasKey ? { state: 'ready', mode: 'cloud', model: i.cloudModel } : { state: 'cloud_setup' };

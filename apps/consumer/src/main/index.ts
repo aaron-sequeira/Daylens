@@ -51,7 +51,7 @@ import { buildEpisodes } from './report/episodes';
 import { buildCandidates } from './report/candidates';
 import { buildReportInput, buildStats, forCloud, type ReportStats } from './report/input';
 import type { ReportCandidate } from './report/candidates';
-import { writerState, navDates, type ReportView, type WriterView } from './report/view';
+import { writerState, navDates, needGb, type ReportView, type WriterView } from './report/view';
 
 app.setName('Daylens');
 const startHidden = process.argv.includes('--hidden');
@@ -440,7 +440,8 @@ if (!app.requestSingleInstanceLock()) {
         status: row?.status ?? 'none', report: row?.report ?? null, error: row?.error?.startsWith('load:') ? friendlyReason(row.error) : row?.error ?? null, model: row?.model ?? null,
         stats, timeline, candidates, ticked: reportStore.tickedTexts(d),
         writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
-        waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused()
+        waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused(),
+        needGb: needGb(writerTier())
       };
     };
     // Also refreshes free disk for download / retryLocal, which both answer with writerView().

@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { navDates, writerState } from './view';
+import { navDates, needGb, writerState } from './view';
 
 describe('report view helpers', () => {
   it('navigates between report days and today', () => {
     expect(navDates('2026-09-25', '2026-09-26', ['2026-09-26', '2026-09-25', '2026-09-20'])).toEqual({ prevDate: '2026-09-20', nextDate: '2026-09-26' });
     expect(navDates('2026-09-26', '2026-09-26', ['2026-09-25'])).toEqual({ prevDate: '2026-09-25', nextDate: null });
     expect(navDates('2026-09-20', '2026-09-26', ['2026-09-20'])).toEqual({ prevDate: null, nextDate: '2026-09-26' });
+  });
+  it('states the free memory a local write needs, in GB with one decimal (model file + 1 GiB)', () => {
+    expect(needGb('4b')).toBe(3.6);   // 2 497 281 120 + 1 073 741 824 bytes
+    expect(needGb('1.7b')).toBe(2.2); // 1 107 409 472 + 1 073 741 824 bytes
   });
   it('derives the writer state, preferring an unavailable reason over "missing" in local mode', () => {
     const base = { mode: 'local' as const, hasKey: false, cloudModel: 'claude-haiku-4-5', tier: '4b' as const, unavailable: null };

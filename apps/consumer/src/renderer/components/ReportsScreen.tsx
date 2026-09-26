@@ -83,7 +83,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
       case 'writing':
         return <div className="report-card"><p>Writing your report…</p></div>;
       case 'waiting':
-        return <div className="report-card"><p>Waiting for a quiet moment to write your report (it needs about 3.5 GB of free memory).</p></div>;
+        return <div className="report-card"><p>Waiting for a quiet moment to write your report (it needs about {view.needGb.toFixed(1)} GB of free memory).</p></div>;
       case 'failed':
         return (
           <div className="report-card">
