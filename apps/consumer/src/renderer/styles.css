@@ -311,9 +311,9 @@ main.report { overflow-y: auto; padding: 10px 12px 20px 10px; }
 .report .better { background: #fff; border-radius: 22px; padding: 18px; margin-bottom: 26px; animation: rise .6s var(--ease) both; }
 .report .fix { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
 .report .fix:first-of-type { border-top: 0; padding-top: 0; }
-.report .fix .was, .report .fix .now { border-radius: 14px; padding: 12px 14px; font-size: 13px; line-height: 1.45; }
+.report .fix .was, .report .fix .better-way { border-radius: 14px; padding: 12px 14px; font-size: 13px; line-height: 1.45; }
 .report .fix .was { background: #FBF1F1; }
-.report .fix .now { background: #EEF9F3; }
+.report .fix .better-way { background: #EEF9F3; }
 .report .fix small { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; opacity: .6; }
 .report details { margin-top: 8px; }
 .report summary { cursor: pointer; font-size: 11px; color: var(--muted); }

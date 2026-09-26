@@ -235,7 +235,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
                           <details><summary>Screen extract</summary><p>{candidate.sample}</p></details>
                         )}
                       </div>
-                      <div className="now"><small>Faster way</small>{d.better}</div>
+                      <div className="better-way"><small>Faster way</small>{d.better}</div>
                     </div>
                   );
                 })}
