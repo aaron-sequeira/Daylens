@@ -193,6 +193,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.39.0
+        version: 0.39.0(encoding@0.1.13)
       active-win:
         specifier: ^8.2.1
         version: 8.2.1(encoding@0.1.13)

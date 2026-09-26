@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./adapters": "./src/adapters.ts",
     "./types": "./src/types.ts",
-    "./date": "./src/date.ts"
+    "./date": "./src/date.ts",
+    "./ai": "./src/ai/complete.ts"
   },
   "scripts": {
     "pretest": "pnpm rebuild better-sqlite3",
@@ -15,6 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "active-win": "^8.2.1",
     "better-sqlite3": "^11.8.1",
     "uiohook-napi": "^1.5.4"
