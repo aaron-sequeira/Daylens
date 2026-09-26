@@ -17,7 +17,7 @@ import { createScreenReader, runRetention } from './screen/reader';
 import { readProfile } from './profile';
 import { createLabelStore } from './screen/labels';
 import { createLabelScheduler, type BrainChild } from './brain/scheduler';
-import { createDownloader } from './models/downloader';
+import { createDownloader, type ModelStatus } from './models/downloader';
 import { LAYA_MANIFEST } from './models/manifest';
 import { batchAllowed, LAYA_NEED_BYTES } from './brain/resources';
 import { COACH_SCHEMA, createCoachStore } from './coach/store';
@@ -37,7 +37,7 @@ import { loadTodayView, type TimelineSegment } from './day/today';
 import { dayBounds, shiftDate } from './day/time';
 import { createSecretStore } from './writer/secrets';
 import { resolveTier, tierFor, writerManifest, writerNeedBytes, WRITER_ATTRIBUTION, WRITER_MODELS, type WriterTier } from './writer/config';
-import { localUnavailable, type Unavailable } from './writer/availability';
+import { countsAsFailure, localUnavailable, type Unavailable } from './writer/availability';
 import { createWriter } from './writer/writer';
 import { runLocal, type WriterChild } from './writer/run';
 import { createReportStore, REPORT_SQL } from './report/store';
@@ -274,17 +274,40 @@ if (!app.requestSingleInstanceLock()) {
     });
     // Declared before any downloader callback can use it.
     const writerHealth = { downloadFailures: 0, loadFailed: false, crashes: [] as number[], consecutiveTimeouts: 0 };
+    const CRASH_WINDOW_MS = 10 * 60_000;
+    const pushCrash = (): void => {
+      const now = Date.now();
+      writerHealth.crashes = [...writerHealth.crashes.filter((t) => now - t < CRASH_WINDOW_MS), now];
+    };
+    let freeDiskCache: number | null = null;
+    const refreshFreeDisk = (): void => {
+      void statfs(app.getPath('userData')).then((s) => { freeDiskCache = s.bavail * s.bsize; }).catch(() => {});
+    };
+    refreshFreeDisk();
     const writerTier = (): WriterTier => resolveTier(settings.get().writerModelTier, totalmem());
     const writerDirFor = (t: WriterTier): string => join(app.getPath('userData'), 'models', 'writer', t);
-    const makeWriterDownloader = (t: WriterTier) => createDownloader({
-      dir: writerDirFor(t), manifest: writerManifest(t), fetch: globalThis.fetch,
-      freeBytes: async (d) => { const s = await statfs(d); return s.bavail * s.bsize; },
-      onStatus: (st) => { if (st.state === 'error') writerHealth.downloadFailures++; win?.webContents.send(CH.eventsUpdate); }
-    });
+    const makeWriterDownloader = (t: WriterTier) => {
+      let prevStatus: ModelStatus = { state: 'missing' };
+      let lastPush = 0;
+      return createDownloader({
+        dir: writerDirFor(t), manifest: writerManifest(t), fetch: globalThis.fetch,
+        freeBytes: async (d) => { const s = await statfs(d); return s.bavail * s.bsize; },
+        onStatus: (st) => {
+          // "Download failed twice" must be reachable: count real failed attempts (a fresh retry, or an
+          // error), not every progress tick. An installed model makes past failures irrelevant.
+          if (countsAsFailure(prevStatus, st)) writerHealth.downloadFailures++;
+          if (st.state === 'ready') writerHealth.downloadFailures = 0;
+          if (st.state === 'error' && st.reason === 'no_space') refreshFreeDisk();
+          prevStatus = st;
+          const now = Date.now();
+          if (st.state === 'downloading' && now - lastPush < 2000) return; // progress pushes at most 1/2s
+          lastPush = now;
+          win?.webContents.send(CH.eventsUpdate);
+        }
+      });
+    };
     let writerDl = makeWriterDownloader(writerTier());
-    void writerDl.init(); // verifies an existing file; never starts a download by itself
-    let freeDiskCache: number | null = null;
-    void statfs(app.getPath('userData')).then((s) => { freeDiskCache = s.bavail * s.bsize; }).catch(() => {});
+    void writerDl.init().catch((e) => console.error('[writer] init failed:', e)); // verifies an existing file; never starts a download by itself
     const unavailable = (): Unavailable | null => localUnavailable({
       totalRam: totalmem(), freeDisk: freeDiskCache, model: WRITER_MODELS[writerTier()], installed: writerDl.status().state === 'ready',
       downloadFailures: writerHealth.downloadFailures, declined: settings.get().writerDeclined, loadFailed: writerHealth.loadFailed,
@@ -343,7 +366,7 @@ if (!app.requestSingleInstanceLock()) {
       lowBattery: async () => powerMonitor.isOnBatteryPower() && ((await batteryPercent()) ?? 100) < 20,
       generate: async (date) => {
         const outcome = await generateReport(date, { build: buildReportFor, writer, store: reportStore, now: () => Date.now() });
-        if (outcome === 'crash') writerHealth.crashes.push(Date.now());
+        if (outcome === 'crash') pushCrash();
         if (outcome === 'load') writerHealth.loadFailed = true;
         writerHealth.consecutiveTimeouts = outcome === 'timeout' ? writerHealth.consecutiveTimeouts + 1 : outcome === 'ok' ? 0 : writerHealth.consecutiveTimeouts;
         return outcome;
@@ -475,7 +498,14 @@ if (!app.requestSingleInstanceLock()) {
       },
       reports: {
         view: (date) => reportView(date),
-        generate: (date) => { reportScheduler.request(date); void reportScheduler.tick(); return reportView(date); },
+        generate: (date) => {
+          const today = localDate(Date.now());
+          // Future dates and a date already being written are both no-ops: just report the current view.
+          if (date > today || reportScheduler.running() === date) return reportView(date);
+          reportScheduler.request(date);
+          void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e));
+          return reportView(date);
+        },
         tickPlan: (date, index, on) => {
           const item = reportStore.get(date)?.report?.plan[index];
           if (item) reportStore.tick(date, item, on);
@@ -484,15 +514,21 @@ if (!app.requestSingleInstanceLock()) {
       },
       writer: {
         view: () => writerView(),
-        download: () => { settings.set({ writerDeclined: false }); writerHealth.downloadFailures = 0; writerDl.start(); return writerView(); },
-        remove: async () => { writerDl.stop(); await writerDl.remove(); return writerView(); },
+        download: () => { settings.set({ writerDeclined: false }); writerDl.start(); return writerView(); },
+        remove: async () => {
+          // Never delete the local model out from under a report that's actively being written with it.
+          if (settings.get().writerMode === 'local' && reportScheduler.running() !== null) return writerView();
+          writerDl.stop();
+          await writerDl.remove();
+          return writerView();
+        },
         decline: () => { settings.set({ writerDeclined: true }); return writerView(); },
         setMode: (m) => { settings.set({ writerMode: m }); return writerView(); },
         setTier: async (t) => {
           writerDl.stop(); // keep the old file: only settings + the downloader instance switch
           settings.set({ writerModelTier: t });
           writerDl = makeWriterDownloader(writerTier());
-          await writerDl.init();
+          await writerDl.init().catch((e) => console.error('[writer] init failed:', e));
           return writerView();
         },
         setCloud: (c) => {

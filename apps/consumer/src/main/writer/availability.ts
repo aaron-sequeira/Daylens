@@ -1,3 +1,4 @@
+import type { ModelStatus } from '../models/downloader';
 import type { WriterModel } from './config';
 
 const GiB = 1024 ** 3;
@@ -18,6 +19,15 @@ export function localUnavailable(i: AvailabilityInput): Unavailable | null {
   if (i.crashes.filter((t) => i.now - t < CRASH_WINDOW_MS).length >= 3) return 'crashes';
   if (i.consecutiveTimeouts >= 2) return 'timeouts';
   return null;
+}
+
+/** One failed download attempt: entering `error`, or a fresh retry (not already retrying). Plain
+ * progress (received bytes moving, or staying in the same retrying/non-retrying state) never counts. */
+export function countsAsFailure(prev: ModelStatus, next: ModelStatus): boolean {
+  if (next.state === 'error') return true;
+  const wasRetrying = prev.state === 'downloading' && prev.retrying;
+  const isRetrying = next.state === 'downloading' && next.retrying;
+  return isRetrying && !wasRetrying;
 }
 
 export const UNAVAILABLE_TEXT: Record<Unavailable, string> = {

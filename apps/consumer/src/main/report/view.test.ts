@@ -12,7 +12,9 @@ describe('report view helpers', () => {
     expect(writerState({ ...base, model: { state: 'missing' } })).toMatchObject({ state: 'missing', tier: '4b', sizeBytes: 2_497_281_120 });
     expect(writerState({ ...base, model: { state: 'missing' }, unavailable: 'low_ram' })).toMatchObject({ state: 'unavailable', reason: 'low_ram', text: expect.stringContaining('8 GB') });
     expect(writerState({ ...base, model: { state: 'ready' } })).toEqual({ state: 'ready', mode: 'local', model: 'Qwen3 4B' });
+    expect(writerState({ ...base, model: { state: 'ready' }, unavailable: 'crashes' })).toMatchObject({ state: 'unavailable', reason: 'crashes' });
     expect(writerState({ ...base, model: { state: 'downloading', received: 5, total: 10, retrying: false } })).toEqual({ state: 'downloading', received: 5, total: 10 });
+    expect(writerState({ ...base, model: { state: 'verifying' } })).toEqual({ state: 'verifying' });
     expect(writerState({ ...base, mode: 'cloud', model: { state: 'missing' }, unavailable: 'low_ram' })).toEqual({ state: 'cloud_setup' });
     expect(writerState({ ...base, mode: 'cloud', hasKey: true, model: { state: 'missing' } })).toEqual({ state: 'ready', mode: 'cloud', model: 'claude-haiku-4-5' });
   });
