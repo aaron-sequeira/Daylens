@@ -6,6 +6,7 @@ import { TitleBar } from './components/TitleBar';
 import { Rail, type Route } from './components/Rail';
 import { Onboarding } from './components/Onboarding';
 import { TodayScreen } from './components/TodayScreen';
+import { ReportsScreen } from './components/ReportsScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 
 type OnboardingState = { mode: 'first' | 'redo'; initial: Profile };
@@ -53,7 +54,9 @@ export default function App() {
       <TitleBar tracking={!settings.trackingPaused} />
       <div className={`shell${route === 'settings' ? ' wide' : ''}`}>
         <Rail route={route} onNavigate={setRoute} />
-        {route === 'today' ? <TodayScreen settings={settings} onChange={setSettings} /> : <SettingsScreen settings={settings} onChange={setSettings} onRedo={redo} />}
+        {route === 'today' && <TodayScreen settings={settings} onChange={setSettings} />}
+        {route === 'reports' && <ReportsScreen />}
+        {route === 'settings' && <SettingsScreen settings={settings} onChange={setSettings} onRedo={redo} />}
       </div>
     </>
   );
