@@ -367,6 +367,8 @@ if (!app.requestSingleInstanceLock()) {
     };
     // Bumped by "Delete my activity": a report written across it must not be stored.
     let reportEpoch = 0;
+    // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.
+    let suspendedDuringWrite = false;
     reportScheduler = createReportScheduler({
       now: () => Date.now(),
       windDown: (d) => planOverrides(reportStore.plan(d), d).windDownTime ?? settings.get().windDownTime,
@@ -380,7 +382,16 @@ if (!app.requestSingleInstanceLock()) {
       otherJobRunning: () => scheduler.status().state === 'running',
       lowBattery: async () => powerMonitor.isOnBatteryPower() && ((await batteryPercent()) ?? 100) < 20,
       generate: async (date) => {
+        suspendedDuringWrite = false;
         const outcome = await generateReport(date, { build: buildReportFor, writer, store: reportStore, now: () => Date.now(), epoch: () => reportEpoch });
+        const slept = suspendedDuringWrite;
+        suspendedDuringWrite = false;
+        if (slept && (outcome === 'timeout' || outcome === 'crash')) {
+          // Not counted (no crash, no timeout). Drop the failed row so the automatic rule writes the day again later;
+          // a kept good report (failed regenerate) stays.
+          if (reportStore.get(date)?.status !== 'ready') reportStore.delete(date);
+          return 'failed';
+        }
         if (outcome === 'crash') pushCrash();
         if (outcome === 'load') writerHealth.loadFailed = true;
         writerHealth.consecutiveTimeouts = outcome === 'timeout' ? writerHealth.consecutiveTimeouts + 1 : outcome === 'ok' ? 0 : writerHealth.consecutiveTimeouts;
@@ -714,7 +725,10 @@ if (!app.requestSingleInstanceLock()) {
     app.on('before-quit', () => { quitting = true; tracker.stop(); ocr.stop(); downloader.stop(); writerDl.stop(); });
     // Sleep must not count as screen time: stop (closes the session, flushes the bucket) before suspend and
     // restart on wake. tracker.stop() is idempotent, so suspending while paused writes nothing.
-    powerMonitor.on('suspend', () => tracker.stop());
+    powerMonitor.on('suspend', () => {
+      tracker.stop();
+      if (reportScheduler.running()) suspendedDuringWrite = true;
+    });
     powerMonitor.on('resume', () => {
       const cur = settings.get();
       if (cur.consentGranted && !cur.trackingPaused) tracker.start();

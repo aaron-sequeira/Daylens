@@ -25,6 +25,13 @@ describe('report store', () => {
     s.setReady('2026-09-26', rep, 'Qwen3 4B', 3);
     expect(s.get('2026-09-26')?.error).toBeNull();
   });
+  it('deletes one day\'s row so the automatic rule can write it again', () => {
+    const { s } = mk();
+    s.setFailed('2026-09-26', 'The writer took too long.', 1); s.setReady('2026-09-25', rep, 'm', 1);
+    s.delete('2026-09-26');
+    expect(s.get('2026-09-26')).toBeNull();
+    expect(s.dates()).toEqual(['2026-09-25']);
+  });
   it('lists dates newest first and fails rows left pending by a restart', () => {
     const { s } = mk();
     s.setReady('2026-09-24', rep, 'm', 1); s.setPending('2026-09-26', 1); s.setReady('2026-09-25', rep, 'm', 1);
