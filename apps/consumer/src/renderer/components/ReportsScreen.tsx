@@ -87,7 +87,8 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
       case 'failed':
         return (
           <div className="report-card">
-            <p>Couldn't write this report: {view.error}</p>
+            {/* Stored reasons are short sentences ("The writer took too long."); older raw ones ("interrupted") get a lead-in. */}
+            <p>{view.error?.endsWith('.') ? view.error : `Couldn't write this report${view.error ? `: ${view.error}` : '.'}`}</p>
             {!print && <div className="btn-row"><button className="btn" onClick={regenerate}>Retry</button></div>}
           </div>
         );
@@ -154,6 +155,9 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
             <span className="badge"><i />Written {view.writer.state === 'ready' && view.writer.mode === 'local' ? 'on-device' : 'in the cloud'} · {view.model}</span>
           )}
           {!print && canRegenerate && <button className="btn s" onClick={regenerate}>Regenerate</button>}
+          {!print && kind === 'report' && (view.running
+            ? <span className="report-note" role="status">Rewriting…</span>
+            : view.error && <span className="report-note" role="status">Couldn't regenerate: {view.error}</span>)}
           {!print && (
             <div className="rep-actions">
               <button className="export" onClick={exportPdf}>Export PDF</button>

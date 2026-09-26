@@ -45,7 +45,7 @@ import { createReportStore, REPORT_SQL } from './report/store';
 import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
 import { createReportScheduler, type ReportScheduler } from './report/scheduler';
-import { generateReport } from './report/generate';
+import { friendlyReason, generateReport } from './report/generate';
 import { batteryPercent } from './report/battery';
 import { buildEpisodes } from './report/episodes';
 import { buildCandidates } from './report/candidates';
@@ -365,6 +365,8 @@ if (!app.requestSingleInstanceLock()) {
         candidateIds: new Set(candidates.map((c) => c.id)), view, candidates, stats
       };
     };
+    // Bumped by "Delete my activity": a report written across it must not be stored.
+    let reportEpoch = 0;
     reportScheduler = createReportScheduler({
       now: () => Date.now(),
       windDown: (d) => planOverrides(reportStore.plan(d), d).windDownTime ?? settings.get().windDownTime,
@@ -378,7 +380,7 @@ if (!app.requestSingleInstanceLock()) {
       otherJobRunning: () => scheduler.status().state === 'running',
       lowBattery: async () => powerMonitor.isOnBatteryPower() && ((await batteryPercent()) ?? 100) < 20,
       generate: async (date) => {
-        const outcome = await generateReport(date, { build: buildReportFor, writer, store: reportStore, now: () => Date.now() });
+        const outcome = await generateReport(date, { build: buildReportFor, writer, store: reportStore, now: () => Date.now(), epoch: () => reportEpoch });
         if (outcome === 'crash') pushCrash();
         if (outcome === 'load') writerHealth.loadFailed = true;
         writerHealth.consecutiveTimeouts = outcome === 'timeout' ? writerHealth.consecutiveTimeouts + 1 : outcome === 'ok' ? 0 : writerHealth.consecutiveTimeouts;
@@ -407,7 +409,8 @@ if (!app.requestSingleInstanceLock()) {
       const s = settings.get();
       return {
         date: d, prevDate, nextDate, today,
-        status: row?.status ?? 'none', report: row?.report ?? null, error: row?.error ?? null, model: row?.model ?? null,
+        // Rows stored before friendly reasons existed may hold a raw `load: <path>` error: never show that.
+        status: row?.status ?? 'none', report: row?.report ?? null, error: row?.error?.startsWith('load:') ? friendlyReason(row.error) : row?.error ?? null, model: row?.model ?? null,
         stats, timeline, candidates, ticked: reportStore.tickedTexts(d),
         writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
         waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused()
@@ -671,6 +674,7 @@ if (!app.requestSingleInstanceLock()) {
           // A failed delete must not leave tracking/OCR silently off: restart them (and re-sync OCR)
           // whether deleteActivity succeeds or throws.
           try {
+            reportEpoch++; // before the delete: an in-flight report write must not re-create a row afterwards
             deleteActivity(db);
             pill.dismissAll(); // any on-screen nudges reference rows that just got wiped
             checkpoint(db);

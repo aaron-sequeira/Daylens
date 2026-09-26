@@ -23,6 +23,8 @@ export interface PlanItemRow { id: number; forDate: string; sourceDate: string; 
 export interface ReportStore {
   get(date: string): ReportRow | null; dates(): string[];
   setPending(date: string, now: number): void; setReady(date: string, report: ReportJson, model: string, now: number): void; setFailed(date: string, error: string, now: number): void;
+  /** A regenerate failed: keep the row (and its good report), only record why. */
+  noteError(date: string, error: string): void;
   clearPending(now: number): void;
   plan(forDate: string): PlanItemRow[]; tickedTexts(sourceDate: string): string[];
   tick(sourceDate: string, item: PlanItem, on: boolean): void; setEnabled(id: number, on: boolean): void;
@@ -37,6 +39,7 @@ export function createReportStore(db: Database.Database): ReportStore {
   const one = db.prepare('SELECT * FROM daily_reports WHERE date = ?');
   const all = db.prepare('SELECT date FROM daily_reports ORDER BY date DESC');
   const stale = db.prepare("UPDATE daily_reports SET status = 'failed', error = 'interrupted', generated_at = ? WHERE status = 'pending'");
+  const note = db.prepare('UPDATE daily_reports SET error = ? WHERE date = ?');
   const planFor = db.prepare('SELECT * FROM plan_items WHERE for_date = ? ORDER BY id');
   const bySource = db.prepare('SELECT text FROM plan_items WHERE source_date = ? ORDER BY id');
   const find = db.prepare('SELECT id FROM plan_items WHERE source_date = ? AND kind = ? AND text = ?');
@@ -70,6 +73,7 @@ export function createReportStore(db: Database.Database): ReportStore {
     setPending: (date, now) => put(date, 'pending', null, null, now, null),
     setReady: (date, report, model, now) => put(date, 'ready', report, model, now, null),
     setFailed: (date, error, now) => put(date, 'failed', null, null, now, error),
+    noteError: (date, error) => { note.run(error, date); },
     clearPending: (now) => { stale.run(now); },
     plan: (forDate) => (planFor.all(forDate) as RawPlan[]).map(toPlan).filter((p): p is PlanItemRow => p !== null),
     tickedTexts: (sourceDate) => (bySource.all(sourceDate) as { text: string }[]).map((r) => r.text),

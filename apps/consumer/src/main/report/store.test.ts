@@ -17,6 +17,14 @@ describe('report store', () => {
     s.setFailed('2026-09-26', 'timeout', 3);
     expect(s.get('2026-09-26')).toMatchObject({ status: 'failed', error: 'timeout', report: null });
   });
+  it('notes a failed regenerate on a ready report without losing it, and a new report clears the note', () => {
+    const { s } = mk();
+    s.setReady('2026-09-26', rep, 'Qwen3 4B', 2);
+    s.noteError('2026-09-26', 'The writer took too long.');
+    expect(s.get('2026-09-26')).toMatchObject({ status: 'ready', report: rep, model: 'Qwen3 4B', generatedAt: 2, error: 'The writer took too long.' });
+    s.setReady('2026-09-26', rep, 'Qwen3 4B', 3);
+    expect(s.get('2026-09-26')?.error).toBeNull();
+  });
   it('lists dates newest first and fails rows left pending by a restart', () => {
     const { s } = mk();
     s.setReady('2026-09-24', rep, 'm', 1); s.setPending('2026-09-26', 1); s.setReady('2026-09-25', rep, 'm', 1);
