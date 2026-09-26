@@ -37,3 +37,12 @@ describe('screen reading opt-in', () => {
     expect(settingsPatch.safeParse({ screenReadingAsked: 'yes' }).success).toBe(false);
   });
 });
+
+describe('writer settings', () => {
+  it('has writer defaults', () => {
+    expect(DEFAULT_SETTINGS).toMatchObject({ writerMode: 'local', writerModelTier: '', aiProvider: 'anthropic' });
+  });
+  it('protects writer settings from the renderer', () => {
+    expect(() => settingsPatch.parse({ writerMode: 'cloud' })).toThrow();
+  });
+});

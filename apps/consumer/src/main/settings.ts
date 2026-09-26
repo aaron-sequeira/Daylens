@@ -26,7 +26,13 @@ export const DEFAULT_SETTINGS = {
   nudgeKinds: '{"health":true,"behaviour":true,"tip":true,"win":true}',
   snoozeUntil: 0,
   appLimits: '[]',
-  nudgeFewer: '{}'
+  nudgeFewer: '{}',
+  writerMode: 'local' as 'local' | 'cloud',
+  writerModelTier: '',
+  writerDeclined: false,
+  aiProvider: 'anthropic',
+  aiModel: 'claude-haiku-4-5',
+  aiBaseUrl: ''
 };
 export type DaylensSettings = typeof DEFAULT_SETTINGS;
 
