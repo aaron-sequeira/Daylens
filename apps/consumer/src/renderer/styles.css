@@ -98,6 +98,7 @@ button { font: inherit; color: inherit; }
 .btn { border: 0; border-radius: 999px; padding: 12px 22px; font-weight: 600; font-size: 14px; cursor: pointer; background: var(--ink); color: #fff; transition: transform .25s var(--spring); width: max-content; }
 .btn:hover { transform: scale(1.04); }
 .btn.s { background: var(--white); color: var(--ink); border: 1px solid var(--line); }
+.btn.s.on { background: var(--ink); color: #fff; }
 .btn:disabled, .ob-link:disabled { opacity: .5; cursor: default; }
 .btn:disabled:hover { transform: none; }
 
@@ -114,6 +115,11 @@ button { font: inherit; color: inherit; }
 .srow input[type=time], .srow input[type=text], .srow select { font: inherit; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; background: var(--win); }
 .srow input[type=text] { width: 220px; }
 .srow-error { color: #B42318; font-size: 12.5px; padding: 0 0 10px; }
+.cloud-setup { display: grid; gap: 8px; margin-top: 12px; }
+.cloud-setup label { display: block; }
+.cloud-setup input[type=text], .cloud-setup input[type=password], .cloud-setup input[type=url] { font: inherit; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; background: var(--win); width: 100%; }
+.cloud-note { color: var(--muted); font-size: 12.5px; margin-bottom: 8px; }
+.cloud-error { background: #F4C6C8; border-radius: 8px; padding: 8px 10px; color: #B42318; font-size: 12.5px; }
 .sw { flex: none; width: 36px; height: 22px; border: 0; border-radius: 22px; background: rgba(0, 0, 0, .18); position: relative; cursor: pointer; transition: background .3s; }
 .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .35s var(--spring); }
 .sw.on { background: var(--ink); }

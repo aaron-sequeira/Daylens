@@ -6,6 +6,7 @@ import { MAX_TEXT, type Profile } from '../../shared/profileOptions';
 import { profileSummary } from '../lib/onboardingContent';
 import { PrivacySection } from './PrivacySection';
 import { ModelSection } from './ModelSection';
+import { WriterSection } from './WriterSection';
 import { PopupsSection } from './PopupsSection';
 
 const GOAL_DEBOUNCE_MS = 300;
@@ -97,6 +98,7 @@ export function SettingsScreen({ settings, onChange, onRedo }: { settings: Dayle
 
       <PrivacySection settings={settings} onChange={onChange} />
       <ModelSection settings={settings} />
+      <WriterSection />
       <PopupsSection />
 
       <div className="grp">
