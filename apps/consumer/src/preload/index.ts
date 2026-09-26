@@ -1,10 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { TrackingStatus } from '@worksight/core/types';
+import type { AiProvider } from '@worksight/core/ai';
 import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
 import type { PrivacyView, ModelsView, CoachView } from '../main/ipc';
+import type { ReportView, WriterView } from '../main/report/view';
 
 const api = {
   today: (date: string): Promise<TodayView> => ipcRenderer.invoke(CH.todayGet, { date }),
@@ -41,6 +43,21 @@ const api = {
     setLimits: (l: { app: string; minutes: number }[]): Promise<CoachView> => ipcRenderer.invoke(CH.coachSetLimits, l),
     dismissHeld: (id: number): Promise<CoachView> => ipcRenderer.invoke(CH.coachDismissHeld, id),
     test: (): Promise<void> => ipcRenderer.invoke(CH.coachTest)
+  },
+  reports: {
+    get: (date?: string | null): Promise<ReportView> => ipcRenderer.invoke(CH.reportsGet, date ?? null),
+    generate: (date: string): Promise<ReportView> => ipcRenderer.invoke(CH.reportsGenerate, date),
+    tickPlan: (date: string, index: number, on: boolean): Promise<ReportView> => ipcRenderer.invoke(CH.reportsTickPlan, { date, index, on })
+  },
+  writer: {
+    get: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerGet),
+    download: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerDownload),
+    remove: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerDelete),
+    decline: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerDecline),
+    setMode: (m: 'local' | 'cloud'): Promise<WriterView> => ipcRenderer.invoke(CH.writerSetMode, m),
+    setTier: (t: '' | '4b' | '1.7b'): Promise<WriterView> => ipcRenderer.invoke(CH.writerSetTier, t),
+    setCloud: (c: { provider: AiProvider; model: string; baseUrl: string; key?: string }): Promise<WriterView> => ipcRenderer.invoke(CH.writerSetCloud, c),
+    retryLocal: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerRetryLocal)
   },
   onUpdate: (cb: () => void): (() => void) => {
     const listener = (): void => cb();

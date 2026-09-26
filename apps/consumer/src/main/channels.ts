@@ -22,5 +22,16 @@ export const CH = {
   coachSnooze: 'coach:snooze',
   coachSetLimits: 'coach:setLimits',
   coachDismissHeld: 'coach:dismissHeld',
-  coachTest: 'coach:test'
+  coachTest: 'coach:test',
+  reportsGet: 'reports:get',
+  reportsGenerate: 'reports:generate',
+  reportsTickPlan: 'reports:tickPlan',
+  writerGet: 'writer:get',
+  writerDownload: 'writer:download',
+  writerDelete: 'writer:delete',
+  writerDecline: 'writer:decline',
+  writerSetMode: 'writer:setMode',
+  writerSetTier: 'writer:setTier',
+  writerSetCloud: 'writer:setCloud',
+  writerRetryLocal: 'writer:retryLocal'
 } as const;

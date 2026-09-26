@@ -1,12 +1,13 @@
-import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityProcess, globalShortcut, screen } from 'electron';
+import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityProcess, globalShortcut, screen, safeStorage } from 'electron';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { statfs } from 'node:fs/promises';
-import { freemem } from 'node:os';
+import { freemem, totalmem } from 'node:os';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
 import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
 import { localDate } from '@worksight/core/date';
+import { complete, type AiProvider } from '@worksight/core/ai';
 import { CH } from './channels';
 import { registerIpc } from './ipc';
 import { DEFAULT_SETTINGS } from './settings';
@@ -25,14 +26,29 @@ import { ruleWeight } from './coach/weights';
 import { holdReason, type Rect } from './coach/gate';
 import { queryNotificationState } from './coach/notifState';
 import { parseFewer, parseKinds, parseLimits } from './coach/settings';
-import { searchTitlesFrom } from './coach/activity';
+import { repeatedSearches, searchTitlesFrom, switchesBetween } from './coach/activity';
+import { limitUsage } from './coach/rules/behaviour';
 import { parseExclusions } from './screen/exclusions';
 import { createPillManager, pillMessage, PILL_W, PILL_MARGIN } from './windows/pill';
 import { electronPillWindow } from './windows/pillElectron';
 import { createBreakOverlay, breakMessage } from './windows/breakOverlay';
 import { electronBreakWindow } from './windows/breakOverlayElectron';
-import { loadTodayView } from './day/today';
-import { shiftDate } from './day/time';
+import { loadTodayView, type TimelineSegment } from './day/today';
+import { dayBounds, shiftDate } from './day/time';
+import { createSecretStore } from './writer/secrets';
+import { resolveTier, tierFor, writerManifest, writerNeedBytes, WRITER_ATTRIBUTION, WRITER_MODELS, type WriterTier } from './writer/config';
+import { localUnavailable, type Unavailable } from './writer/availability';
+import { createWriter } from './writer/writer';
+import { runLocal, type WriterChild } from './writer/run';
+import { createReportStore, REPORT_SQL } from './report/store';
+import { createReportScheduler, type ReportScheduler } from './report/scheduler';
+import { generateReport } from './report/generate';
+import { batteryPercent } from './report/battery';
+import { buildEpisodes } from './report/episodes';
+import { buildCandidates } from './report/candidates';
+import { buildReportInput, buildStats, type ReportStats } from './report/input';
+import type { ReportCandidate } from './report/candidates';
+import { writerState, navDates, type ReportView, type WriterView } from './report/view';
 
 app.setName('Daylens');
 const startHidden = process.argv.includes('--hidden');
@@ -113,13 +129,17 @@ if (!app.requestSingleInstanceLock()) {
         kill: () => { child.kill(); }
       };
     };
+    // Assigned once the report scheduler exists (after the coach wiring, below); the label scheduler's
+    // canStart is defined before that, so it forward-references this holder rather than the scheduler itself.
+    let reportScheduler!: ReportScheduler;
     const scheduler = createLabelScheduler({
       store: labelStore, fork: forkBrain, modelReady: () => downloader.status().state === 'ready',
       modelDir, now: () => Date.now(), onChange: () => win?.webContents.send(CH.eventsUpdate),
+      // Labelling and report writing must never run at the same time (both can be memory/CPU heavy).
       canStart: () => batchAllowed({
         freeBytes: freemem(), idleSec: powerMonitor.getSystemIdleTime(),
         locked: powerMonitor.getSystemIdleState(60) === 'locked', needBytes: LAYA_NEED_BYTES
-      })
+      }) && reportScheduler.running() === null
     });
     // Gate syncModel until the startup init() (which hashes the model on disk) has settled, so a settings
     // change landing mid-hash can't race it into starting/stopping a run init hasn't finished evaluating.
@@ -244,6 +264,128 @@ if (!app.requestSingleInstanceLock()) {
       coach.tick().catch((e) => console.error('[coach] tick failed:', e)).finally(() => { coaching = false; });
     }, 30_000);
 
+    // --- Writer (local model + cloud) and the daily report scheduler (Task 7) ---
+    db.exec(REPORT_SQL);
+    const reportStore = createReportStore(db);
+    reportStore.clearPending(Date.now());
+    const secrets = createSecretStore(db, {
+      encrypt: (s) => (safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(s) : Buffer.from(s, 'utf8')),
+      decrypt: (b) => (safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(b) : b.toString('utf8'))
+    });
+    // Declared before any downloader callback can use it.
+    const writerHealth = { downloadFailures: 0, loadFailed: false, crashes: [] as number[], consecutiveTimeouts: 0 };
+    const writerTier = (): WriterTier => resolveTier(settings.get().writerModelTier, totalmem());
+    const writerDirFor = (t: WriterTier): string => join(app.getPath('userData'), 'models', 'writer', t);
+    const makeWriterDownloader = (t: WriterTier) => createDownloader({
+      dir: writerDirFor(t), manifest: writerManifest(t), fetch: globalThis.fetch,
+      freeBytes: async (d) => { const s = await statfs(d); return s.bavail * s.bsize; },
+      onStatus: (st) => { if (st.state === 'error') writerHealth.downloadFailures++; win?.webContents.send(CH.eventsUpdate); }
+    });
+    let writerDl = makeWriterDownloader(writerTier());
+    void writerDl.init(); // verifies an existing file; never starts a download by itself
+    let freeDiskCache: number | null = null;
+    void statfs(app.getPath('userData')).then((s) => { freeDiskCache = s.bavail * s.bsize; }).catch(() => {});
+    const unavailable = (): Unavailable | null => localUnavailable({
+      totalRam: totalmem(), freeDisk: freeDiskCache, model: WRITER_MODELS[writerTier()], installed: writerDl.status().state === 'ready',
+      downloadFailures: writerHealth.downloadFailures, declined: settings.get().writerDeclined, loadFailed: writerHealth.loadFailed,
+      crashes: writerHealth.crashes, consecutiveTimeouts: writerHealth.consecutiveTimeouts, now: Date.now()
+    });
+    const forkWriter = (): WriterChild => {
+      const child = utilityProcess.fork(join(__dirname, 'writer.js'), [], { serviceName: 'Daylens Writer', stdio: 'ignore' });
+      child.on('error', (type) => console.error('[writer] utility process error:', type));
+      return { post: (m) => child.postMessage(m), onMessage: (cb) => { child.on('message', cb); }, onExit: (cb) => { child.on('exit', cb); }, kill: () => { child.kill(); } };
+    };
+    const writer = createWriter({
+      mode: () => settings.get().writerMode,
+      local: () => (writerDl.status().state === 'ready'
+        ? { modelPath: join(writerDirFor(writerTier()), WRITER_MODELS[writerTier()].file), model: WRITER_MODELS[writerTier()].label }
+        : null),
+      runLocal: (req, ms) => runLocal(req, { fork: forkWriter, timeoutMs: ms }),
+      cloud: (req, ms) => {
+        const s = settings.get();
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), ms);
+        return complete(req, { apiKey: secrets.get(s.aiProvider), model: s.aiModel, provider: s.aiProvider as AiProvider, baseUrl: s.aiBaseUrl, title: 'Daylens', signal: ctrl.signal })
+          .finally(() => clearTimeout(t));
+      },
+      cloudModel: () => settings.get().aiModel
+    });
+    const buildReportFor = (date: string) => {
+      const s = settings.get();
+      const { end } = dayBounds(date);
+      const now = Math.min(Date.now(), end);
+      const view = loadTodayView(repo, s, date, now, (d) => labelStore.labelsForDay(d), (d) => coachStore.completedBreaksForDay(d));
+      const episodes = buildEpisodes(labelStore.readsForDay(date), s.screenReading);
+      const sessions = repo.getFocusSessions(date);
+      const titles = searchTitlesFrom(Array.from({ length: 7 }, (_, i) => repo.getFocusSessions(shiftDate(date, -i))).flat(), parseExclusions(s.exclusions));
+      const candidates = buildCandidates({
+        episodes, searches: repeatedSearches(titles),
+        nudges: coachStore.since(dayBounds(date).start).filter((n) => n.date === date).map((n) => ({ id: n.id, ruleId: n.ruleId, title: n.title, status: n.status })),
+        caps: limitUsage(parseLimits(s.appLimits), sessions, now)
+      });
+      const stats = buildStats(view, episodes, switchesBetween(sessions, dayBounds(date).start, now));
+      return {
+        input: buildReportInput({ stats, episodes, candidates, goals: { dailyGoalMin: s.dailyGoalMin, windDownTime: s.windDownTime, breakIntervalMin: s.breakIntervalMin } }),
+        candidateIds: new Set(candidates.map((c) => c.id)), view, candidates, stats
+      };
+    };
+    reportScheduler = createReportScheduler({
+      now: () => Date.now(),
+      windDown: () => settings.get().windDownTime, // Task 8 swaps in the plan override
+      row: (d) => reportStore.get(d),
+      hasActivity: (d) => repo.getFocusSessions(d).length > 0,
+      canWrite: () => (settings.get().writerMode === 'cloud' ? secrets.has(settings.get().aiProvider) : writerDl.status().state === 'ready' && unavailable() === null),
+      gateOk: () => settings.get().writerMode === 'cloud' || batchAllowed({
+        freeBytes: freemem(), idleSec: powerMonitor.getSystemIdleTime(),
+        locked: powerMonitor.getSystemIdleState(60) === 'locked', needBytes: writerNeedBytes(writerTier())
+      }),
+      otherJobRunning: () => scheduler.status().state === 'running',
+      lowBattery: async () => powerMonitor.isOnBatteryPower() && ((await batteryPercent()) ?? 100) < 20,
+      generate: async (date) => {
+        const outcome = await generateReport(date, { build: buildReportFor, writer, store: reportStore, now: () => Date.now() });
+        if (outcome === 'crash') writerHealth.crashes.push(Date.now());
+        if (outcome === 'load') writerHealth.loadFailed = true;
+        writerHealth.consecutiveTimeouts = outcome === 'timeout' ? writerHealth.consecutiveTimeouts + 1 : outcome === 'ok' ? 0 : writerHealth.consecutiveTimeouts;
+        return outcome;
+      },
+      onChange: () => win?.webContents.send(CH.eventsUpdate)
+    });
+    setInterval(() => { void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e)); }, 60_000);
+    const reportView = (date: string | null): ReportView => {
+      const rows = reportStore.dates();
+      const today = localDate(Date.now());
+      const d = date ?? rows[0] ?? today;
+      const row = reportStore.get(d);
+      let stats: ReportStats | null = null;
+      let timeline: TimelineSegment[] = [];
+      let candidates: ReportCandidate[] = [];
+      try {
+        const built = buildReportFor(d);
+        stats = built.stats;
+        timeline = built.view.timeline;
+        candidates = built.candidates;
+      } catch (e) {
+        console.error('[report] view build failed:', e);
+      }
+      const { prevDate, nextDate } = navDates(d, today, rows);
+      const s = settings.get();
+      return {
+        date: d, prevDate, nextDate, today,
+        status: row?.status ?? 'none', report: row?.report ?? null, error: row?.error ?? null, model: row?.model ?? null,
+        stats, timeline, candidates, ticked: reportStore.tickedTexts(d),
+        writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
+        waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused()
+      };
+    };
+    const writerView = (): WriterView => {
+      const s = settings.get();
+      return {
+        state: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
+        mode: s.writerMode, tier: s.writerModelTier as '' | WriterTier, autoTier: tierFor(totalmem()),
+        provider: s.aiProvider, model: s.aiModel, baseUrl: s.aiBaseUrl, hasKey: secrets.has(s.aiProvider), attribution: WRITER_ATTRIBUTION
+      };
+    };
+
     let lastPush = 0;
     // ponytail: drop pushes closer than 2 s; the renderer also polls every 30 s, so a dropped push only delays by <30 s.
     const pushUpdate = (): void => {
@@ -330,6 +472,44 @@ if (!app.requestSingleInstanceLock()) {
         dismissHeld: (id) => { if (coachStore.expireHeld(id)) win?.webContents.send(CH.eventsUpdate); },
         test: () => { pill.show({ id: --testPillId, kind: 'health', mini: 'Eye break', stat: 'test', title: 'Give your eyes a break', body: 'This is how Daylens pop-ups look. They never take your keyboard focus.', primaryLabel: 'Nice', offerFewer: false }); },
         onChanged: () => refreshTray()
+      },
+      reports: {
+        view: (date) => reportView(date),
+        generate: (date) => { reportScheduler.request(date); void reportScheduler.tick(); return reportView(date); },
+        tickPlan: (date, index, on) => {
+          const item = reportStore.get(date)?.report?.plan[index];
+          if (item) reportStore.tick(date, item, on);
+          return reportView(date);
+        }
+      },
+      writer: {
+        view: () => writerView(),
+        download: () => { settings.set({ writerDeclined: false }); writerHealth.downloadFailures = 0; writerDl.start(); return writerView(); },
+        remove: async () => { writerDl.stop(); await writerDl.remove(); return writerView(); },
+        decline: () => { settings.set({ writerDeclined: true }); return writerView(); },
+        setMode: (m) => { settings.set({ writerMode: m }); return writerView(); },
+        setTier: async (t) => {
+          writerDl.stop(); // keep the old file: only settings + the downloader instance switch
+          settings.set({ writerModelTier: t });
+          writerDl = makeWriterDownloader(writerTier());
+          await writerDl.init();
+          return writerView();
+        },
+        setCloud: (c) => {
+          settings.set({ aiProvider: c.provider, aiModel: c.model, aiBaseUrl: c.baseUrl });
+          if (c.key) secrets.set(c.provider, c.key);
+          settings.set({ writerMode: 'cloud' });
+          return writerView();
+        },
+        retryLocal: () => {
+          writerHealth.loadFailed = false;
+          writerHealth.crashes = [];
+          writerHealth.consecutiveTimeouts = 0;
+          writerHealth.downloadFailures = 0;
+          settings.set({ writerDeclined: false });
+          reportScheduler.resume();
+          return writerView();
+        }
       },
       models: {
         view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
@@ -455,7 +635,7 @@ if (!app.requestSingleInstanceLock()) {
       console.error('[main] tray setup failed (tracking unaffected):', e);
     }
 
-    app.on('before-quit', () => { quitting = true; tracker.stop(); ocr.stop(); downloader.stop(); });
+    app.on('before-quit', () => { quitting = true; tracker.stop(); ocr.stop(); downloader.stop(); writerDl.stop(); });
     // Sleep must not count as screen time: stop (closes the session, flushes the bucket) before suspend and
     // restart on wake. tracker.stop() is idempotent, so suspending while paused writes nothing.
     powerMonitor.on('suspend', () => tracker.stop());

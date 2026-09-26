@@ -14,8 +14,11 @@ import type { DayLabel } from './screen/labels';
 import { kindsInput, limitsInput, snoozeInput, parseFewer, parseKinds, parseLimits, resetFewerOnEnable } from './coach/settings';
 import { nextEarlyMorning } from './day/time';
 import type { AppLimit, Kind } from './coach/types';
+import type { AiProvider } from '@worksight/core/ai';
+import type { ReportView, WriterView } from './report/view';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
+const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export interface PrivacyView {
   screenReading: boolean;
@@ -44,6 +47,23 @@ export interface ModelsDeps {
 export interface CoachView { kinds: Record<Kind, boolean>; snoozeUntil: number; limits: AppLimit[]; held: { id: number; at: number; kind: Kind; title: string; body: string }[]; }
 export interface CoachIpcDeps { held(): CoachView['held']; dismissHeld(id: number): void; test(): void; onChanged(): void; }
 
+export interface ReportsDeps {
+  view(date: string | null): ReportView;
+  generate(date: string): ReportView;
+  tickPlan(date: string, index: number, on: boolean): ReportView;
+}
+export interface WriterCloudInput { provider: AiProvider; model: string; baseUrl: string; key?: string; }
+export interface WriterDeps {
+  view(): WriterView;
+  download(): WriterView;
+  remove(): Promise<WriterView>;
+  decline(): WriterView;
+  setMode(m: 'local' | 'cloud'): WriterView;
+  setTier(t: '' | '4b' | '1.7b'): Promise<WriterView>;
+  setCloud(c: WriterCloudInput): WriterView;
+  retryLocal(): WriterView;
+}
+
 export interface IpcDeps {
   repo: Repositories;
   settings: KvStore<DaylensSettings>;
@@ -56,6 +76,8 @@ export interface IpcDeps {
   labelsFor(date: string): DayLabel[];
   breaksFor(date: string): number[];
   coach: CoachIpcDeps;
+  reports: ReportsDeps;
+  writer: WriterDeps;
 }
 
 export function registerIpc(d: IpcDeps): void {
@@ -128,4 +150,22 @@ export function registerIpc(d: IpcDeps): void {
   });
   ipcMain.handle(CH.coachDismissHeld, (_e, raw) => { d.coach.dismissHeld(z.number().int().parse(raw)); return coachView(); });
   ipcMain.handle(CH.coachTest, () => { d.coach.test(); });
+
+  ipcMain.handle(CH.reportsGet, (_e, raw) => d.reports.view(raw === null || raw === undefined ? null : dateStr.parse(raw)));
+  ipcMain.handle(CH.reportsGenerate, (_e, raw) => d.reports.generate(dateStr.parse(raw)));
+  ipcMain.handle(CH.reportsTickPlan, (_e, raw) => {
+    const v = z.object({ date: dateStr, index: z.number().int().min(0).max(3), on: z.boolean() }).strict().parse(raw);
+    return d.reports.tickPlan(v.date, v.index, v.on);
+  });
+  ipcMain.handle(CH.writerGet, () => d.writer.view());
+  ipcMain.handle(CH.writerDownload, () => d.writer.download());
+  ipcMain.handle(CH.writerDelete, () => d.writer.remove());
+  ipcMain.handle(CH.writerDecline, () => d.writer.decline());
+  ipcMain.handle(CH.writerSetMode, (_e, raw) => d.writer.setMode(z.enum(['local', 'cloud']).parse(raw)));
+  ipcMain.handle(CH.writerSetTier, (_e, raw) => d.writer.setTier(z.enum(['', '4b', '1.7b']).parse(raw)));
+  ipcMain.handle(CH.writerSetCloud, (_e, raw) => d.writer.setCloud(z.object({
+    provider: z.enum(['anthropic', 'openai', 'gemini', 'openrouter', 'custom']), model: z.string().trim().min(1).max(120),
+    baseUrl: z.string().trim().max(300).refine((u) => u === '' || /^https:\/\//.test(u), 'https only'), key: z.string().trim().min(1).max(400).optional()
+  }).strict().parse(raw)));
+  ipcMain.handle(CH.writerRetryLocal, () => d.writer.retryLocal());
 }
