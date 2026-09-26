@@ -110,4 +110,11 @@ describe('label store', () => {
       { id: a, at: 2000, appName: 'Code', windowTitle: 't', text: 'b', category: 'work', conf: 0.8, activity: 'coding', stuck: 1.6, distraction: 0.2 }
     ]);
   });
+  it('excludes legacy uncertain-category reads for a day, but keeps unlabelled ones', () => {
+    const a = add(1000, 'a', 'ha', 'Code', '2026-09-25');
+    const b = add(2000, 'b', 'hb', 'Code', '2026-09-25'); // stays unlabelled (category NULL)
+    // simulates a legacy dev-DB row from before Laya always stored its own choice
+    labels.applyLabels([{ id: a, category: 'uncertain', categoryConf: 0.2, activity: null, activityConf: null, stuck: null, distraction: null }], 3000);
+    expect(labels.readsForDay('2026-09-25').map((r) => r.id)).toEqual([b]);
+  });
 });

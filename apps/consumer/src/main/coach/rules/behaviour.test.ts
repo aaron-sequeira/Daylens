@@ -95,4 +95,10 @@ describe('app_cap', () => {
     const sessions = [sess('Discord', T(9), null), sess('Code', T(9, 5), T(12))];
     expect(appCap(snap({ limits: [{ app: 'Discord', minutes: 30 }], sessions, now: T(12) }))).toBeNull();
   });
+  it('compares exact milliseconds against the limit, not rounded minutes', () => {
+    const short = snap({ limits: [{ app: 'Discord', minutes: 30 }], sessions: [sess('Discord', T(10), T(10) + 29 * MIN + 45_000)] }); // 29:45, rounds to 30 min
+    expect(appCap(short)).toBeNull();
+    const long = snap({ limits: [{ app: 'Discord', minutes: 30 }], sessions: [sess('Discord', T(10), T(10) + 30 * MIN + 1_000)] }); // 30:01
+    expect(appCap(long)).toMatchObject({ ruleId: 'app_cap' });
+  });
 });

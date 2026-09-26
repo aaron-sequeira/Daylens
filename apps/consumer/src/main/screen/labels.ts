@@ -57,8 +57,9 @@ export function createLabelStore(db: Database.Database): LabelStore {
   const day = db.prepare(`SELECT at, app_name AS appName, category, category_conf AS conf FROM screen_reads WHERE date = ? AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
   const recent = db.prepare(`SELECT at, app_name AS appName, window_title AS windowTitle, category, category_conf AS conf, stuck, distraction
     FROM screen_reads WHERE at >= ? AND labeled_at IS NOT NULL AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
+  // category IS NULL OR <> 'uncertain': keeps unlabelled reads (category NULL) but drops legacy uncertain rows, like the queries above.
   const dayReads = db.prepare(`SELECT id, at, app_name AS appName, window_title AS windowTitle, text, category, category_conf AS conf,
-    activity, stuck, distraction FROM screen_reads WHERE date = ? ORDER BY at, id`);
+    activity, stuck, distraction FROM screen_reads WHERE date = ? AND (category IS NULL OR category <> 'uncertain') ORDER BY at, id`);
   const applyAll = db.transaction((results: StoredLabel[], now: number) => { for (const r of results) upd.run({ ...r, now }); });
   return {
     unlabelled: (limit) => unl.all(limit) as ReadToLabel[],

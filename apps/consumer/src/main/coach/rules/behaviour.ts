@@ -79,17 +79,18 @@ export const stuckEscape: Rule = (s) => {
 };
 
 /** Minutes used against each limit today. A limit matches the app name or the window title, so
- * "YouTube" counts YouTube tabs in any browser; the latest session may still be open (runs to now). */
-export function limitUsage(limits: AppLimit[], sessions: FocusSessionRow[], now: number): { app: string; minutes: number; usedMin: number }[] {
+ * "YouTube" counts YouTube tabs in any browser; the latest session may still be open (runs to now).
+ * `usedMs` is the raw unrounded total (for exact limit comparisons); `usedMin` is for display/reporting. */
+export function limitUsage(limits: AppLimit[], sessions: FocusSessionRow[], now: number): { app: string; minutes: number; usedMin: number; usedMs: number }[] {
   const latest = sessions.reduce<FocusSessionRow | undefined>((a, x) => (!a || x.startedAt > a.startedAt ? x : a), undefined);
   return limits.map((l) => {
     const ms = sessions.filter((x) => matchDistraction(x, [l.app])).reduce((a, x) => { const iv = sessionInterval(x, x === latest, now); return a + (iv.end - iv.start); }, 0);
-    return { app: l.app, minutes: l.minutes, usedMin: Math.round(ms / MIN) };
+    return { app: l.app, minutes: l.minutes, usedMin: Math.round(ms / MIN), usedMs: ms };
   });
 }
 
 export const appCap: Rule = (s) => {
-  const hit = limitUsage(s.limits, s.sessions, s.now).find((u) => u.usedMin * MIN >= u.minutes * MIN);
+  const hit = limitUsage(s.limits, s.sessions, s.now).find((u) => u.usedMs >= u.minutes * MIN);
   if (!hit) return null;
   return { ruleId: 'app_cap', kind: 'behaviour', key: `app_cap:${hit.app}:${s.date}`, mini: `${hit.app} limit`, stat: hm(hit.minutes),
     title: `${hit.app}: ${hm(hit.minutes)} limit reached`, body: `You've used ${hit.app} for ${hm(hit.usedMin)} today. Time to close it?`,
