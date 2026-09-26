@@ -36,9 +36,12 @@ export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {
         const isManual = manual.length > 0;
         const date = isManual ? manual[0] : paused ? null : autoDue();
         const wait = (w: string | null): void => { if (w !== waiting) { waiting = w; change(); } };
-        if (!date || !d.canWrite()) { wait(date && isManual ? date : null); return; }
-        if (!isManual && await d.lowBattery()) { wait(null); return; }
+        if (!date) { wait(null); return; }
+        // No usable writer: drop a manual request (so it can't block the queue), and don't call anything "waiting".
+        if (!d.canWrite()) { if (isManual) manual.shift(); wait(null); return; }
+        // Cheap checks first: the battery query spawns a process, so only ask once the gate is open.
         if (!d.gateOk() || d.otherJobRunning()) { wait(date); return; }
+        if (!isManual && await d.lowBattery()) { wait(null); return; }
         if (isManual) manual.shift();
         running = date; wait(null); change();
         void (async () => {

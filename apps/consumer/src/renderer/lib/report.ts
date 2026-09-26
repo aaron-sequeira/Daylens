@@ -18,10 +18,10 @@ export type CardKind = 'report' | 'writing' | 'waiting' | 'failed' | 'download' 
 export function reportCardKind(v: ReportView): CardKind {
   if (v.status === 'ready') return 'report';
   if (v.running || v.status === 'pending') return 'writing';
-  if (v.waiting) return 'waiting';
   if (v.writer.state === 'unavailable' || v.writer.state === 'cloud_setup') return 'cloud_offer';
-  if (v.status === 'failed') return 'failed';
   if (v.writer.state === 'missing' || v.writer.state === 'downloading' || v.writer.state === 'verifying') return 'download';
+  if (v.waiting) return 'waiting';
+  if (v.status === 'failed') return 'failed';
   if (!v.stats || v.stats.screenSec === 0) return 'empty';
   return 'generate';
 }

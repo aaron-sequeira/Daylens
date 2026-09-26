@@ -41,6 +41,22 @@ describe('report scheduler', () => {
     gate = true; await s.tick(); expect(ran).toEqual([]);
     busy = false; await s.tick(); expect(ran).toEqual(['2026-09-26']); expect(s.waiting()).toBeNull();
   });
+  it('drops a manual request the writer cannot serve, instead of reporting it as waiting', async () => {
+    let can = false;
+    const { s, ran } = mk({ canWrite: () => can, hasActivity: () => false });
+    s.request('2026-09-20'); s.request('2026-09-21');
+    await s.tick();
+    expect(s.waiting()).toBeNull();
+    can = true; await s.tick();
+    expect(ran).toEqual(['2026-09-21']); // 09-20 was dropped; the next request is not blocked behind it
+  });
+  it('checks the memory gate and labelling before asking for the battery level', async () => {
+    let gate = false, busy = false, asked = 0;
+    const { s, ran } = mk({ gateOk: () => gate, otherJobRunning: () => busy, lowBattery: async () => { asked++; return false; }, hasActivity: (d) => d === '2026-09-26' });
+    await s.tick(); expect(asked).toBe(0); expect(s.waiting()).toBe('2026-09-26');
+    gate = true; busy = true; await s.tick(); expect(asked).toBe(0);
+    busy = false; await s.tick(); expect(asked).toBe(1); expect(ran).toEqual(['2026-09-26']);
+  });
   it('holds automatic runs on low battery but not manual ones', async () => {
     const { s, ran } = mk({ lowBattery: async () => true, hasActivity: (d) => d === '2026-09-26' });
     await s.tick(); expect(ran).toEqual([]);

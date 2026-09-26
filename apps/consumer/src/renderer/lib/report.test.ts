@@ -20,6 +20,10 @@ describe('report UI helpers', () => {
     expect(reportCardKind(v({ writer: { state: 'unavailable', reason: 'low_ram', text: 't' } }))).toBe('cloud_offer');
     expect(reportCardKind(v({ writer: { state: 'cloud_setup' } }))).toBe('cloud_offer');
     expect(reportCardKind(v({ status: 'failed', writer: { state: 'unavailable', reason: 'low_ram', text: 't' } }))).toBe('cloud_offer');
+    // A writer that can't run outranks "waiting": waiting for memory is pointless without one.
+    expect(reportCardKind(v({ waiting: true, writer: { state: 'cloud_setup' } }))).toBe('cloud_offer');
+    expect(reportCardKind(v({ waiting: true, writer: { state: 'missing', tier: '4b', sizeBytes: 1 } }))).toBe('download');
+    expect(reportCardKind(v({ waiting: true, status: 'failed' }))).toBe('waiting'); // a retry of a failed day that's queued
     expect(reportCardKind(v({ stats: { screenSec: 0 } }))).toBe('empty');
     expect(reportCardKind(v({}))).toBe('generate');
   });
