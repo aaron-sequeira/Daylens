@@ -3,6 +3,7 @@ import type { RecentRead } from '../types';
 import { displayAppName } from '../../../shared/categories';
 import { CONFIDENT } from '../../brain/questions';
 import { hm, stillIn, switchesBetween } from '../activity';
+import { sessionInterval } from '../../day/time';
 
 const MIN = 60_000;
 const FRESH_MS = 30 * MIN; // spec §4.2: labels may arrive up to 30 min after the read
@@ -74,9 +75,10 @@ export const stuckEscape: Rule = (s) => {
 };
 
 export const appCap: Rule = (s) => {
+  const latest = s.sessions.reduce<(typeof s.sessions)[number] | undefined>((a, x) => (!a || x.startedAt > a.startedAt ? x : a), undefined);
   for (const l of s.limits) {
     // A limit matches the app name or the window title, so "YouTube" counts YouTube tabs in any browser.
-    const ms = s.sessions.filter((x) => matchDistraction(x, [l.app])).reduce((a, x) => a + Math.max(0, (x.endedAt ?? s.now) - x.startedAt), 0);
+    const ms = s.sessions.filter((x) => matchDistraction(x, [l.app])).reduce((a, x) => { const iv = sessionInterval(x, x === latest, s.now); return a + (iv.end - iv.start); }, 0);
     if (ms < l.minutes * MIN) continue;
     return { ruleId: 'app_cap', kind: 'behaviour', key: `app_cap:${l.app}:${s.date}`, mini: `${l.app} limit`, stat: hm(l.minutes),
       title: `${l.app}: ${hm(l.minutes)} limit reached`, body: `You've used ${l.app} for ${hm(Math.round(ms / MIN))} today. Time to close it?`,

@@ -3,7 +3,7 @@ import type { HoldSignals } from './notifState';
 
 export const GLOBAL_COOLDOWN_MS = 20 * 60_000;
 export const RULE_COOLDOWN_MS = 2 * 3_600_000;
-/** eye_break/stretch per-rule gap at weight 1: below the 50-min eye cadence, so it only bites when scaled up. */
+/** Fallback eye_break/stretch gap at weight 1; the rules pass their own (0.9 × cadence) via Candidate.gapMs. */
 export const OWN_GAP_MS = 45 * 60_000;
 const OWN_CADENCE = new Set(['eye_break', 'stretch']);
 const DISPLAYED = new Set<NudgeStatus>(['shown', 'dismissed', 'acted', 'snoozed', 'expired']);
@@ -21,7 +21,7 @@ export function decide(c: Candidate, x: GateContext): Decision {
   const own = OWN_CADENCE.has(c.ruleId);
   // eye_break/stretch skip the global cooldown but still honour weight, back-off and "show fewer" via their own gap.
   if (!own && shown.some((n) => !OWN_CADENCE.has(n.ruleId) && x.now - n.at < GLOBAL_COOLDOWN_MS)) return { status: 'drop', reason: 'global cooldown' };
-  const gap = (own ? OWN_GAP_MS : RULE_COOLDOWN_MS) * x.weight * backoff;
+  const gap = (own ? (c.gapMs ?? OWN_GAP_MS) : RULE_COOLDOWN_MS) * x.weight * backoff;
   if (shown.some((n) => n.ruleId === c.ruleId && x.now - n.at < gap)) return { status: 'drop', reason: 'rule cooldown' };
   if (x.now < x.snoozeUntil) return { status: 'held', reason: 'snoozed' };
   if (x.hold) return { status: 'held', reason: x.hold };

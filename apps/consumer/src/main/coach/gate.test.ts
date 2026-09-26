@@ -33,6 +33,11 @@ describe('decide', () => {
     expect(decide(eye, ctx({ history: h, fewer: { health: 2 } }))).toEqual({ status: 'drop', reason: 'rule cooldown' });
     const dismissed = [1, 2, 3].map((d) => row({ at: now - d * 24 * 60 * MIN, status: 'dismissed', ruleId: 'r' + d, key: 'x' + d }));
     expect(decide(eye, ctx({ history: [...h, ...dismissed] })).status).toBe('drop');
+    // A user-chosen 30-min interval keeps its cadence at weight 1: gap = 0.9 × 30 min.
+    const eye30 = cand({ ruleId: 'eye_break', key: 'eye_break:t:2', gapMs: 27 * MIN });
+    const h30 = [row({ at: now - 31 * MIN, ruleId: 'eye_break', key: 'eye_break:t:1' })];
+    expect(decide(eye30, ctx({ history: h30 })).status).toBe('show');
+    expect(decide(eye30, ctx({ history: h30, weight: 2 })).status).toBe('drop');
     expect(decide(cand({ ruleId: 'stretch', key: 'stretch:s:2' }), ctx({ history: [row({ at: now - 60 * MIN, ruleId: 'stretch' })], weight: 2 })).status).toBe('drop');
   });
   it('backs off after 3 dismissals of a kind and offers "show fewer"', () => {

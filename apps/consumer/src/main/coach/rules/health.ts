@@ -14,7 +14,7 @@ export const eyeBreak: Rule = (s) => {
   const d = hm(Math.round(st.ms / 60_000));
   return { ruleId: 'eye_break', kind: 'health', key: `eye_break:${st.start}:${n}`, mini: 'Eye break', stat: d,
     title: 'Give your eyes a break', body: `${d} non-stop. Look at something 6 m away for 20 seconds.`,
-    primary: { label: 'Start break', action: 'break_eye' } };
+    primary: { label: 'Start break', action: 'break_eye' }, gapMs: 0.9 * s.settings.breakIntervalMin * 60_000 };
 };
 
 export const stretch: Rule = (s) => {
@@ -25,7 +25,7 @@ export const stretch: Rule = (s) => {
   const d = hm(Math.round(st.ms / 60_000));
   return { ruleId: 'stretch', kind: 'health', key: `stretch:${st.start}:${n}`, mini: 'Stretch', stat: d,
     title: 'Stand up & stretch', body: `${d} without a real pause. Stand up, roll your shoulders, grab some water.`,
-    primary: { label: 'Stretch with me', action: 'break_stretch' } };
+    primary: { label: 'Stretch with me', action: 'break_stretch' }, gapMs: 0.9 * STRETCH_MS };
 };
 
 export const windDown: Rule = (s) => {

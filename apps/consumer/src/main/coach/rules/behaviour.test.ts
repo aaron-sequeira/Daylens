@@ -86,4 +86,8 @@ describe('app_cap', () => {
     expect(appCap(s)).toMatchObject({ ruleId: 'app_cap', key: 'app_cap:YouTube:2026-09-25' });
     expect(appCap({ ...s, now: T(11, 34) })).toBeNull(); // 29 min
   });
+  it('counts a crash-leftover open session (not the latest) as zero', () => {
+    const sessions = [sess('Discord', T(9), null), sess('Code', T(9, 5), T(12))];
+    expect(appCap(snap({ limits: [{ app: 'Discord', minutes: 30 }], sessions, now: T(12) }))).toBeNull();
+  });
 });
