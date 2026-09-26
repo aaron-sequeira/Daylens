@@ -37,4 +37,15 @@ describe('report schema', () => {
   it('exposes a JSON schema for the grammar', () => {
     expect(REPORT_JSON_SCHEMA).toMatchObject({ type: 'object', required: expect.arrayContaining(['headline', 'story', 'advice']) });
   });
+  it('caps every string in the grammar at the length parseReport keeps', () => {
+    const len = (s: unknown) => (s as { maxLength?: number }).maxLength;
+    const p = (REPORT_JSON_SCHEMA as any).properties;
+    expect([len(p.headline), len(p.story), len(p.wins.items), len(p.habits.items), len(p.advice)]).toEqual([80, 900, 200, 200, 300]);
+    const db = p.doBetter.items.properties, plan = p.plan.items.properties;
+    expect([len(db.candidateId), len(db.what), len(db.better)]).toEqual([40, 240, 240]);
+    expect([len(plan.text), len(plan.payload.properties.app), len(plan.payload.properties.start), len(plan.payload.properties.time)]).toEqual([160, 60, 5, 5]);
+  });
+  it('skips blank list items before capping the count', () => {
+    expect(parseReport({ ...good, wins: ['', '  ', 7, 'a', 'b', 'c', 'd'], habits: [null, 'h'] }, ids)).toMatchObject({ wins: ['a', 'b', 'c'], habits: ['h'] });
+  });
 });

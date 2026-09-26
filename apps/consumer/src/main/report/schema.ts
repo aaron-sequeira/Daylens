@@ -15,7 +15,7 @@ export interface ReportJson { headline: string; story: string; wins: string[]; h
 
 const cut = (n: number) => (v: unknown): string => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-const strings = (v: unknown, max: number, len: number): string[] => list(v).slice(0, max).map(cut(len)).filter(Boolean);
+const strings = (v: unknown, max: number, len: number): string[] => list(v).slice(0, 20).map(cut(len)).filter(Boolean).slice(0, max);
 
 export function parsePlanItem(raw: unknown): PlanItem | null {
   const r = planItem.safeParse(raw);
@@ -40,19 +40,20 @@ export function parseReport(raw: unknown, candidateIds: ReadonlySet<string>): Re
   };
 }
 
-// Grammar for the local writer (node-llama-cpp createGrammarForJsonSchema). Lengths are enforced by parseReport.
-const str = { type: 'string' } as const;
+// Grammar for the local writer (node-llama-cpp createGrammarForJsonSchema), also spelled out in the system prompt.
+// maxLength keeps generation from running away; parseReport still enforces every limit.
+const str = (maxLength: number) => ({ type: 'string', maxLength }) as const;
 export const REPORT_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {
-    headline: str, story: str,
-    wins: { type: 'array', items: str, maxItems: 3 },
-    habits: { type: 'array', items: str, maxItems: 3 },
-    doBetter: { type: 'array', maxItems: 4, items: { type: 'object', properties: { candidateId: str, what: str, better: str }, required: ['candidateId', 'what', 'better'] } },
+    headline: str(80), story: str(900),
+    wins: { type: 'array', items: str(200), maxItems: 3 },
+    habits: { type: 'array', items: str(200), maxItems: 3 },
+    doBetter: { type: 'array', maxItems: 4, items: { type: 'object', properties: { candidateId: str(40), what: str(240), better: str(240) }, required: ['candidateId', 'what', 'better'] } },
     plan: { type: 'array', maxItems: 4, items: { type: 'object', properties: {
-      text: str, kind: { enum: ['focus_block', 'app_cap', 'break_interval', 'wind_down'] },
-      payload: { type: 'object', properties: { start: str, minutes: { type: 'integer' }, app: str, time: str } } }, required: ['text', 'kind', 'payload'] } },
-    advice: str
+      text: str(160), kind: { enum: ['focus_block', 'app_cap', 'break_interval', 'wind_down'] },
+      payload: { type: 'object', properties: { start: str(5), minutes: { type: 'integer' }, app: str(60), time: str(5) } } }, required: ['text', 'kind', 'payload'] } },
+    advice: str(300)
   },
   required: ['headline', 'story', 'wins', 'habits', 'doBetter', 'plan', 'advice']
 };
