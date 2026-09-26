@@ -377,7 +377,8 @@ if (!app.requestSingleInstanceLock()) {
       const input = buildReportInput({ stats, episodes, candidates, goals: { dailyGoalMin: s.dailyGoalMin, windDownTime: s.windDownTime, breakIntervalMin: s.breakIntervalMin } });
       return {
         input: cloud ? forCloud(input) : input,
-        candidateIds: new Set(candidates.map((c) => c.id)), view, candidates, stats
+        // Only ids the writer was actually shown (the input cap can drop candidates as a last resort).
+        candidateIds: new Set(input.candidates.map((c) => c.id)), view, candidates, stats
       };
     };
     // Bumped by "Delete my activity": a report written across it must not be stored.

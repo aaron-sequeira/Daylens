@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildReportInput, buildStats, forCloud, INPUT_EPISODES, reportPrompt } from './input';
+import { buildReportInput, buildStats, forCloud, INPUT_CHARS, INPUT_EPISODES, reportPrompt } from './input';
+import { buildCandidates } from './candidates';
 import type { Episode } from './episodes';
 import type { TodayView } from '../day/today';
 
@@ -25,33 +26,67 @@ describe('report input', () => {
     expect(input.episodes).toHaveLength(INPUT_EPISODES);
     expect(input.episodes[0]).toMatchObject({ id: 'e10', start: '09:10', minutes: 11, stuck: 0.3, distraction: 0.1, titles: ['t'] });
   });
-  it('keeps a heavy day inside the local context budget, and keeps stuck episodes\' samples', () => {
-    const STUCK = new Set([5, 20, 45]);
+  it('keeps a busy day under the hard input cap, with capped candidates and the most stuck episode\'s samples', () => {
     const text = (i: number, k: number, n: number): string => `${i}-${k} `.padEnd(n, 'abcdefghij ');
-    const eps = Array.from({ length: 60 }, (_, i): Episode => ({ ...ep(i, STUCK.has(i) ? 30 : 5 + ((i * 7) % 50)),
-      titles: [0, 1, 2].map((k) => `Title ${text(i, k, 200)}`), samples: [0, 1, 2].map((k) => text(i, k, 300)),
-      ...(STUCK.has(i) ? { avgStuck: 2, stuckReads: 4 } : { avgStuck: 0.2, stuckReads: 0 }) }));
-    const candidates = [
-      ...[...STUCK].map((i) => ({ id: `stuck:e${i}`, kind: 'stuck' as const, text: `Stuck for 30 min in Code (${eps[i].titles[0].slice(0, 80)})`, sample: eps[i].samples[0].slice(0, 200) })),
-      ...[0, 1, 2].map((n) => ({ id: `search:${n}`, kind: 'search' as const, text: `Searched "how to fix the build error number ${n} in vite" 4 times this week` })),
-      ...[7, 8].map((n) => ({ id: `nudge:${n}`, kind: 'nudge' as const, text: `Pop-up "You've been scrolling Reddit for 20 minutes" (dismissed)` })),
-      ...['YouTube', 'Discord'].map((a) => ({ id: `cap:${a}`, kind: 'cap' as const, text: `${a}: 75 min used, limit 30 min` }))
-    ];
+    // 60 episodes; every third one (20 in all) is stuck, each more stuck than the last.
+    const eps = Array.from({ length: 60 }, (_, i): Episode => ({ ...ep(i, i % 3 === 0 ? 30 : 5 + ((i * 7) % 50)),
+      titles: [0, 1, 2].map((k) => `${text(i, k, 180)} - Visual Studio Code`), samples: [0, 1, 2].map((k) => text(i, k, 300)),
+      ...(i % 3 === 0 ? { avgStuck: 1.5 + i / 100, stuckReads: 4 } : { avgStuck: 0.2, stuckReads: 0 }) }));
+    const candidates = buildCandidates({ episodes: eps,
+      searches: Array.from({ length: 6 }, (_, n) => ({ query: `how to fix the vite build error number ${n} in electron main process`, count: 4 })),
+      nudges: Array.from({ length: 6 }, (_, n) => ({ id: n, ruleId: 'doomscroll', title: "You've been scrolling Reddit for 20 minutes", status: 'dismissed' })),
+      caps: ['YouTube', 'Discord', 'Reddit', 'X', 'Twitch'].map((app) => ({ app, minutes: 30, usedMin: 75, usedMs: 75 * 60_000 })) });
     const input = buildReportInput({ stats: buildStats(view, eps, 310), episodes: eps, candidates, goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
-    expect(input.episodes).toHaveLength(INPUT_EPISODES);
-    expect(reportPrompt(input).user.length).toBeLessThanOrEqual(14_000);
-    for (const i of STUCK) {
-      const e = input.episodes.find((x) => x.id === `e${i}`)!;
-      expect(e.samples).toEqual(eps[i].samples);
-      expect(e.titles).toEqual([eps[i].titles[0].slice(0, 80)]); // extras go first; the shortest / least stuck lose their only title first
-    }
-    const sampleChars = input.episodes.reduce((a, e) => a + e.samples.join('').length, 0) + input.candidates.reduce((a, c) => a + (c.sample?.length ?? 0), 0);
-    expect(sampleChars).toBeLessThanOrEqual(4000);
-    const top8 = new Set([...input.episodes].sort((a, b) => b.minutes - a.minutes).slice(0, 8).map((e) => e.id));
-    for (const e of input.episodes) {
-      if (!STUCK.has(Number(e.id.slice(1))) && !top8.has(e.id)) expect(e.samples).toEqual([]);
-      for (const t of e.titles) expect(t.length).toBeLessThanOrEqual(80);
-    }
+
+    expect(reportPrompt(input).user.length).toBeLessThanOrEqual(INPUT_CHARS);
+    expect(INPUT_CHARS).toBe(10_500);
+    const kinds = input.candidates.map((c) => c.kind);
+    expect(['stuck', 'search', 'nudge', 'cap'].map((k) => kinds.filter((x) => x === k).length)).toEqual([5, 3, 3, 3]);
+    for (const c of input.candidates) expect(c.text.length).toBeLessThanOrEqual(130); // the embedded title is cut to 80
+    const most = input.episodes.find((x) => x.id === 'e57')!; // the most stuck
+    expect(most.samples).toEqual(eps[57].samples);
+    expect(input.episodes.length).toBeGreaterThan(20);
+    expect(input.episodes.every((e) => !('end' in e))).toBe(true);
+    // Samples within budget, a candidate's sample counted once when its episode also carries it.
+    const kept = new Map(input.episodes.map((e) => [e.id, e.samples]));
+    const sampleChars = input.episodes.reduce((a, e) => a + e.samples.join('').length, 0) + input.candidates.reduce((a, c) =>
+      a + (c.sample && !kept.get(c.id.replace('stuck:', ''))?.some((s) => s.startsWith(c.sample!)) ? c.sample.length : 0), 0);
+    expect(sampleChars).toBeLessThanOrEqual(2500);
+    for (const e of input.episodes) for (const t of e.titles) expect(t.length).toBeLessThanOrEqual(80);
+  });
+  it('counts a stuck candidate\'s sample once when its episode carries the same text', () => {
+    // 5 stuck episodes (e4 most stuck), 3 × 300-char samples each; their candidates carry the first 200 chars.
+    const eps = Array.from({ length: 5 }, (_, i): Episode => ({ ...ep(i, 30), avgStuck: 2 + i, stuckReads: 4, samples: [0, 1, 2].map((k) => `${i}-${k} `.padEnd(300, 'x')) }));
+    const candidates = buildCandidates({ episodes: eps, searches: [], nudges: [], caps: [] }); // 5 × 200 = 1000 chars
+    const input = buildReportInput({ stats: buildStats(view, eps, 0), episodes: eps, candidates, goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
+    const samples = (id: string) => input.episodes.find((e) => e.id === id)!.samples.length;
+    // 1000 + e4 (100 + 300 + 300) + e3 (700) + e2's first sample (100) = 2500. Counting twice, e2 would get nothing.
+    expect([samples('e4'), samples('e3'), samples('e2'), samples('e1')]).toEqual([3, 3, 1, 0]);
+    expect(input.candidates.every((c) => c.sample?.length === 200)).toBe(true);
+  });
+  it('never exceeds the cap: drops the shortest episodes, then candidates, when trimming text is not enough', () => {
+    const eps = Array.from({ length: 40 }, (_, i): Episode => ({ ...ep(i, i + 1), app: `${'C:\\Program Files\\Very Long Vendor Name\\'.repeat(6)}app${i}.exe` }));
+    const input = buildReportInput({ stats: buildStats(view, eps, 0), episodes: eps, candidates: [], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
+    expect(JSON.stringify(input).length).toBeLessThanOrEqual(INPUT_CHARS);
+    expect(input.episodes.length).toBeLessThan(40);
+    const shortestKept = Math.min(...input.episodes.map((e) => e.minutes));
+    expect(input.episodes).toHaveLength(40 - shortestKept + 1); // exactly the shortest ones went
+    const huge = [0, 1, 2].map((n) => ({ id: `search:${n}`, kind: 'search' as const, text: `Searched "${'q'.repeat(5000)}" 3 times` }));
+    const input2 = buildReportInput({ stats: buildStats(view, [], 0), episodes: [], candidates: huge, goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
+    expect(JSON.stringify(input2).length).toBeLessThanOrEqual(INPUT_CHARS);
+    expect(input2.candidates.map((c) => c.id)).toEqual(['search:0']);
+  });
+  it('after titles, drops samples from the least stuck episodes first, before dropping any episode', () => {
+    const eps = Array.from({ length: 40 }, (_, i): Episode => ({ ...ep(i, 40 - i), app: `C:\\Program Files\\Vendor\\${'A'.repeat(50)}\\app${i}.exe`,
+      titles: ['x'.repeat(80)], samples: [`${i} `.padEnd(300, 's')], ...(i === 39 ? { avgStuck: 3, stuckReads: 5 } : {}) }));
+    const input = buildReportInput({ stats: buildStats(view, eps, 0), episodes: eps, candidates: [], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
+    expect(JSON.stringify(input).length).toBeLessThanOrEqual(INPUT_CHARS);
+    expect(input.episodes).toHaveLength(40);
+    expect(input.episodes.every((e) => e.titles.length === 0)).toBe(true);
+    const withSamples = input.episodes.filter((e) => e.samples.length).map((e) => e.id);
+    expect(withSamples).toContain('e39'); // the stuck one (also the shortest) keeps its sample
+    expect(withSamples.length).toBeLessThan(8); // some of the 8 longest lost theirs
+    expect(withSamples).toContain('e0'); // the longest non-stuck episode is the last to lose it
   });
   it('builds a prompt that names candidate ids and forbids invented numbers', () => {
     const input = buildReportInput({ stats: buildStats(view, [], 0), episodes: [], candidates: [{ id: 'stuck:e1', kind: 'stuck', text: 'Stuck' }], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });

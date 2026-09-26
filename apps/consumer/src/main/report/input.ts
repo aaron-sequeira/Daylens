@@ -6,12 +6,15 @@ import type { ReportCandidate } from './candidates';
 export const INPUT_EPISODES = 40;
 // Context budget for the local writer (6144 tokens, 1400 of them for the answer).
 const SAMPLE_EPISODES = 8;
-const SAMPLE_BUDGET = 4000;
+const SAMPLE_BUDGET = 2500;
 const TITLE_CHARS = 80;
-const INPUT_CHARS = 14_000; // ≈ what's left of the context for the input after the system prompt and schema
+// What's left of the context for the input after the system prompt + schema (~2 000 chars) and the answer. Qwen3
+// tokenizes digits one per token, so this JSON averages ~2.9 chars/token: 10 500 chars ≈ 3 600 tokens.
+export const INPUT_CHARS = 10_500;
 export interface ReportStats { date: string; screenSec: number; activeSec: number; goalSec: number; deepWorkSec: number; switches: number;
   health: Health; topApps: { appName: string; seconds: number }[]; categories: { category: string; seconds: number }[]; weekAvgSec: number; }
-export interface WriterEpisode { id: string; start: string; end: string; minutes: number; app: string; category: string; activity: string | null;
+/** `start` + `minutes` (no `end`: it's derivable, and every digit costs a token). */
+export interface WriterEpisode { id: string; start: string; minutes: number; app: string; category: string; activity: string | null;
   titles: string[]; samples: string[]; stuck: number; distraction: number; }
 export interface ReportInput { date: string; stats: ReportStats; episodes: WriterEpisode[]; candidates: ReportCandidate[];
   goals: { dailyGoalMin: number; windDownTime: string; breakIntervalMin: number }; }
@@ -36,28 +39,58 @@ const priority = (a: Episode, b: Episode): number =>
 
 /** Samples share SAMPLE_BUDGET characters across the input. Candidates' short samples (the grounding for doBetter)
  * are served first; then only stuck episodes and the SAMPLE_EPISODES longest may keep theirs, most stuck then longest
- * first, so the shortest / least stuck lose theirs first. */
+ * first, so the shortest / least stuck lose theirs first. A stuck candidate's sample is the start of its episode's
+ * first sample: that shared text is counted once. */
 function budgetSamples(longest: Episode[], candidates: ReportCandidate[]): { samples: Map<string, string[]>; candidates: ReportCandidate[] } {
   let left = SAMPLE_BUDGET;
-  const take = (s: string): boolean => (s.length <= left ? ((left -= s.length), true) : false);
-  const cands = candidates.map(({ sample, ...c }) => (sample && take(sample) ? { ...c, sample } : c));
+  const take = (n: number): boolean => (n <= left ? ((left -= n), true) : false);
+  const counted = new Map<string, string>(); // episode id → its candidate's sample, already paid for
+  const cands = candidates.map(({ sample, ...c }) => {
+    if (!sample || !take(sample.length)) return c;
+    if (c.kind === 'stuck') counted.set(c.id.slice('stuck:'.length), sample);
+    return { ...c, sample };
+  });
   const top = new Set(longest.slice(0, SAMPLE_EPISODES).map((e) => e.id));
   const samples = new Map<string, string[]>();
-  for (const e of longest.filter((x) => isStuck(x) || top.has(x.id)).sort(priority)) samples.set(e.id, e.samples.filter(take));
+  for (const e of longest.filter((x) => isStuck(x) || top.has(x.id)).sort(priority)) {
+    let paid = counted.get(e.id);
+    samples.set(e.id, e.samples.filter((s) => {
+      const shared = paid !== undefined && s.startsWith(paid) ? paid.length : 0;
+      if (!take(s.length - shared)) return false;
+      if (shared) paid = undefined; // only once
+      return true;
+    }));
+  }
   return { samples, candidates: cands };
 }
 
-/** Titles are the last thing to give way: while the input is over INPUT_CHARS, drop third titles, then second, then
- * first, from the shortest / least stuck episodes first. A normal day keeps all of them. */
-function fitTitles(input: ReportInput, order: string[]): void {
+/** A hard cap: while the input is over INPUT_CHARS, give way in this order: third titles, then second, then first
+ * (shortest / least stuck episodes first); then episodes' samples (least stuck first); then candidates' samples; then
+ * whole episodes, shortest first; as a last resort, candidates from the end. A normal day keeps everything. */
+function fitInput(input: ReportInput, order: string[]): void {
+  const over = (): boolean => JSON.stringify(input).length > INPUT_CHARS;
   const byId = new Map(input.episodes.map((e) => [e.id, e]));
+  const leastFirst = [...order].reverse().map((id) => byId.get(id)).filter((e): e is WriterEpisode => !!e);
   for (let keep = 2; keep >= 0; keep--) {
-    for (const id of [...order].reverse()) {
-      if (JSON.stringify(input).length <= INPUT_CHARS) return;
-      const e = byId.get(id);
-      if (e && e.titles.length > keep) e.titles = e.titles.slice(0, keep);
+    for (const e of leastFirst) {
+      if (!over()) return;
+      if (e.titles.length > keep) e.titles = e.titles.slice(0, keep);
     }
   }
+  for (const e of leastFirst) {
+    if (!over()) return;
+    e.samples = [];
+  }
+  for (let k = input.candidates.length - 1; k >= 0; k--) {
+    if (!over()) return;
+    const { sample: _sample, ...c } = input.candidates[k];
+    input.candidates[k] = c;
+  }
+  for (const e of [...input.episodes].sort((a, b) => a.minutes - b.minutes)) {
+    if (!over()) return;
+    input.episodes = input.episodes.filter((x) => x !== e);
+  }
+  while (over() && input.candidates.length) input.candidates.pop();
 }
 
 export function buildReportInput(i: { stats: ReportStats; episodes: Episode[]; candidates: ReportCandidate[]; goals: ReportInput['goals'] }): ReportInput {
@@ -65,11 +98,11 @@ export function buildReportInput(i: { stats: ReportStats; episodes: Episode[]; c
   const { samples, candidates } = budgetSamples(longest, i.candidates);
   const input: ReportInput = {
     date: i.stats.date, stats: i.stats, candidates, goals: i.goals,
-    episodes: [...longest].sort((a, b) => a.start - b.start).map((e) => ({ id: e.id, start: hhmm(e.start), end: hhmm(e.end),
+    episodes: [...longest].sort((a, b) => a.start - b.start).map((e) => ({ id: e.id, start: hhmm(e.start),
       minutes: Math.round(dur(e) / 60_000), app: e.app, category: e.category, activity: e.activity, titles: e.titles.map((t) => t.slice(0, TITLE_CHARS)),
       samples: samples.get(e.id) ?? [], stuck: r1(e.avgStuck), distraction: r1(e.avgDistraction) }))
   };
-  fitTitles(input, [...longest].sort(priority).map((e) => e.id));
+  fitInput(input, [...longest].sort(priority).map((e) => e.id));
   return input;
 }
 
