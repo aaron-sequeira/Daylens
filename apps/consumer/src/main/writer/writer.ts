@@ -28,6 +28,7 @@ export function createWriter(deps: {
   cloud(req: CompleteRequest, timeoutMs: number): Promise<CompleteResult>;
   cloudModel(): string;
 }): Writer {
+  let gpuOff = false; // the CPU worked after a GPU failure: stay on it for this session
   return {
     async write<T>(job: WriteJob<T>): Promise<WriteResult<T>> {
       const system = systemWithSchema(job);
@@ -43,8 +44,14 @@ export function createWriter(deps: {
       }
       const m = deps.local();
       if (!m) return { ok: false, reason: 'no_model' };
-      const r = await deps.runLocal({ op: 'write', modelPath: m.modelPath, gpu: 'auto', schema: job.schema, system,
+      const run = (gpu: 'auto' | 'off'): Promise<LocalResult> => deps.runLocal({ op: 'write', modelPath: m.modelPath, gpu, schema: job.schema, system,
         user: job.user, maxTokens: job.maxTokens, contextSize: CONTEXT_SIZE }, LOCAL_TIMEOUT_MS[job.kind]);
+      let r = await run(gpuOff ? 'off' : 'auto');
+      // A GPU that crashes or won't load the model: retry once on the CPU; only the CPU's failure is the outcome.
+      if (!r.ok && !gpuOff && (r.reason === 'crash' || r.reason === 'load')) {
+        r = await run('off');
+        if (r.ok) gpuOff = true;
+      }
       if (!r.ok) return { ok: false, reason: r.message, local: r.reason };
       const value = job.parse(r.json);
       return value === null ? { ok: false, reason: 'The writer returned an answer Daylens could not read.', local: 'invalid' } : { ok: true, value, model: m.model };

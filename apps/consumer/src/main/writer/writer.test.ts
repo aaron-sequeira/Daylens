@@ -35,6 +35,32 @@ describe('writer', () => {
     expect(await createWriter(deps({ runLocal: async () => ({ ok: false, reason: 'timeout', message: 't' }) })).write(job)).toMatchObject({ ok: false, local: 'timeout' });
     expect(await createWriter(deps({ runLocal: async () => ({ ok: true, json: { nope: 1 } }) })).write(job)).toMatchObject({ ok: false, local: 'invalid' });
   });
+  it('retries once on the CPU after a GPU crash, then stays on the CPU for the session', async () => {
+    const gpus: string[] = [];
+    const w = createWriter(deps({ runLocal: async (r) => { gpus.push(r.gpu); return r.gpu === 'auto' ? { ok: false, reason: 'crash', message: 'exit 1' } : { ok: true, json: { h: 'cpu' } }; } }));
+    expect(await w.write(job)).toEqual({ ok: true, value: { h: 'cpu' }, model: 'Qwen3 4B' });
+    expect(gpus).toEqual(['auto', 'off']);
+    expect(await w.write(job)).toMatchObject({ ok: true });
+    expect(gpus).toEqual(['auto', 'off', 'off']);
+  });
+  it('returns the CPU run\'s failure when the fallback fails too, and keeps trying the GPU next time', async () => {
+    const gpus: string[] = [];
+    const w = createWriter(deps({ runLocal: async (r) => { gpus.push(r.gpu); return { ok: false, reason: r.gpu === 'auto' ? 'load' : 'timeout', message: 'x' }; } }));
+    expect(await w.write(job)).toMatchObject({ ok: false, local: 'timeout' });
+    expect(gpus).toEqual(['auto', 'off']);
+    await w.write(job);
+    expect(gpus).toEqual(['auto', 'off', 'auto', 'off']); // the CPU never succeeded, so it isn't remembered
+    const both = createWriter(deps({ runLocal: async () => ({ ok: false, reason: 'load', message: 'load: bad' }) }));
+    expect(await both.write(job)).toMatchObject({ ok: false, local: 'load' });
+  });
+  it('does not fall back to the CPU after a timeout or an error', async () => {
+    for (const reason of ['timeout', 'error'] as const) {
+      const gpus: string[] = [];
+      const w = createWriter(deps({ runLocal: async (r) => { gpus.push(r.gpu); return { ok: false, reason, message: 'x' }; } }));
+      expect(await w.write(job)).toMatchObject({ ok: false, local: reason });
+      expect(gpus).toEqual(['auto']);
+    }
+  });
   it('uses the cloud in cloud mode, retrying once on invalid JSON', async () => {
     let calls = 0;
     const w = createWriter(deps({ mode: () => 'cloud', cloud: async () => (++calls === 1 ? { ok: true, text: 'not json' } : { ok: true, text: '```json\n{"h":"ok"}\n```' }) }));
