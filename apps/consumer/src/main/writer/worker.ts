@@ -20,6 +20,9 @@ process.parentPort.once('message', async (e) => {
     context = await model.createContext({ contextSize: req.contextSize });
   } catch (err) { fail(`load: ${err instanceof Error ? err.message : String(err)}`, 1); return; }
   try {
+    // The input must leave room for the answer (plus ~256 tokens of chat template); a fixed message, never the text.
+    const inputTokens = model.tokenize(req.system).length + model.tokenize(req.user).length;
+    if (inputTokens > context.contextSize - req.maxTokens - 256) { fail('input too long', 1); return; }
     const { LlamaChatSession } = await import('node-llama-cpp');
     const session = new LlamaChatSession({ contextSequence: context.getSequence(), systemPrompt: req.system });
     const grammar = await llama.createGrammarForJsonSchema(req.schema as never);

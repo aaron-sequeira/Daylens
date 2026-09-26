@@ -9,7 +9,7 @@ export interface Writer { write<T>(job: WriteJob<T>): Promise<WriteResult<T>>; }
 
 export const LOCAL_TIMEOUT_MS: Record<WriteKind, number> = { report: 180_000, week: 180_000, tip: 20_000 };
 export const CLOUD_TIMEOUT_MS: Record<WriteKind, number> = { report: 60_000, week: 60_000, tip: 20_000 };
-const CONTEXT_SIZE = 8192;
+const CONTEXT_SIZE = 6144;
 
 export function parseJsonText(text: string): unknown | null {
   const t = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
