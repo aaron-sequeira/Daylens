@@ -163,7 +163,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS report_fts USING fts5(date UNINDEXED, body);
 - **Email** button: ensures the PDF exists (auto-save folder, else a temp export), opens `mailto:?subject=Daylens — <date>&body=<headline + 3-line summary>` via `shell.openExternal`, and `shell.showItemInFolder(pdf)`.
 
 ### 6.4 AI-written live tips
-- Applies to `tip`-kind candidates only (`stuck_tip`, `repeat_search`, `focus_start` excluded — it stays a template).
+- Applies to `stuck_tip` and `repeat_search` only; `focus_start` (also kind `tip`) always stays a template.
 - When the engine is about to show a tip: if cloud mode, or local and free RAM ≥ `WRITER_NEED_BYTES` and the writer is installed, send `TipInput = { ruleId, app, title (exclusion-checked), episode: { minutes, category, activity, avgStuck }, template: { title, body } }` → `TipJson = { title ≤ 60, body ≤ 180 }` with a 20 s cap. Success replaces title/body; anything else keeps the template.
 - The nudge row keeps the same rule/key, so cooldowns, back-off and "Show fewer" are unchanged. Never blocks other pop-ups beyond the 20 s (the coach tick guard already serialises ticks).
 
