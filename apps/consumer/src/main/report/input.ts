@@ -32,6 +32,15 @@ export function buildReportInput(i: { stats: ReportStats; episodes: Episode[]; c
   };
 }
 
+/** The cloud gets only the compact input: no screen-text samples, from episodes or candidates (spec §3.3). */
+export function forCloud(input: ReportInput): ReportInput {
+  return {
+    ...input,
+    episodes: input.episodes.map((e) => ({ ...e, samples: [] })),
+    candidates: input.candidates.map(({ sample: _sample, ...c }) => c)
+  };
+}
+
 const SYSTEM = [
   "You are Daylens, a warm, concise coach writing a person's end-of-day report about their computer use.",
   'Write in second person ("you"), plain friendly English, no emoji, no markdown.',

@@ -49,7 +49,7 @@ import { generateReport } from './report/generate';
 import { batteryPercent } from './report/battery';
 import { buildEpisodes } from './report/episodes';
 import { buildCandidates } from './report/candidates';
-import { buildReportInput, buildStats, type ReportStats } from './report/input';
+import { buildReportInput, buildStats, forCloud, type ReportStats } from './report/input';
 import type { ReportCandidate } from './report/candidates';
 import { writerState, navDates, type ReportView, type WriterView } from './report/view';
 
@@ -348,7 +348,9 @@ if (!app.requestSingleInstanceLock()) {
       const { end } = dayBounds(date);
       const now = Math.min(Date.now(), end);
       const view = loadTodayView(repo, s, date, now, (d) => labelStore.labelsForDay(d), (d) => coachStore.completedBreaksForDay(d));
-      const episodes = buildEpisodes(labelStore.readsForDay(date), s.screenReading);
+      // Screen text never leaves the PC: the cloud writer gets episodes and candidates without samples.
+      const cloud = s.writerMode === 'cloud';
+      const episodes = buildEpisodes(labelStore.readsForDay(date), s.screenReading && !cloud);
       const sessions = repo.getFocusSessions(date);
       const titles = searchTitlesFrom(Array.from({ length: 7 }, (_, i) => repo.getFocusSessions(shiftDate(date, -i))).flat(), parseExclusions(s.exclusions));
       const candidates = buildCandidates({
@@ -357,8 +359,9 @@ if (!app.requestSingleInstanceLock()) {
         caps: limitUsage(parseLimits(s.appLimits), sessions, now)
       });
       const stats = buildStats(view, episodes, switchesBetween(sessions, dayBounds(date).start, now));
+      const input = buildReportInput({ stats, episodes, candidates, goals: { dailyGoalMin: s.dailyGoalMin, windDownTime: s.windDownTime, breakIntervalMin: s.breakIntervalMin } });
       return {
-        input: buildReportInput({ stats, episodes, candidates, goals: { dailyGoalMin: s.dailyGoalMin, windDownTime: s.windDownTime, breakIntervalMin: s.breakIntervalMin } }),
+        input: cloud ? forCloud(input) : input,
         candidateIds: new Set(candidates.map((c) => c.id)), view, candidates, stats
       };
     };

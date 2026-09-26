@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildReportInput, buildStats, INPUT_EPISODES, reportPrompt } from './input';
+import { buildReportInput, buildStats, forCloud, INPUT_EPISODES, reportPrompt } from './input';
 import type { Episode } from './episodes';
 import type { TodayView } from '../day/today';
 
@@ -31,5 +31,16 @@ describe('report input', () => {
     expect(p.system).toMatch(/candidateId/);
     expect(p.system).toMatch(/do not invent/i);
     expect(p.user).toContain('"stuck:e1"');
+  });
+  it('strips every screen-text sample for the cloud, leaving the rest intact', () => {
+    const input = buildReportInput({ stats: buildStats(view, [], 0), episodes: [ep(1, 30)], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 },
+      candidates: [{ id: 'stuck:e1', kind: 'stuck', text: 'Stuck', sample: 'TypeError: secret' }] });
+    const c = forCloud(input);
+    expect(c.episodes[0].samples).toEqual([]);
+    expect(c.candidates[0]).toEqual({ id: 'stuck:e1', kind: 'stuck', text: 'Stuck' });
+    expect(c.episodes[0].titles).toEqual(['t']);
+    expect(reportPrompt(c).user).not.toMatch(/secret|"s"\]/);
+    expect(input.episodes[0].samples).toEqual(['s']); // the original is not mutated
+    expect(input.candidates[0].sample).toBe('TypeError: secret');
   });
 });
