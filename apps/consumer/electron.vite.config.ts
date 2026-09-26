@@ -15,8 +15,16 @@ const devCsp = (): Plugin => ({
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
-    // brain.js is the Laya utilityProcess entry (forked per batch from index.js).
-    build: { rollupOptions: { input: { index: resolve(__dirname, 'src/main/index.ts'), brain: resolve(__dirname, 'src/main/brain/worker.ts') } } }
+    // brain.js is the Laya utilityProcess entry (forked per batch from index.js); writer.js is the report writer (forked per job).
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/main/index.ts'),
+          brain: resolve(__dirname, 'src/main/brain/worker.ts'),
+          writer: resolve(__dirname, 'src/main/writer/worker.ts')
+        }
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()],

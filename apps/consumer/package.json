@@ -17,6 +17,7 @@
     "@huggingface/transformers": "^3",
     "active-win": "^8.2.1",
     "better-sqlite3": "^11.8.1",
+    "node-llama-cpp": "^3.21.1",
     "onnxruntime-node": "1.21.0",
     "uiohook-napi": "^1.5.4",
     "zod": "^3.24.1"
