@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityPro
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { statfs } from 'node:fs/promises';
+import { statfs, writeFile } from 'node:fs/promises';
 import { freemem, totalmem } from 'node:os';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
 import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
@@ -42,6 +42,8 @@ import { countsAsFailure, localUnavailable, type Unavailable } from './writer/av
 import { createWriter } from './writer/writer';
 import { runLocal, type WriterChild } from './writer/run';
 import { createReportStore, REPORT_SQL } from './report/store';
+import { exportPdf, pdfFileName } from './windows/reportPdf';
+import { renderReportPdf } from './windows/reportPdfElectron';
 import { createReportScheduler, type ReportScheduler } from './report/scheduler';
 import { generateReport } from './report/generate';
 import { batteryPercent } from './report/battery';
@@ -518,6 +520,21 @@ if (!app.requestSingleInstanceLock()) {
           const item = reportStore.get(date)?.report?.plan[index];
           if (item) reportStore.tick(date, item, on);
           return reportView(date);
+        },
+        exportPdf: async (date) => {
+          const { canceled, filePath } = await dialog.showSaveDialog(win!, {
+            title: 'Export report as PDF', defaultPath: pdfFileName(date), filters: [{ name: 'PDF', extensions: ['pdf'] }]
+          });
+          if (canceled || !filePath) return { ok: false, cancelled: true };
+          const r = await exportPdf(date, {
+            render: (d) => renderReportPdf(d, {
+              preload: join(__dirname, '../preload/index.js'),
+              devUrl: process.env['ELECTRON_RENDERER_URL'],
+              indexFile: join(__dirname, '../renderer/index.html')
+            }),
+            write: (p, b) => writeFile(p, b)
+          }, filePath);
+          return r === 'ok' ? { ok: true, path: filePath } : { ok: false, reason: r };
         }
       },
       plan: {

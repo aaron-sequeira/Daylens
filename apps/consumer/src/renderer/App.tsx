@@ -11,7 +11,17 @@ import { SettingsScreen } from './components/SettingsScreen';
 
 type OnboardingState = { mode: 'first' | 'redo'; initial: Profile };
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export default function App() {
+  // The PDF export flow (Task 11) loads this same page in a hidden window with ?print=<date>:
+  // skip the title bar, rail, onboarding and consent gate entirely, since that window is only
+  // ever opened by main for a user-requested export, not by a user who hasn't consented yet.
+  const printDate = new URLSearchParams(location.search).get('print');
+  if (printDate && DATE_RE.test(printDate)) {
+    return <div className="print-root"><ReportsScreen print date={printDate} /></div>;
+  }
+
   const [settings, setSettings] = useState<DaylensSettings | null>(null);
   const [route, setRoute] = useState<Route>('today');
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);

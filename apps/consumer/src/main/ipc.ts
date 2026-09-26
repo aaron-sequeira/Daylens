@@ -47,10 +47,12 @@ export interface ModelsDeps {
 export interface CoachView { kinds: Record<Kind, boolean>; snoozeUntil: number; limits: AppLimit[]; held: { id: number; at: number; kind: Kind; title: string; body: string }[]; }
 export interface CoachIpcDeps { held(): CoachView['held']; dismissHeld(id: number): void; test(): void; onChanged(): void; }
 
+export type ExportPdfResult = { ok: true; path: string } | { ok: false; reason: string } | { ok: false; cancelled: true };
 export interface ReportsDeps {
   view(date: string | null): ReportView;
   generate(date: string): ReportView;
   tickPlan(date: string, index: number, on: boolean): ReportView;
+  exportPdf(date: string): Promise<ExportPdfResult>;
 }
 export interface PlanTodayItem { id: number; text: string; enabled: boolean; }
 export interface PlanDeps {
@@ -163,6 +165,7 @@ export function registerIpc(d: IpcDeps): void {
     const v = z.object({ date: dateStr, index: z.number().int().min(0).max(3), on: z.boolean() }).strict().parse(raw);
     return d.reports.tickPlan(v.date, v.index, v.on);
   });
+  ipcMain.handle(CH.reportsExportPdf, (_e, raw) => d.reports.exportPdf(dateStr.parse(raw)));
   ipcMain.handle(CH.writerGet, () => d.writer.view());
   ipcMain.handle(CH.writerDownload, () => d.writer.download());
   ipcMain.handle(CH.writerDelete, () => d.writer.remove());

@@ -20,6 +20,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   const [writer, setWriter] = useState<WriterView | null>(null);
   const [showCloud, setShowCloud] = useState(false);
   const [planError, setPlanError] = useState(false);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
 
   // Guards stale IPC results: only apply a resolved ReportView if it's still for the date on screen.
   const dateRef = useRef<string | null>(date);
@@ -27,7 +28,12 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   const accept = (v: ReportView): boolean => dateRef.current === null || dateRef.current === v.date;
 
   const load = (): void => {
-    api.reports.get(date).then((v) => { if (accept(v)) setView(v); }).catch((e) => console.error('[renderer] reports.get failed:', e)); // Task 11 adds the print-ready signal
+    api.reports.get(date).then((v) => {
+      if (!accept(v)) return;
+      setView(v);
+      // Wait a frame so the report DOM has painted before the hidden export window is told to print.
+      if (print) requestAnimationFrame(() => api.printReady());
+    }).catch((e) => console.error('[renderer] reports.get failed:', e));
     api.writer.get().then(setWriter).catch((e) => console.error('[renderer] writer.get failed:', e));
   };
   useEffect(() => {
@@ -53,6 +59,15 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
     p.then((v) => { if (accept(v)) setView(v); }).catch((e) => { console.error(`[renderer] ${label} failed:`, e); load(); });
   };
   const regenerate = (): void => { act(api.reports.generate(view.date), 'reports.generate'); };
+  const exportPdf = (): void => {
+    setExportStatus(null);
+    api.reports.exportPdf(view.date)
+      .then((r) => {
+        if ('cancelled' in r) return; // a cancelled save dialog is a no-op, not an error
+        setExportStatus(r.ok ? `Saved to ${r.path}` : r.reason);
+      })
+      .catch((e) => { console.error('[renderer] reports.exportPdf failed:', e); setExportStatus('Could not export the PDF.'); });
+  };
   const download = (): void => {
     api.writer.download().then(setWriter).catch((e) => { console.error('[renderer] writer.download failed:', e); load(); });
   };
@@ -139,6 +154,12 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
             <span className="badge"><i />Written {view.writer.state === 'ready' && view.writer.mode === 'local' ? 'on-device' : 'in the cloud'} · {view.model}</span>
           )}
           {!print && canRegenerate && <button className="btn s" onClick={regenerate}>Regenerate</button>}
+          {!print && (
+            <div className="rep-actions">
+              <button className="export" onClick={exportPdf}>Export PDF</button>
+              {exportStatus && <span className="report-note">{exportStatus}</span>}
+            </div>
+          )}
         </div>
 
         {kind === 'report' && report ? (

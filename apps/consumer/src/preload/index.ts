@@ -5,7 +5,7 @@ import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
-import type { PrivacyView, ModelsView, CoachView, PlanTodayItem } from '../main/ipc';
+import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult } from '../main/ipc';
 import type { ReportView, WriterView } from '../main/report/view';
 
 const api = {
@@ -47,7 +47,8 @@ const api = {
   reports: {
     get: (date?: string | null): Promise<ReportView> => ipcRenderer.invoke(CH.reportsGet, date ?? null),
     generate: (date: string): Promise<ReportView> => ipcRenderer.invoke(CH.reportsGenerate, date),
-    tickPlan: (date: string, index: number, on: boolean): Promise<ReportView> => ipcRenderer.invoke(CH.reportsTickPlan, { date, index, on })
+    tickPlan: (date: string, index: number, on: boolean): Promise<ReportView> => ipcRenderer.invoke(CH.reportsTickPlan, { date, index, on }),
+    exportPdf: (date: string): Promise<ExportPdfResult> => ipcRenderer.invoke(CH.reportsExportPdf, date)
   },
   writer: {
     get: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerGet),
@@ -67,7 +68,10 @@ const api = {
     const listener = (): void => cb();
     ipcRenderer.on(CH.eventsUpdate, listener);
     return () => ipcRenderer.off(CH.eventsUpdate, listener);
-  }
+  },
+  // Sent by the print route once its report DOM has painted, so the hidden export window
+  // knows when to call webContents.printToPDF (see reportPdfElectron.ts).
+  printReady: (): void => ipcRenderer.send('report:printReady')
 };
 
 export type DaylensApi = typeof api;
