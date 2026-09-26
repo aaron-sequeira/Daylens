@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '../settings';
 import { DEFAULT_PROFILE } from '../../shared/profileOptions';
 import { SCREEN_SCHEMA, createScreenStore, checkpoint, deleteActivity, exportAll, type ScreenReadInput } from './store';
 import { COACH_SCHEMA, createCoachStore } from '../coach/store';
+import { REPORT_SQL, createReportStore } from '../report/store';
 
 let db: Database.Database;
 beforeEach(() => { db = new Database(':memory:'); db.exec(SCHEMA_SQL); db.exec(SCREEN_SCHEMA); });
@@ -88,17 +89,31 @@ describe('deleteActivity', () => {
     expect(db.prepare('SELECT count(*) AS n FROM nudges').get()).toEqual({ n: 0 });
     expect(db.prepare('SELECT count(*) AS n FROM breaks').get()).toEqual({ n: 0 });
   });
+
+  it('empties daily_reports and plan_items when the report tables exist', () => {
+    db.exec(REPORT_SQL);
+    const report = createReportStore(db);
+    report.setPending('2026-09-24', 1);
+    report.setReady('2026-09-24', { headline: 'H', story: 'S', wins: [], habits: [], doBetter: [], plan: [], advice: 'A' }, 'model', 2);
+    const item = { kind: 'break_interval' as const, text: 'Breaks', payload: { minutes: 40 } };
+    report.tick('2026-09-24', item, true);
+    deleteActivity(db);
+    expect(db.prepare('SELECT count(*) AS n FROM daily_reports').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT count(*) AS n FROM plan_items').get()).toEqual({ n: 0 });
+  });
 });
 
 describe('exportAll', () => {
-  it('exports every table plus settings and profile, with empty nudges/breaks when those tables do not exist', () => {
+  it('exports every table plus settings and profile, with empty optional tables when they do not exist', () => {
     createScreenStore(db).insert(read(1000, 'x'));
     const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
-    expect(Object.keys(out).sort()).toEqual(['activitySamples', 'appEvents', 'breaks', 'exportedAt', 'focusSessions', 'nudges', 'profile', 'screenReads', 'settings']);
+    expect(Object.keys(out).sort()).toEqual(['activitySamples', 'appEvents', 'breaks', 'dailyReports', 'exportedAt', 'focusSessions', 'nudges', 'planItems', 'profile', 'screenReads', 'settings']);
     expect(out.exportedAt).toBe(42);
     expect(out.screenReads).toHaveLength(1);
     expect(out.nudges).toEqual([]);
     expect(out.breaks).toEqual([]);
+    expect(out.dailyReports).toEqual([]);
+    expect(out.planItems).toEqual([]);
   });
 
   it('includes nudges and breaks when the coach tables exist', () => {
@@ -109,5 +124,16 @@ describe('exportAll', () => {
     const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
     expect(out.nudges).toHaveLength(1);
     expect(out.breaks).toHaveLength(1);
+  });
+
+  it('includes daily_reports and plan_items when the report tables exist', () => {
+    db.exec(REPORT_SQL);
+    const report = createReportStore(db);
+    report.setReady('2026-09-24', { headline: 'H', story: 'S', wins: [], habits: [], doBetter: [], plan: [], advice: 'A' }, 'model', 1);
+    const item = { kind: 'break_interval' as const, text: 'Breaks', payload: { minutes: 40 } };
+    report.tick('2026-09-24', item, true);
+    const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
+    expect(out.dailyReports).toHaveLength(1);
+    expect(out.planItems).toHaveLength(1);
   });
 });
