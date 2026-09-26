@@ -10,6 +10,7 @@ import { Timeline } from './Timeline';
 import { HealthPanel } from './HealthPanel';
 import { ScreenPrompt } from './ScreenPrompt';
 import { HeldCard } from './HeldCard';
+import { PlanCard } from './PlanCard';
 
 export function TodayScreen({ settings, onChange }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void }) {
   const [view, setView] = useState<TodayView | null>(null);
@@ -34,6 +35,7 @@ export function TodayScreen({ settings, onChange }: { settings: DaylensSettings;
       <main className="today">
         <ScreenPrompt settings={settings} onChange={onChange} />
         <HeldCard />
+        <PlanCard />
         <p className="date">
           {greeting(new Date(view.now).getHours(), settings.profileName) && `${greeting(new Date(view.now).getHours(), settings.profileName)} · `}
           {dateLabel}{view.firstSeenAt !== null && ` · first on screen at ${formatClock(view.firstSeenAt)}`}

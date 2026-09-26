@@ -22,6 +22,7 @@ import { LAYA_MANIFEST } from './models/manifest';
 import { batchAllowed, LAYA_NEED_BYTES } from './brain/resources';
 import { COACH_SCHEMA, createCoachStore } from './coach/store';
 import { createCoach } from './coach/engine';
+import { planOverrides } from './coach/plan';
 import { ruleWeight } from './coach/weights';
 import { holdReason, type Rect } from './coach/gate';
 import { queryNotificationState } from './coach/notifState';
@@ -103,6 +104,10 @@ if (!app.requestSingleInstanceLock()) {
     const labelStore = createLabelStore(db);
     db.exec(COACH_SCHEMA);
     const coachStore = createCoachStore(db);
+    // Created early: buildSnapshot (below) needs it for plan overrides.
+    db.exec(REPORT_SQL);
+    const reportStore = createReportStore(db);
+    reportStore.clearPending(Date.now());
     // DAYLENS_MODEL_DIR points at a dev folder holding the only exported copy of the model: read-only.
     const devModelDir = process.env['DAYLENS_MODEL_DIR'] || undefined;
     const modelDir = devModelDir ?? join(app.getPath('userData'), 'models', 'laya');
@@ -222,10 +227,12 @@ if (!app.requestSingleInstanceLock()) {
       const view = loadTodayView(repo, s, date, now, (d) => labelStore.labelsForDay(d), (d) => coachStore.completedBreaksForDay(d));
       const searchTitles = searchTitlesFrom(Array.from({ length: 7 }, (_, i) => repo.getFocusSessions(shiftDate(date, -i))).flat(), parseExclusions(s.exclusions));
       const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
+      const o = planOverrides(reportStore.plan(date), date);
       return {
-        now, date, settings: s, profile: readProfile(s), samples: repo.getActivitySamples(date), sessions: repo.getFocusSessions(date),
+        now, date, settings: { ...s, breakIntervalMin: o.breakIntervalMin ?? s.breakIntervalMin, windDownTime: o.windDownTime ?? s.windDownTime },
+        profile: readProfile(s), samples: repo.getActivitySamples(date), sessions: repo.getFocusSessions(date),
         readsToday: labelStore.readsSince(dayStart.getTime()), // rules apply their own freshness windows
-        view, searchTitles, limits: parseLimits(s.appLimits), lastBreakAt: coachStore.lastCompletedBreakAt()
+        view, searchTitles, limits: [...parseLimits(s.appLimits), ...o.limits], lastBreakAt: coachStore.lastCompletedBreakAt(), focusBlocks: o.focus
       };
     };
     const coach = createCoach({
@@ -265,9 +272,6 @@ if (!app.requestSingleInstanceLock()) {
     }, 30_000);
 
     // --- Writer (local model + cloud) and the daily report scheduler (Task 7) ---
-    db.exec(REPORT_SQL);
-    const reportStore = createReportStore(db);
-    reportStore.clearPending(Date.now());
     const secrets = createSecretStore(db, {
       encrypt: (s) => (safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(s) : Buffer.from(s, 'utf8')),
       decrypt: (b) => (safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(b) : b.toString('utf8'))
@@ -358,7 +362,7 @@ if (!app.requestSingleInstanceLock()) {
     };
     reportScheduler = createReportScheduler({
       now: () => Date.now(),
-      windDown: () => settings.get().windDownTime, // Task 8 swaps in the plan override
+      windDown: (d) => planOverrides(reportStore.plan(d), d).windDownTime ?? settings.get().windDownTime,
       row: (d) => reportStore.get(d),
       hasActivity: (d) => repo.getFocusSessions(d).length > 0,
       canWrite: () => (settings.get().writerMode === 'cloud' ? secrets.has(settings.get().aiProvider) : writerDl.status().state === 'ready' && unavailable() === null),
@@ -514,6 +518,14 @@ if (!app.requestSingleInstanceLock()) {
           const item = reportStore.get(date)?.report?.plan[index];
           if (item) reportStore.tick(date, item, on);
           return reportView(date);
+        }
+      },
+      plan: {
+        today: () => reportStore.plan(localDate(Date.now())).map((p) => ({ id: p.id, text: p.item.text, enabled: p.enabled })),
+        setEnabled: (id, on) => {
+          reportStore.setEnabled(id, on);
+          win?.webContents.send(CH.eventsUpdate);
+          return reportStore.plan(localDate(Date.now())).map((p) => ({ id: p.id, text: p.item.text, enabled: p.enabled }));
         }
       },
       writer: {

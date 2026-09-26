@@ -265,6 +265,7 @@ button { font: inherit; color: inherit; }
 .held-row small { opacity: .7; }
 .held-ic { font-size: 18px; }
 .held-row .btn { margin-left: auto; }
+.plan-card { background: #fff; border-radius: 16px; padding: 10px 14px; margin-bottom: 16px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

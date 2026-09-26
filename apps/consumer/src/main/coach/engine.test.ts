@@ -73,4 +73,12 @@ describe('coach engine', () => {
     await coach.tick();
     expect(rows).toHaveLength(1);
   });
+  it('drops behaviour and tip candidates during a focus block, but not health or focus_start', async () => {
+    const now = T(12);
+    const blocks = [{ start: now - 60_000, end: now + 60 * 60_000, label: '11:59', minutes: 60 }];
+    const { d, shown } = deps({ snapshot: () => snap({ now, focusBlocks: blocks }),
+      rules: [() => c({ kind: 'behaviour', ruleId: 'scattered', key: 'b' }), () => c({ kind: 'tip', ruleId: 'stuck_tip', key: 't' }), () => c({ kind: 'health', ruleId: 'goal_80', key: 'h' })] });
+    await createCoach(d).tick();
+    expect(shown.map((n) => n.kind)).toEqual(['health']);
+  });
 });

@@ -22,5 +22,5 @@ export const emptyView = (o: Partial<TodayView> = {}): TodayView => ({
 });
 export const snap = (o: Partial<Snapshot> = {}): Snapshot => ({
   now: T(12), date: '2026-09-25', settings: { ...DEFAULT_SETTINGS, consentGranted: true }, profile: DEFAULT_PROFILE,
-  samples: [], sessions: [], readsToday: [], view: emptyView(), searchTitles: [], limits: [], lastBreakAt: null, ...o
+  samples: [], sessions: [], readsToday: [], view: emptyView(), searchTitles: [], limits: [], lastBreakAt: null, focusBlocks: [], ...o
 });

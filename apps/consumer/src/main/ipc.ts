@@ -52,6 +52,11 @@ export interface ReportsDeps {
   generate(date: string): ReportView;
   tickPlan(date: string, index: number, on: boolean): ReportView;
 }
+export interface PlanTodayItem { id: number; text: string; enabled: boolean; }
+export interface PlanDeps {
+  today(): PlanTodayItem[];
+  setEnabled(id: number, on: boolean): PlanTodayItem[];
+}
 export interface WriterCloudInput { provider: AiProvider; model: string; baseUrl: string; key?: string; }
 export interface WriterDeps {
   view(): WriterView;
@@ -78,6 +83,7 @@ export interface IpcDeps {
   coach: CoachIpcDeps;
   reports: ReportsDeps;
   writer: WriterDeps;
+  plan: PlanDeps;
 }
 
 export function registerIpc(d: IpcDeps): void {
@@ -168,4 +174,10 @@ export function registerIpc(d: IpcDeps): void {
     baseUrl: z.string().trim().max(300).refine((u) => u === '' || /^https:\/\//.test(u), 'https only'), key: z.string().trim().min(1).max(400).optional()
   }).strict().parse(raw)));
   ipcMain.handle(CH.writerRetryLocal, () => d.writer.retryLocal());
+
+  ipcMain.handle(CH.planToday, () => d.plan.today());
+  ipcMain.handle(CH.planSetEnabled, (_e, raw) => {
+    const v = z.object({ id: z.number().int().min(1), on: z.boolean() }).strict().parse(raw);
+    return d.plan.setEnabled(v.id, v.on);
+  });
 }

@@ -5,7 +5,7 @@ import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
-import type { PrivacyView, ModelsView, CoachView } from '../main/ipc';
+import type { PrivacyView, ModelsView, CoachView, PlanTodayItem } from '../main/ipc';
 import type { ReportView, WriterView } from '../main/report/view';
 
 const api = {
@@ -58,6 +58,10 @@ const api = {
     setTier: (t: '' | '4b' | '1.7b'): Promise<WriterView> => ipcRenderer.invoke(CH.writerSetTier, t),
     setCloud: (c: { provider: AiProvider; model: string; baseUrl: string; key?: string }): Promise<WriterView> => ipcRenderer.invoke(CH.writerSetCloud, c),
     retryLocal: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerRetryLocal)
+  },
+  plan: {
+    today: (): Promise<PlanTodayItem[]> => ipcRenderer.invoke(CH.planToday),
+    setEnabled: (id: number, on: boolean): Promise<PlanTodayItem[]> => ipcRenderer.invoke(CH.planSetEnabled, { id, on })
   },
   onUpdate: (cb: () => void): (() => void) => {
     const listener = (): void => cb();
