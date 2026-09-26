@@ -286,10 +286,20 @@ if (!app.requestSingleInstanceLock()) {
       writerHealth.crashes = [...writerHealth.crashes.filter((t) => now - t < CRASH_WINDOW_MS), now];
     };
     let freeDiskCache: number | null = null;
-    const refreshFreeDisk = (): void => {
-      void statfs(app.getPath('userData')).then((s) => { freeDiskCache = s.bavail * s.bsize; }).catch(() => {});
+    let freeDiskAt = 0;
+    // At most every 30 s unless forced (we just freed or filled the disk ourselves). statfs is async, so the fresh
+    // number lands after the view that asked for it: push an update if it changes the writer's availability.
+    const refreshFreeDisk = (force = false): void => {
+      const now = Date.now();
+      if (!force && now - freeDiskAt < 30_000) return;
+      freeDiskAt = now;
+      void statfs(app.getPath('userData')).then((s) => {
+        const was = unavailable();
+        freeDiskCache = s.bavail * s.bsize;
+        if (unavailable() !== was) win?.webContents.send(CH.eventsUpdate);
+      }).catch(() => {});
     };
-    refreshFreeDisk();
+    refreshFreeDisk(true);
     const writerTier = (): WriterTier => resolveTier(settings.get().writerModelTier, totalmem());
     const writerDirFor = (t: WriterTier): string => join(app.getPath('userData'), 'models', 'writer', t);
     const makeWriterDownloader = (t: WriterTier) => {
@@ -307,7 +317,7 @@ if (!app.requestSingleInstanceLock()) {
           if (countsAsFailure(prevStatus, st, lastRetryReceived)) writerHealth.downloadFailures++;
           if (st.state === 'downloading' && st.retrying) lastRetryReceived = st.received;
           if (st.state === 'ready') writerHealth.downloadFailures = 0;
-          if (st.state === 'error' && st.reason === 'no_space') refreshFreeDisk();
+          if (st.state === 'error' && st.reason === 'no_space') refreshFreeDisk(true);
           prevStatus = st;
           const now = Date.now();
           if (st.state === 'downloading' && now - lastPush < 2000) return; // progress pushes at most 1/2s
@@ -318,11 +328,16 @@ if (!app.requestSingleInstanceLock()) {
     };
     let writerDl = makeWriterDownloader(writerTier());
     void writerDl.init().catch((e) => console.error('[writer] init failed:', e)); // verifies an existing file; never starts a download by itself
-    const unavailable = (): Unavailable | null => localUnavailable({
-      totalRam: totalmem(), freeDisk: freeDiskCache, model: WRITER_MODELS[writerTier()], installed: writerDl.status().state === 'ready',
-      downloadFailures: writerHealth.downloadFailures, declined: settings.get().writerDeclined, loadFailed: writerHealth.loadFailed,
-      crashes: writerHealth.crashes, consecutiveTimeouts: writerHealth.consecutiveTimeouts, now: Date.now()
-    });
+    const unavailable = (): Unavailable | null => {
+      const st = writerDl.status();
+      return localUnavailable({
+        totalRam: totalmem(), freeDisk: freeDiskCache, model: WRITER_MODELS[writerTier()], installed: st.state === 'ready',
+        downloadedBytes: st.state === 'downloading' ? st.received : 0,
+        downloadFailures: writerHealth.downloadFailures, declined: settings.get().writerDeclined, loadFailed: writerHealth.loadFailed,
+        crashes: writerHealth.crashes, consecutiveTimeouts: writerHealth.consecutiveTimeouts,
+        autoPaused: reportScheduler?.autoPaused() ?? false, now: Date.now()
+      });
+    };
     const forkWriter = (): WriterChild => {
       const child = utilityProcess.fork(join(__dirname, 'writer.js'), [], { serviceName: 'Daylens Writer', stdio: 'ignore' });
       child.on('error', (type) => console.error('[writer] utility process error:', type));
@@ -401,6 +416,7 @@ if (!app.requestSingleInstanceLock()) {
     });
     setInterval(() => { void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e)); }, 60_000);
     const reportView = (date: string | null): ReportView => {
+      refreshFreeDisk();
       const rows = reportStore.dates();
       const today = localDate(Date.now());
       const d = date ?? rows[0] ?? today;
@@ -427,7 +443,9 @@ if (!app.requestSingleInstanceLock()) {
         waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused()
       };
     };
+    // Also refreshes free disk for download / retryLocal, which both answer with writerView().
     const writerView = (): WriterView => {
+      refreshFreeDisk();
       const s = settings.get();
       return {
         state: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
@@ -570,6 +588,7 @@ if (!app.requestSingleInstanceLock()) {
           if (settings.get().writerMode === 'local' && reportScheduler.running() !== null) return writerView();
           writerDl.stop();
           await writerDl.remove();
+          refreshFreeDisk(true); // the model's space was just freed
           return writerView();
         },
         decline: () => { settings.set({ writerDeclined: true }); return writerView(); },

@@ -5,18 +5,22 @@ const GiB = 1024 ** 3;
 const CRASH_WINDOW_MS = 10 * 60_000;
 export type Unavailable = 'low_ram' | 'low_disk' | 'download_failed' | 'declined' | 'load_failed' | 'crashes' | 'timeouts';
 export interface AvailabilityInput {
-  totalRam: number; freeDisk: number | null; model: WriterModel; installed: boolean; downloadFailures: number;
-  declined: boolean; loadFailed: boolean; crashes: number[]; consecutiveTimeouts: number; now: number;
+  totalRam: number; freeDisk: number | null; model: WriterModel; installed: boolean;
+  /** Bytes of the model already on disk (mid-download), else 0: only the rest still needs room. */
+  downloadedBytes: number; downloadFailures: number;
+  declined: boolean; loadFailed: boolean; crashes: number[]; consecutiveTimeouts: number;
+  /** The report scheduler paused automatic runs after crashes: stays 'crashes' until "Try local again". */
+  autoPaused: boolean; now: number;
 }
 
 /** Why this PC can't use the local writer right now (→ offer cloud), or null. Order = most fundamental first. */
 export function localUnavailable(i: AvailabilityInput): Unavailable | null {
   if (i.totalRam < 8 * GiB) return 'low_ram';
-  if (!i.installed && i.freeDisk !== null && i.freeDisk < i.model.size + GiB) return 'low_disk';
+  if (!i.installed && i.freeDisk !== null && i.freeDisk < i.model.size - i.downloadedBytes + GiB) return 'low_disk';
   if (i.declined) return 'declined';
   if (i.downloadFailures >= 2) return 'download_failed';
   if (i.loadFailed) return 'load_failed';
-  if (i.crashes.filter((t) => i.now - t < CRASH_WINDOW_MS).length >= 3) return 'crashes';
+  if (i.autoPaused || i.crashes.filter((t) => i.now - t < CRASH_WINDOW_MS).length >= 3) return 'crashes';
   if (i.consecutiveTimeouts >= 2) return 'timeouts';
   return null;
 }

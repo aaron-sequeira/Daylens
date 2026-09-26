@@ -5,8 +5,8 @@ import type { ModelStatus } from '../models/downloader';
 
 const GiB = 1024 ** 3;
 const base = (o: Partial<AvailabilityInput> = {}): AvailabilityInput => ({
-  totalRam: 16 * GiB, freeDisk: 100 * GiB, model: WRITER_MODELS['4b'], installed: false, downloadFailures: 0,
-  declined: false, loadFailed: false, crashes: [], consecutiveTimeouts: 0, now: 1_000_000_000, ...o
+  totalRam: 16 * GiB, freeDisk: 100 * GiB, model: WRITER_MODELS['4b'], installed: false, downloadedBytes: 0, downloadFailures: 0,
+  declined: false, loadFailed: false, crashes: [], consecutiveTimeouts: 0, autoPaused: false, now: 1_000_000_000, ...o
 });
 describe('local writer availability', () => {
   it('is available on a normal PC', () => { expect(localUnavailable(base())).toBeNull(); });
@@ -22,6 +22,20 @@ describe('local writer availability', () => {
     expect(localUnavailable(base({ crashes: [now - 11 * 60_000, now - 2000, now - 3000] }))).toBeNull(); // oldest is outside 10 min
     expect(localUnavailable(base({ consecutiveTimeouts: 2 }))).toBe('timeouts');
     expect(localUnavailable(base({ freeDisk: null }))).toBeNull(); // unknown disk never blocks
+  });
+  it('compares free disk with the bytes still to download, plus 1 GiB', () => {
+    const size = WRITER_MODELS['4b'].size;
+    expect(localUnavailable(base({ freeDisk: size + GiB - 1 }))).toBe('low_disk');
+    expect(localUnavailable(base({ freeDisk: size + GiB }))).toBeNull();
+    // Mid-download: the part already on disk no longer needs room.
+    expect(localUnavailable(base({ freeDisk: 2 * GiB, downloadedBytes: size - GiB }))).toBeNull();
+    expect(localUnavailable(base({ freeDisk: 2 * GiB - 1, downloadedBytes: size - GiB }))).toBe('low_disk');
+  });
+  it('stays "crashes" while automatic runs are paused, even once the 10-minute window has passed', () => {
+    const now = 1_000_000_000;
+    expect(localUnavailable(base({ autoPaused: true }))).toBe('crashes');
+    expect(localUnavailable(base({ autoPaused: true, crashes: [now - 30 * 60_000, now - 29 * 60_000, now - 28 * 60_000] }))).toBe('crashes');
+    expect(localUnavailable(base({ autoPaused: true, totalRam: 4 * GiB }))).toBe('low_ram'); // more fundamental reasons still come first
   });
 });
 
