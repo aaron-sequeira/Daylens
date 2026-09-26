@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { AiProvider } from '@worksight/core/ai';
 import type { WriterView } from '../../main/report/view';
 import { api } from '../lib/api';
 import { PROVIDERS } from '../lib/writer';
@@ -12,7 +13,7 @@ export function CloudSetup({ view, onSaved }: { view: WriterView; onSaved: (v: W
   const p = PROVIDERS.find((x) => x.id === provider) ?? PROVIDERS[0];
   const save = (): void => {
     setError('');
-    api.writer.setCloud({ provider: provider as any, model: model.trim() || p.defaultModel, baseUrl: p.needsBaseUrl ? baseUrl.trim() : '', ...(key.trim() ? { key: key.trim() } : {}) })
+    api.writer.setCloud({ provider: provider as AiProvider, model: model.trim() || p.defaultModel, baseUrl: p.needsBaseUrl ? baseUrl.trim() : '', ...(key.trim() ? { key: key.trim() } : {}) })
       .then((v) => { setKey(''); onSaved(v); })
       .catch(() => setError('Check the model name, the base URL (https) and the key.'));
   };

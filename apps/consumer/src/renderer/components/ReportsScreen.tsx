@@ -31,8 +31,9 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
     api.reports.get(date).then((v) => {
       if (!accept(v)) return;
       setView(v);
-      // Wait a frame so the report DOM has painted before the hidden export window is told to print.
-      if (print) requestAnimationFrame(() => api.printReady());
+      // Two frames: the first runs before React's commit is painted, the second after, so the report DOM is on
+      // screen before the hidden export window is told to print.
+      if (print) requestAnimationFrame(() => requestAnimationFrame(() => api.printReady()));
     }).catch((e) => console.error('[renderer] reports.get failed:', e));
     api.writer.get().then(setWriter).catch((e) => console.error('[renderer] writer.get failed:', e));
   };

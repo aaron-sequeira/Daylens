@@ -695,7 +695,7 @@ if (!app.requestSingleInstanceLock()) {
           const r = await dialog.showMessageBox(win!, {
             type: 'warning', buttons: ['Delete', 'Cancel'], defaultId: 1, cancelId: 1, title: 'Delete my activity',
             message: 'Delete all your activity and screen text?',
-            detail: "Screen time, app history and screen reads will be erased from this PC. Your settings and answers are kept. This can't be undone."
+            detail: "Screen time, app history, screen reads, daily reports and plan items will be erased from this PC. Your settings and answers are kept. This can't be undone."
           });
           if (r.response !== 0) return { deleted: false };
           const s = settings.get();
