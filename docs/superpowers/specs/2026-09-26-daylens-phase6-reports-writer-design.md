@@ -21,6 +21,7 @@ Delivered as **two plans on one branch, built back to back**:
 | Models | RAM ≥ 12 GB → **Qwen3-4B-Instruct-2507 Q4_K_M** (`unsloth/Qwen3-4B-Instruct-2507-GGUF`, 2 497 281 120 bytes); < 12 GB → **Qwen3-1.7B Q4_K_M** (`unsloth/Qwen3-1.7B-GGUF`, thinking disabled). Both pinned to a commit and SHA-256 in the bundled manifest (values recorded during implementation). Apache-2.0: LICENSE + attribution kept alongside. |
 | Live tips | **Template instantly; AI-rewritten when memory allows** (local: free RAM ≥ writer need, no idle requirement; cloud: when cloud mode is on). 20 s cap, else template. |
 | Writer download | Offered on the Reports screen and in Settings → AI model. **Onboarding unchanged.** |
+| No local writer possible | **Offer cloud** (user's own key) with the reason whenever the local writer is unavailable (low RAM/disk, failed download/load, repeated crashes/timeouts); never switch automatically (§3.4). |
 | Reports UI | New **Reports** rail tab: newest report, ← → day navigation, per `daily-report.html`. |
 | Insights | New **Insights** rail tab, weekly (Mon–Sun), numbers from code + short AI week summary. |
 | Search | Full-text search over report text and top apps (SQLite FTS5). |
@@ -57,7 +58,17 @@ type BrainResponse = ... | { op: 'written'; json: unknown } | { op: 'error'; mes
 - Consumer: output parsed + zod-validated; **one retry** on invalid JSON; then failed.
 - Settings keys: `writerMode` ('local'|'cloud', default 'local'), `writerModelTier` ('4b'|'1.7b', default by `os.totalmem()`), `aiProvider`, `aiModel`, `aiBaseUrl`; API key encrypted with `safeStorage` (as in the agent). Only the compact input JSON is ever sent.
 
-### 3.4 Download
+### 3.4 When the local writer can't be used → offer cloud
+The app must always give a user a working path to written reports. The local writer counts as **unavailable** when any of these is true:
+- total RAM < 8 GiB (even the 1.7B model plus working memory would starve the PC);
+- free disk space < model size + 1 GiB;
+- the download failed twice (network, hash) or the user declined it;
+- the model failed to load (unsupported CPU/GPU, corrupt file after re-download);
+- 3 writer crashes within 10 min, or 2 consecutive local timeouts.
+
+In that case, the Reports screen's "no writer" / failed card becomes **"Can't write reports on this PC? Use your own AI key"**, with the reason in one line and a button that opens the cloud setup (provider, model, key) inline. Settings → AI model shows the same reason next to the Writer row. The app **never switches to cloud by itself**: the user picks it, since cloud sends the compact report input off-device. After cloud is set up, reports, week summaries and live tips all use it. A "Try local again" link clears the crash/timeout pause. Live tips fall back to templates while neither is available.
+
+### 3.5 Download
 - Reuse the Phase 4 resumable, SHA-256-verified downloader with a new `WRITER_MANIFEST` per tier, into `userData/models/writer/`.
 - Settings → AI model gets a **Writer** row: status, download/delete, tier picker, Local/Cloud switch; Cloud shows provider/model/key form.
 
@@ -173,7 +184,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS report_fts USING fts5(date UNINDEXED, body);
 |---|---|
 | Writer crash / OOM | That job failed + retry card; 3 crashes / 10 min pause automatic writing until restart. |
 | Timeout | Process killed, failed (report/week) or template (tip). |
-| Model missing / bad hash | "Download the writer" card; bad file deleted and re-fetched. |
+| Model missing / bad hash | "Download the writer" card; bad file deleted and re-fetched; after 2 failed downloads → cloud offer (§3.4). |
+| PC can't run local (RAM/disk/load) | Cloud offer card with the reason (§3.4). |
 | Cloud key / rate limit | Failed with provider reason; no silent local fallback. |
 | Invalid output | Local impossible (grammar); cloud one retry; bad items dropped individually. |
 | Battery < 20 % | Automatic runs wait for AC; manual works. |
@@ -181,7 +193,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS report_fts USING fts5(date UNINDEXED, body);
 
 ## 8. Testing
 
-- **Unit:** episode builder, deep-work, candidates + ids, grounding filter, plan validation, ReportJson/WeekJson/TipJson zod schemas and item-dropping, plan items → coach overrides (focus block silence, cap merge, interval, wind-down), report/week scheduler (wind-down, missing yesterday, battery, gate, crash pause), `complete()` with fake providers, Brain write op with a fake model, FTS body builder + query sanitiser, mailto builder, PDF auto-save path logic, live-tip fallback paths.
+- **Unit:** episode builder, deep-work, candidates + ids, grounding filter, local-writer availability (each §3.4 condition → cloud offer + reason), plan validation, ReportJson/WeekJson/TipJson zod schemas and item-dropping, plan items → coach overrides (focus block silence, cap merge, interval, wind-down), report/week scheduler (wind-down, missing yesterday, battery, gate, crash pause), `complete()` with fake providers, Brain write op with a fake model, FTS body builder + query sanitiser, mailto builder, PDF auto-save path logic, live-tip fallback paths.
 - **Agent:** all existing `apps/agent` tests pass after the `complete()` move.
 - **Real model:** a test that runs only when the writer file is present and free RAM ≥ need: output parses, grounding holds (skipped otherwise).
 - **Manual:** real report < 3 min on the owner's PC; PDF looks right; a ticked plan item changes tomorrow's coaching; regenerate replaces; Insights week summary; search finds a word; auto-save writes the file; Email opens a draft and reveals the PDF; a live AI tip appears when memory allows and a template when not.
