@@ -5,6 +5,8 @@ import type { RecentRead } from '../coach/types';
 export interface StoredLabel { id: number; category: string | null; categoryConf: number | null; activity: string | null; activityConf: number | null; stuck: number | null; distraction: number | null; }
 export interface ReadToLabel { id: number; app: string; title: string | null; text: string; }
 export interface DayLabel { at: number; appName: string; category: string; conf: number | null; }
+export interface EpisodeRead { id: number; at: number; appName: string; windowTitle: string | null; text: string | null;
+  category: string | null; conf: number | null; activity: string | null; stuck: number | null; distraction: number | null; }
 
 // Laya's own choice is always stored, confident or not; consumers (Today, Phase 5 rules) decide
 // what to do with a low-confidence label using the stored confidence (see brain/finalCategory.ts).
@@ -30,6 +32,7 @@ export interface LabelStore {
   lastLabelledAt(): number | null;
   labelsForDay(date: string): DayLabel[];
   readsSince(ms: number): RecentRead[];
+  readsForDay(date: string): EpisodeRead[];
 }
 
 // Starts with labeled_at IS NULL so every pending-read query can use the partial idx_reads_unlabelled.
@@ -54,6 +57,8 @@ export function createLabelStore(db: Database.Database): LabelStore {
   const day = db.prepare(`SELECT at, app_name AS appName, category, category_conf AS conf FROM screen_reads WHERE date = ? AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
   const recent = db.prepare(`SELECT at, app_name AS appName, window_title AS windowTitle, category, category_conf AS conf, stuck, distraction
     FROM screen_reads WHERE at >= ? AND labeled_at IS NOT NULL AND category IS NOT NULL AND category <> 'uncertain' ORDER BY at`);
+  const dayReads = db.prepare(`SELECT id, at, app_name AS appName, window_title AS windowTitle, text, category, category_conf AS conf,
+    activity, stuck, distraction FROM screen_reads WHERE date = ? ORDER BY at, id`);
   const applyAll = db.transaction((results: StoredLabel[], now: number) => { for (const r of results) upd.run({ ...r, now }); });
   return {
     unlabelled: (limit) => unl.all(limit) as ReadToLabel[],
@@ -65,6 +70,7 @@ export function createLabelStore(db: Database.Database): LabelStore {
     markFailed: (id, now) => { failed.run(now, id); },
     lastLabelledAt: () => (last.get() as { t: number | null }).t,
     labelsForDay: (date) => day.all(date) as DayLabel[],
-    readsSince: (ms) => recent.all(ms) as RecentRead[]
+    readsSince: (ms) => recent.all(ms) as RecentRead[],
+    readsForDay: (date) => dayReads.all(date) as EpisodeRead[]
   };
 }

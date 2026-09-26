@@ -1,6 +1,6 @@
 import type { Rule } from '../snapshot';
 import { displayAppName } from '../../../shared/categories';
-import { normaliseSearch, stillIn } from '../activity';
+import { repeatedSearches, stillIn } from '../activity';
 
 const MIN = 60_000;
 const SPAN_MS = 10 * MIN;  // 3 stuck reads within this span of each other
@@ -27,21 +27,11 @@ export const stuckTip: Rule = (s) => {
     primary: { label: 'Got it', action: 'ack' } };
 };
 
-const DISTINCT_MS = 30 * MIN; // re-focusing the same search tab within this counts once
-
 export const repeatSearch: Rule = (s) => {
-  const counts = new Map<string, { n: number; last: number }>();
-  for (const t of [...s.searchTitles].sort((a, b) => a.at - b.at)) {
-    const q = normaliseSearch(t.title);
-    if (!q) continue;
-    const c = counts.get(q);
-    if (!c) counts.set(q, { n: 1, last: t.at });
-    else if (t.at - c.last >= DISTINCT_MS) { c.n++; c.last = t.at; }
-  }
-  const hit = [...counts.entries()].map(([q, c]) => [q, c.n] as const).find(([, n]) => n >= 3);
+  const hit = repeatedSearches(s.searchTitles)[0];
   if (!hit) return null;
-  const q = hit[0].length > 30 ? `${hit[0].slice(0, 29)}…` : hit[0];
-  return { ruleId: 'repeat_search', kind: 'tip', key: `repeat_search:${hit[0]}`, mini: 'Same search', stat: `${hit[1]}×`,
-    title: `Searched "${q}" ${hit[1]}× this week`, body: "Save the answer as a note or bookmark so you don't have to look it up again.",
+  const q = hit.query.length > 30 ? `${hit.query.slice(0, 29)}…` : hit.query;
+  return { ruleId: 'repeat_search', kind: 'tip', key: `repeat_search:${hit.query}`, mini: 'Same search', stat: `${hit.count}×`,
+    title: `Searched "${q}" ${hit.count}× this week`, body: "Save the answer as a note or bookmark so you don't have to look it up again.",
     primary: { label: 'Got it', action: 'ack' } };
 };

@@ -97,4 +97,17 @@ describe('label store', () => {
     labels.applyLabels([{ id: a, category: 'work', categoryConf: 0.8, activity: 'coding', activityConf: 0.7, stuck: 1.6, distraction: 0.2 }], 3000);
     expect(labels.readsSince(500)).toEqual([{ at: 1000, appName: 'Code', windowTitle: 't', category: 'work', conf: 0.8, stuck: 1.6, distraction: 0.2 }]);
   });
+  it('lists all reads for a day in time order, with the full episode fields', () => {
+    const a = add(2000, 'b', 'hb', 'Code', '2026-09-25');
+    const b = add(1000, 'a', 'ha', 'Code', '2026-09-25');
+    add(1500, 'c', 'hc', 'Code', '2026-09-24');
+    labels.applyLabels([
+      { id: a, category: 'work', categoryConf: 0.8, activity: 'coding', activityConf: 0.7, stuck: 1.6, distraction: 0.2 },
+      { id: b, category: 'work', categoryConf: 0.9, activity: 'coding', activityConf: 0.6, stuck: 0, distraction: 0 }
+    ], 3000);
+    expect(labels.readsForDay('2026-09-25')).toEqual([
+      { id: b, at: 1000, appName: 'Code', windowTitle: 't', text: 'a', category: 'work', conf: 0.9, activity: 'coding', stuck: 0, distraction: 0 },
+      { id: a, at: 2000, appName: 'Code', windowTitle: 't', text: 'b', category: 'work', conf: 0.8, activity: 'coding', stuck: 1.6, distraction: 0.2 }
+    ]);
+  });
 });

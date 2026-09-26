@@ -63,3 +63,18 @@ export function normaliseSearch(title: string): string | null {
   }
   return null;
 }
+
+const DISTINCT_MS = 30 * 60_000; // re-focusing the same search tab within this counts once
+
+/** Search queries repeated at least `min` times, re-focusing the same query within DISTINCT_MS counting once. */
+export function repeatedSearches(titles: { at: number; title: string }[], min = 3): { query: string; count: number }[] {
+  const counts = new Map<string, { n: number; last: number }>();
+  for (const t of [...titles].sort((a, b) => a.at - b.at)) {
+    const q = normaliseSearch(t.title);
+    if (!q) continue;
+    const c = counts.get(q);
+    if (!c) counts.set(q, { n: 1, last: t.at });
+    else if (t.at - c.last >= DISTINCT_MS) { c.n++; c.last = t.at; }
+  }
+  return [...counts.entries()].filter(([, c]) => c.n >= min).map(([query, c]) => ({ query, count: c.n }));
+}

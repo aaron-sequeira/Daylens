@@ -1,5 +1,6 @@
+import type { FocusSessionRow } from '@worksight/core/types';
 import type { Rule } from '../snapshot';
-import type { RecentRead } from '../types';
+import type { AppLimit, RecentRead } from '../types';
 import { displayAppName } from '../../../shared/categories';
 import { CONFIDENT } from '../../brain/questions';
 import { hm, stillIn, switchesBetween } from '../activity';
@@ -77,15 +78,20 @@ export const stuckEscape: Rule = (s) => {
     primary: { label: 'OK', action: 'ack' } };
 };
 
+/** Minutes used against each limit today. A limit matches the app name or the window title, so
+ * "YouTube" counts YouTube tabs in any browser; the latest session may still be open (runs to now). */
+export function limitUsage(limits: AppLimit[], sessions: FocusSessionRow[], now: number): { app: string; minutes: number; usedMin: number }[] {
+  const latest = sessions.reduce<FocusSessionRow | undefined>((a, x) => (!a || x.startedAt > a.startedAt ? x : a), undefined);
+  return limits.map((l) => {
+    const ms = sessions.filter((x) => matchDistraction(x, [l.app])).reduce((a, x) => { const iv = sessionInterval(x, x === latest, now); return a + (iv.end - iv.start); }, 0);
+    return { app: l.app, minutes: l.minutes, usedMin: Math.round(ms / MIN) };
+  });
+}
+
 export const appCap: Rule = (s) => {
-  const latest = s.sessions.reduce<(typeof s.sessions)[number] | undefined>((a, x) => (!a || x.startedAt > a.startedAt ? x : a), undefined);
-  for (const l of s.limits) {
-    // A limit matches the app name or the window title, so "YouTube" counts YouTube tabs in any browser.
-    const ms = s.sessions.filter((x) => matchDistraction(x, [l.app])).reduce((a, x) => { const iv = sessionInterval(x, x === latest, s.now); return a + (iv.end - iv.start); }, 0);
-    if (ms < l.minutes * MIN) continue;
-    return { ruleId: 'app_cap', kind: 'behaviour', key: `app_cap:${l.app}:${s.date}`, mini: `${l.app} limit`, stat: hm(l.minutes),
-      title: `${l.app}: ${hm(l.minutes)} limit reached`, body: `You've used ${l.app} for ${hm(Math.round(ms / MIN))} today. Time to close it?`,
-      primary: { label: 'OK', action: 'ack' } };
-  }
-  return null;
+  const hit = limitUsage(s.limits, s.sessions, s.now).find((u) => u.usedMin * MIN >= u.minutes * MIN);
+  if (!hit) return null;
+  return { ruleId: 'app_cap', kind: 'behaviour', key: `app_cap:${hit.app}:${s.date}`, mini: `${hit.app} limit`, stat: hm(hit.minutes),
+    title: `${hit.app}: ${hm(hit.minutes)} limit reached`, body: `You've used ${hit.app} for ${hm(hit.usedMin)} today. Time to close it?`,
+    primary: { label: 'OK', action: 'ack' } };
 };
