@@ -16,7 +16,7 @@ export function friendlyReason(raw: string): string {
   if (r === 'load' || r.startsWith('load:')) return "The writer model couldn't start.";
   if (r === 'no_model') return "The writer model isn't downloaded.";
   if (r === 'no_key') return 'Add your API key in Settings.';
-  if (r === 'input too long') return 'The day had too much to fit; try again.';
+  if (r === 'input too long') return 'The day had too much to fit.'; // deterministic: retrying won't help
   if (/(?:HTTP |Error: )401\b/.test(r)) return 'The API key was rejected.';
   if (/(?:HTTP |Error: )429\b/.test(r)) return 'The AI provider is busy; try again later.';
   return FALLBACK;

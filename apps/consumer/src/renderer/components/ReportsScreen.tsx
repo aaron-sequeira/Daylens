@@ -252,7 +252,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
                 <h2>Plan for tomorrow <span>· tick to turn into reminders</span></h2>
                 {report.plan.map((p, i) => (
                   <label key={i}>
-                    <input type="checkbox" checked={view.ticked.includes(p.text)} disabled={print}
+                    <input type="checkbox" checked={view.ticked.includes(p.text)} disabled={print || view.running}
                       onChange={(e) => tick(i, e.target.checked)} />
                     {p.text}<span className="add">{PLAN_KIND_LABEL[p.kind]}</span>
                   </label>

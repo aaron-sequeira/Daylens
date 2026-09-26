@@ -25,7 +25,7 @@ describe('generateReport', () => {
       ['timeout', 'no answer in 180000 ms', 'timeout', 'The writer took too long.'],
       ['crash', 'exit 3221225477', 'crash', 'The writer stopped unexpectedly.'],
       ['load', 'load: C:\\Users\\me\\model.gguf is corrupt', 'load', "The writer model couldn't start."],
-      ['error', 'input too long', 'failed', 'The day had too much to fit; try again.'],
+      ['error', 'input too long', 'failed', 'The day had too much to fit.'],
       ['invalid', 'The writer returned an answer Daylens could not read.', 'failed', "Couldn't write this report."],
       [undefined, 'HTTP 401 {"error":"bad key"}', 'failed', 'The API key was rejected.']
     ] as const) {
@@ -84,7 +84,7 @@ describe('friendlyReason', () => {
       ['exited without an answer', 'The writer stopped unexpectedly.'],
       ['load', "The writer model couldn't start."], ['load: failed to load C:\\secret\\path.gguf', "The writer model couldn't start."],
       ['no_model', "The writer model isn't downloaded."], ['no_key', 'Add your API key in Settings.'],
-      ['input too long', 'The day had too much to fit; try again.'],
+      ['input too long', 'The day had too much to fit.'],
       ['HTTP 401 {"error":{"message":"invalid key"}}', 'The API key was rejected.'], ['AuthenticationError: 401 {"type":"error"}', 'The API key was rejected.'],
       ['HTTP 429 slow down', 'The AI provider is busy; try again later.'], ['RateLimitError: 429 {"type":"error"}', 'The AI provider is busy; try again later.'],
       ['HTTP 500 oops', "Couldn't write this report."], ['generation failed', "Couldn't write this report."], ['', "Couldn't write this report."]
