@@ -47,16 +47,24 @@ export function createReportStore(db: Database.Database): ReportStore {
     upsert.run({ date, status, report: report ? JSON.stringify(report) : null, model, at, error });
   };
   const toPlan = (r: RawPlan): PlanItemRow | null => {
-    const item = parsePlanItem({ kind: r.kind, text: r.text, payload: JSON.parse(r.payload_json) });
-    return item ? { id: r.id, forDate: r.for_date, sourceDate: r.source_date, item, enabled: r.enabled === 1 } : null;
+    try {
+      const item = parsePlanItem({ kind: r.kind, text: r.text, payload: JSON.parse(r.payload_json) });
+      return item ? { id: r.id, forDate: r.for_date, sourceDate: r.source_date, item, enabled: r.enabled === 1 } : null;
+    } catch {
+      return null;
+    }
   };
   return {
     get(date) {
       const r = one.get(date) as RawReport | undefined;
       if (!r) return null;
       let report: ReportJson | null = null;
-      try { report = r.report_json ? JSON.parse(r.report_json) as ReportJson : null; } catch { report = null; }
-      return { date: r.date, status: r.status, report, model: r.model, generatedAt: r.generated_at, error: r.error };
+      let status: ReportRow['status'] = r.status;
+      let error = r.error;
+      try { report = r.report_json ? JSON.parse(r.report_json) as ReportJson : null; } catch {
+        if (r.status === 'ready') { status = 'failed'; error = 'corrupt report'; }
+      }
+      return { date: r.date, status, report, model: r.model, generatedAt: r.generated_at, error };
     },
     dates: () => (all.all() as { date: string }[]).map((r) => r.date),
     setPending: (date, now) => put(date, 'pending', null, null, now, null),

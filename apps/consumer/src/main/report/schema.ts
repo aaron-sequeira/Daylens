@@ -15,7 +15,7 @@ export interface ReportJson { headline: string; story: string; wins: string[]; h
 
 const cut = (n: number) => (v: unknown): string => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-const strings = (v: unknown, max: number, len: number): string[] => list(v).map(cut(len)).filter(Boolean).slice(0, max);
+const strings = (v: unknown, max: number, len: number): string[] => list(v).slice(0, max).map(cut(len)).filter(Boolean);
 
 export function parsePlanItem(raw: unknown): PlanItem | null {
   const r = planItem.safeParse(raw);
@@ -28,7 +28,7 @@ export function parseReport(raw: unknown, candidateIds: ReadonlySet<string>): Re
   const o = raw as Record<string, unknown>;
   const headline = cut(80)(o.headline);
   if (!headline) return null;
-  const doBetter = list(o.doBetter).flatMap((d) => {
+  const doBetter = list(o.doBetter).slice(0, 20).flatMap((d) => {
     const x = (d ?? {}) as Record<string, unknown>;
     const id = typeof x.candidateId === 'string' ? x.candidateId : '';
     const what = cut(240)(x.what), better = cut(240)(x.better);
@@ -36,7 +36,7 @@ export function parseReport(raw: unknown, candidateIds: ReadonlySet<string>): Re
   }).slice(0, 4);
   return {
     headline, story: cut(900)(o.story), wins: strings(o.wins, 3, 200), habits: strings(o.habits, 3, 200), doBetter,
-    plan: list(o.plan).map(parsePlanItem).filter((p): p is PlanItem => p !== null).slice(0, 4), advice: cut(300)(o.advice)
+    plan: list(o.plan).slice(0, 20).map(parsePlanItem).filter((p): p is PlanItem => p !== null).slice(0, 4), advice: cut(300)(o.advice)
   };
 }
 

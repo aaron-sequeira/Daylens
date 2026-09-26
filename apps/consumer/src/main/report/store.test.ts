@@ -36,4 +36,28 @@ describe('report store', () => {
     s.tick('2026-09-26', item, false);
     expect(s.plan('2026-09-27')).toEqual([]);
   });
+
+  it('drops corrupt plan_items rows with unparseable payload_json', () => {
+    const { db, s } = mk();
+    const item = { kind: 'break_interval' as const, text: 'Breaks', payload: { minutes: 40 } };
+    s.tick('2026-09-26', item, true);
+    // Insert a corrupt row directly
+    db.prepare('INSERT INTO plan_items (for_date, kind, payload_json, text, source_date) VALUES (?, ?, ?, ?, ?)')
+      .run('2026-09-27', 'break_interval', 'not json', 'Corrupt', '2026-09-26');
+    // plan() should return only the good item, dropping the corrupt one
+    const items = s.plan('2026-09-27');
+    expect(items).toHaveLength(1);
+    expect(items[0].item.text).toBe('Breaks');
+  });
+
+  it('treats ready report with unparseable report_json as failed with corrupt report error', () => {
+    const { db, s } = mk();
+    s.setReady('2026-09-26', rep, 'model', 1);
+    // Corrupt the JSON directly in the database
+    db.prepare('UPDATE daily_reports SET report_json = ? WHERE date = ?').run('not json', '2026-09-26');
+    const row = s.get('2026-09-26')!;
+    expect(row.status).toBe('failed');
+    expect(row.error).toBe('corrupt report');
+    expect(row.report).toBeNull();
+  });
 });
