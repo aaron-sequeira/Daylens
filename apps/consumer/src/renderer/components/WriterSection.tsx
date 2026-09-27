@@ -22,17 +22,23 @@ export function WriterSection() {
         </div>
       </div>
       {view.mode === 'local' && (
-        <div className="srow">
-          <p>Model size<small>Recommended for this PC: {view.autoTier === '4b' ? 'Qwen3 4B' : 'Qwen3 1.7B'}</small></p>
-          <div className="srow-btns">
-            <select aria-label="Writer model size" value={view.tier} onChange={(e) => act(api.writer.setTier(e.target.value as '' | '4b' | '1.7b'))}>
-              <option value="">Automatic</option><option value="4b">Qwen3 4B (better, 2.5 GB)</option><option value="1.7b">Qwen3 1.7B (lighter, 1.1 GB)</option>
-            </select>
-            {s.state === 'missing' && <button className="btn s" onClick={() => act(api.writer.download())}>Download</button>}
-            {s.state === 'unavailable' && <button className="btn s" onClick={() => act(api.writer.retryLocal())}>Try local again</button>}
-            {(s.state === 'ready' && s.mode === 'local') && <button className="btn s danger" onClick={() => act(api.writer.remove())}>Delete model</button>}
+        <>
+          <div className="srow">
+            <p>Model size<small>Recommended for this PC: {view.autoTier === '4b' ? 'Qwen3 4B' : 'Qwen3 1.7B'}</small></p>
+            <div className="srow-btns">
+              <select aria-label="Writer model size" value={view.tier} onChange={(e) => act(api.writer.setTier(e.target.value as '' | '4b' | '1.7b'))}>
+                <option value="">Automatic</option><option value="4b">Qwen3 4B (better, 2.5 GB)</option><option value="1.7b">Qwen3 1.7B (lighter, 1.1 GB)</option>
+              </select>
+              {s.state === 'missing' && <button className="btn s" onClick={() => act(api.writer.download())}>Download</button>}
+              {(s.state === 'downloading' || s.state === 'verifying') && <button className="btn s" onClick={() => act(api.writer.cancelDownload())}>Cancel download</button>}
+              {s.state === 'unavailable' && <button className="btn s" onClick={() => act(api.writer.retryLocal())}>Try local again</button>}
+              {(s.state === 'ready' && s.mode === 'local') && <button className="btn s danger" onClick={() => act(api.writer.remove())}>Delete model</button>}
+            </div>
           </div>
-        </div>
+          {(s.state === 'downloading' || s.state === 'verifying') && (
+            <p className="srow-note">Progress is kept, so Download picks up where it stopped.</p>
+          )}
+        </>
       )}
       {(view.mode === 'cloud' || s.state === 'unavailable') && <CloudSetup view={view} onSaved={setView} />}
     </div>

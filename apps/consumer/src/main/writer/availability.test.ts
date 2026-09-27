@@ -61,4 +61,8 @@ describe('countsAsFailure', () => {
     expect(countsAsFailure(downloading(false), { state: 'ready' }, null)).toBe(false);
     expect(countsAsFailure(downloading(false), { state: 'verifying' }, null)).toBe(false);
   });
+  it('does not count a cancelled download (a transition to missing)', () => {
+    expect(countsAsFailure(downloading(false), missing, null)).toBe(false);
+    expect(countsAsFailure(retry(100), missing, 100)).toBe(false);
+  });
 });

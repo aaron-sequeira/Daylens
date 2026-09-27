@@ -31,6 +31,7 @@ export const CH = {
   planSetEnabled: 'plan:setEnabled',
   writerGet: 'writer:get',
   writerDownload: 'writer:download',
+  writerCancelDownload: 'writer:cancelDownload',
   writerDelete: 'writer:delete',
   writerDecline: 'writer:decline',
   writerSetMode: 'writer:setMode',

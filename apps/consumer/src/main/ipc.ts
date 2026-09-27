@@ -63,6 +63,7 @@ export interface WriterCloudInput { provider: AiProvider; model: string; baseUrl
 export interface WriterDeps {
   view(): WriterView;
   download(): WriterView;
+  cancelDownload(): WriterView;
   remove(): Promise<WriterView>;
   decline(): WriterView;
   setMode(m: 'local' | 'cloud'): WriterView;
@@ -168,6 +169,7 @@ export function registerIpc(d: IpcDeps): void {
   ipcMain.handle(CH.reportsExportPdf, (_e, raw) => d.reports.exportPdf(dateStr.parse(raw)));
   ipcMain.handle(CH.writerGet, () => d.writer.view());
   ipcMain.handle(CH.writerDownload, () => d.writer.download());
+  ipcMain.handle(CH.writerCancelDownload, () => d.writer.cancelDownload());
   ipcMain.handle(CH.writerDelete, () => d.writer.remove());
   ipcMain.handle(CH.writerDecline, () => d.writer.decline());
   ipcMain.handle(CH.writerSetMode, (_e, raw) => d.writer.setMode(z.enum(['local', 'cloud']).parse(raw)));

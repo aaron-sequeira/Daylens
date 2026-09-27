@@ -53,6 +53,7 @@ const api = {
   writer: {
     get: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerGet),
     download: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerDownload),
+    cancelDownload: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerCancelDownload),
     remove: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerDelete),
     decline: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerDecline),
     setMode: (m: 'local' | 'cloud'): Promise<WriterView> => ipcRenderer.invoke(CH.writerSetMode, m),

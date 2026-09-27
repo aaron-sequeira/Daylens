@@ -72,6 +72,9 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   const download = (): void => {
     api.writer.download().then(setWriter).catch((e) => { console.error('[renderer] writer.download failed:', e); load(); });
   };
+  const cancelDownload = (): void => {
+    api.writer.cancelDownload().then(setWriter).catch((e) => { console.error('[renderer] writer.cancelDownload failed:', e); load(); });
+  };
   const tick = (i: number, on: boolean): void => {
     setPlanError(false);
     api.reports.tickPlan(view.date, i, on).then((v) => { if (accept(v)) setView(v); })
@@ -96,15 +99,18 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
       case 'download': {
         const w = view.writer;
         const missing = w.state === 'missing';
+        const downloading = w.state === 'downloading' || w.state === 'verifying';
         return (
           <div className="report-card">
             <p>{missing ? `Download the writer (${sizeGb(w.sizeBytes)}) for written reports` : writerStatusText(w)}</p>
             {!print && (
               <div className="btn-row">
                 {missing && <button className="btn" onClick={download}>Download</button>}
+                {downloading && <button className="btn s" onClick={cancelDownload}>Cancel download</button>}
                 <button className="btn s" onClick={() => setShowCloud((v) => !v)}>Use cloud instead</button>
               </div>
             )}
+            {!print && downloading && <p className="report-note">Progress is kept, so Download picks up where it stopped.</p>}
             {!print && showCloud && writer && <CloudSetup view={writer} onSaved={(v) => { setWriter(v); load(); }} />}
           </div>
         );

@@ -585,6 +585,9 @@ if (!app.requestSingleInstanceLock()) {
       writer: {
         view: () => writerView(),
         download: () => { settings.set({ writerDeclined: false }); writerDl.start(); return writerView(); },
+        // Aborts and keeps the .part file so a later Download resumes; the downloader's own
+        // stopImpl() sets status to 'missing', which countsAsFailure() never treats as a failure.
+        cancelDownload: () => { writerDl.stop(); return writerView(); },
         remove: async () => {
           // Never delete the local model out from under a report that's actively being written with it.
           if (settings.get().writerMode === 'local' && reportScheduler.running() !== null) return writerView();
