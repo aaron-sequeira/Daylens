@@ -19,7 +19,7 @@ export function CloudSetup({ view, onSaved }: { view: WriterView; onSaved: (v: W
   };
   return (
     <div className="cloud-setup">
-      <p className="cloud-note">Only a short summary of your day (numbers, app names, a few window titles) is sent. Screen text and screenshots never leave your PC.</p>
+      <p className="cloud-note">A short summary of your day is sent: numbers, app names, and page, video and game titles. Screen text and screenshots never leave your PC.</p>
       <label>Provider
         <select value={provider} onChange={(e) => { setProvider(e.target.value); setModel(PROVIDERS.find((x) => x.id === e.target.value)?.defaultModel ?? ''); }}>
           {PROVIDERS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}

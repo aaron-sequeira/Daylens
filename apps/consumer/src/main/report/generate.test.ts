@@ -10,7 +10,8 @@ function store(status: 'ready' | 'failed' | null = null) {
   return { s, log };
 }
 const emptyInput = { date: '2026-09-26', facts: { screenMin: 360, activeMin: 300, deepWorkMin: 0, longestStretchMin: 60, breaks: 3,
-  expectedBreaks: 6, lateNight: false, goalMin: 420, weekAvgMin: 300, topApps: [], switches: 10 }, episodes: [], candidates: [] } as never;
+  expectedBreaks: 6, lateNight: false, goalMin: 420, weekAvgMin: 300, topApps: [], switches: 10 }, episodes: [], candidates: [],
+  detail: { apps: [], sites: [], videos: [], games: [], learning: [] }, week: { days: [], avgScreenMin: 0 } } as never;
 const build = () => ({ input: emptyInput, candidateIds: new Set(['stuck:e1']) });
 const base = { build, now: () => 1, epoch: () => 0 };
 const okWriter = { write: async (job: any) => ({ ok: true, value: job.parse({ headline: 'Good day', story: 's', advice: 'a',

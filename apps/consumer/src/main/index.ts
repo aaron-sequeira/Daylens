@@ -51,7 +51,7 @@ import { buildEpisodes } from './report/episodes';
 import { buildCandidates } from './report/candidates';
 import { buildDayDetail, type DayDetail } from './report/detail';
 import { finalCategory } from './brain/finalCategory';
-import { buildReportInput, buildStats, forCloud, type ReportStats } from './report/input';
+import { buildReportInput, buildStats, buildWeek, forCloud, type ReportStats, type WriterWeek } from './report/input';
 import type { ReportCandidate } from './report/candidates';
 import { writerState, navDates, needGb, freeGb, type ReportView, type WriterView } from './report/view';
 
@@ -366,6 +366,24 @@ if (!app.requestSingleInstanceLock()) {
       reads: labelStore.readsForDay(date).map((r) => ({ at: r.at, appName: r.appName, activity: r.activity,
         category: r.category ? finalCategory(r.category, r.conf ?? 0, r.appName) : null }))
     });
+    // A finished day's screen time and detail can't change: cache them (keyed with the exclusions, which shape the
+    // detail; cleared by Delete my activity) so the 7-day memory doesn't rebuild 7 day views on every report view.
+    const pastDays = new Map<string, { screenSec: number; detail: DayDetail }>();
+    const pastDay = (d: string): { screenSec: number; detail: DayDetail } => {
+      const key = `${d}\u0000${settings.get().exclusions}`;
+      const hit = pastDays.get(key);
+      if (hit) return hit;
+      const now = Math.min(Date.now(), dayBounds(d).end);
+      const v = { screenSec: loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l)).screenSec, detail: detailFor(d, now) };
+      if (d < localDate(Date.now())) pastDays.set(key, v);
+      return v;
+    };
+    // The writer's memory: the 7 days before `date`, with each day's stored headline when it has a ready report.
+    const weekFor = (date: string): WriterWeek => buildWeek(Array.from({ length: 7 }, (_, i) => {
+      const d = shiftDate(date, -(i + 1));
+      const row = reportStore.get(d);
+      return { date: d, ...pastDay(d), headline: row?.status === 'ready' ? row.report?.headline : undefined };
+    }));
     const buildReportFor = (date: string) => {
       const s = settings.get();
       const { end } = dayBounds(date);
@@ -383,7 +401,8 @@ if (!app.requestSingleInstanceLock()) {
         caps: limitUsage(parseLimits(s.appLimits), sessions, now)
       });
       const stats = buildStats(view, episodes, switchesBetween(sessions, dayBounds(date).start, now));
-      const input = buildReportInput({ stats, episodes, candidates, goals: { dailyGoalMin: s.dailyGoalMin, windDownTime: s.windDownTime, breakIntervalMin: s.breakIntervalMin } });
+      const input = buildReportInput({ stats, episodes, candidates, goals: { dailyGoalMin: s.dailyGoalMin, windDownTime: s.windDownTime, breakIntervalMin: s.breakIntervalMin },
+        detail, week: weekFor(date) });
       return {
         input: cloud ? forCloud(input) : input,
         // Only ids the writer was actually shown (the input cap can drop candidates as a last resort).
@@ -737,6 +756,7 @@ if (!app.requestSingleInstanceLock()) {
           try {
             reportEpoch++; // before the delete: an in-flight report write must not re-create a row afterwards
             pastActivity.clear();
+            pastDays.clear();
             deleteActivity(db);
             pill.dismissAll(); // any on-screen nudges reference rows that just got wiped
             checkpoint(db);
