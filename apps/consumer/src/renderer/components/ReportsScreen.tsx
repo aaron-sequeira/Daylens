@@ -4,7 +4,7 @@ import type { PlanKind } from '../../main/report/schema';
 import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
 import { appColor, appInitials, formatHm } from '../lib/format';
-import { goalPercent, reportCardKind, reportDateLabel, useCountUp, words } from '../lib/report';
+import { activePercent, goalPercent, reportCardKind, reportDateLabel, useCountUp, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
 import { Timeline } from './Timeline';
@@ -145,7 +145,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   };
 
   const screenDeltaPct = stats && stats.weekAvgSec > 0 ? Math.round(((stats.screenSec - stats.weekAvgSec) / stats.weekAvgSec) * 100) : null;
-  const activePct = stats && stats.screenSec > 0 ? Math.round((stats.activeSec / stats.screenSec) * 100) : 0;
+  const activePct = stats ? activePercent(stats) : 0;
   const deepPct = stats && stats.activeSec > 0 ? Math.round((stats.deepWorkSec / stats.activeSec) * 100) : 0;
   const topMax = stats?.topApps[0]?.seconds ?? 0;
   const [ty, tm, td] = view.date.split('-').map(Number);
@@ -179,7 +179,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
             <h2>How your day went</h2>
             <p className="story">
               {print ? report.story : words(report.story).map((w, i) => (
-                <span key={i} style={{ animationDelay: `${i * 30}ms` }}>{w} </span>
+                <span key={i} style={{ animationDelay: `${i * 30}ms` }}>{w}</span>
               ))}
             </p>
           </>

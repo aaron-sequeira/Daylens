@@ -13,6 +13,9 @@ export function reportDateLabel(date: string, today: string): string {
 }
 export const words = (text: string): string[] => text.trim().split(/\s+/).filter(Boolean);
 export const goalPercent = (s: Pick<ReportStats, 'screenSec' | 'goalSec'>): number => (s.goalSec > 0 ? Math.round((s.screenSec / s.goalSec) * 100) : 0);
+// ponytail: buildStats already clamps activeSec to screenSec; this caps display too, belt and suspenders.
+export const activePercent = (s: Pick<ReportStats, 'screenSec' | 'activeSec'>): number =>
+  (s.screenSec > 0 ? Math.min(100, Math.round((s.activeSec / s.screenSec) * 100)) : 0);
 
 export type CardKind = 'report' | 'writing' | 'waiting' | 'failed' | 'download' | 'cloud_offer' | 'empty' | 'generate';
 export function reportCardKind(v: ReportView): CardKind {
