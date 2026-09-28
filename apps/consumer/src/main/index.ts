@@ -53,7 +53,7 @@ import { buildDayDetail, type DayDetail } from './report/detail';
 import { finalCategory } from './brain/finalCategory';
 import { buildReportInput, buildStats, buildWeek, forCloud, type ReportStats, type WriterWeek } from './report/input';
 import type { ReportCandidate } from './report/candidates';
-import { writerState, navDates, needGb, freeGb, type ReportView, type WriterView } from './report/view';
+import { writerState, navDates, needGb, freeGb, settledDay, type ReportView, type WriterView } from './report/view';
 
 app.setName('Daylens');
 const startHidden = process.argv.includes('--hidden');
@@ -366,16 +366,18 @@ if (!app.requestSingleInstanceLock()) {
       reads: labelStore.readsForDay(date).map((r) => ({ at: r.at, appName: r.appName, activity: r.activity,
         category: r.category ? finalCategory(r.category, r.conf ?? 0, r.appName) : null }))
     });
-    // A finished day's screen time and detail can't change: cache them (keyed with the exclusions, which shape the
-    // detail; cleared by Delete my activity) so the 7-day memory doesn't rebuild 7 day views on every report view.
+    // A finished day's screen time and detail only change while its reads still wait for labels: cache them once the
+    // day is settled (keyed with the exclusions, which shape the detail; cleared by Delete my activity) so the 7-day
+    // memory and past-day views don't rebuild day views every time.
     const pastDays = new Map<string, { screenSec: number; detail: DayDetail }>();
     const pastDay = (d: string): { screenSec: number; detail: DayDetail } => {
       const key = `${d}\u0000${settings.get().exclusions}`;
       const hit = pastDays.get(key);
       if (hit) return hit;
-      const now = Math.min(Date.now(), dayBounds(d).end);
+      const { end } = dayBounds(d);
+      const now = Math.min(Date.now(), end);
       const v = { screenSec: loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l)).screenSec, detail: detailFor(d, now) };
-      if (d < localDate(Date.now())) pastDays.set(key, v);
+      if (d < localDate(Date.now()) && settledDay(end, labelStore.unlabelledSummary())) pastDays.set(key, v);
       return v;
     };
     // The writer's memory: the 7 days before `date`, with each day's stored headline when it has a ready report.
@@ -388,7 +390,7 @@ if (!app.requestSingleInstanceLock()) {
       const s = settings.get();
       const { end } = dayBounds(date);
       const now = Math.min(Date.now(), end);
-      const detail = detailFor(date, now);
+      const detail = date < localDate(Date.now()) ? pastDay(date).detail : detailFor(date, now);
       const view = loadTodayView(repo, s, date, now, (d) => labelStore.labelsForDay(d), (d) => coachStore.completedBreaksForDay(d));
       // Screen text never leaves the PC: the cloud writer gets episodes and candidates without samples.
       const cloud = s.writerMode === 'cloud';
@@ -484,7 +486,8 @@ if (!app.requestSingleInstanceLock()) {
         stats, timeline, candidates, ticked: reportStore.tickedTexts(d),
         writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
         waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused(),
-        needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(d), detail
+        needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(d), cancellable: reportScheduler.requested(d),
+        memoryShort: s.writerMode === 'local' && freemem() < writerNeedBytes(writerTier()), detail
       };
     };
     // Also refreshes free disk for download / retryLocal, which both answer with writerView().
@@ -597,7 +600,11 @@ if (!app.requestSingleInstanceLock()) {
           void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e));
           return reportView(date);
         },
-        cancel: (date) => { reportScheduler.cancel(date); return reportView(date); },
+        cancel: (date) => {
+          reportScheduler.cancel(date);
+          void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e)); // the next queued day, if any
+          return reportView(date);
+        },
         tickPlan: (date, index, on) => {
           const item = reportStore.get(date)?.report?.plan[index];
           if (item) reportStore.tick(date, item, on);
@@ -654,6 +661,8 @@ if (!app.requestSingleInstanceLock()) {
           settings.set({ aiProvider: c.provider, aiModel: c.model, aiBaseUrl: c.baseUrl });
           if (c.key) secrets.set(c.provider, c.key);
           settings.set({ writerMode: 'cloud' });
+          // A write queued for memory can go to the cloud now, not at the next 60 s tick.
+          void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e));
           return writerView();
         },
         retryLocal: () => {

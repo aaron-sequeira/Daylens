@@ -10,6 +10,8 @@ export interface ReportSchedulerDeps {
   generate(date: string): Promise<GenerateOutcome>; onChange?(): void;
 }
 export interface ReportScheduler { tick(): Promise<void>; request(date: string): void; cancel(date: string): void; queued(date: string): boolean;
+  /** In the manual queue (a Generate / Regenerate click): the only kind of wait Cancel applies to. */
+  requested(date: string): boolean;
   running(): string | null; waiting(): string | null; autoPaused(): boolean; resume(): void; }
 
 const CRASH_WINDOW_MS = 10 * 60_000;
@@ -72,6 +74,7 @@ export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {
       change();
     },
     queued: (date) => manual.includes(date) || waiting === date,
+    requested: (date) => manual.includes(date),
     running: () => running,
     waiting: () => waiting,
     autoPaused: () => paused,

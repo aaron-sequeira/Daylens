@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { freeGb, navDates, needGb, writerState } from './view';
+import { freeGb, navDates, needGb, settledDay, writerState } from './view';
 
 describe('report view helpers', () => {
   it('navigates between report days and today', () => {
@@ -10,6 +10,12 @@ describe('report view helpers', () => {
   it('states the free memory a local write needs, in GB with one decimal (model file + 1 GiB)', () => {
     expect(needGb('4b')).toBe(3.6);   // 2 497 281 120 + 1 073 741 824 bytes
     expect(needGb('1.7b')).toBe(2.2); // 1 107 409 472 + 1 073 741 824 bytes
+  });
+  it('treats a past day as settled (cacheable) only when no read from that day or earlier awaits labelling', () => {
+    const end = new Date(2026, 8, 26).getTime();
+    expect(settledDay(end, { count: 0, oldest: null })).toBe(true);
+    expect(settledDay(end, { count: 3, oldest: end + 1000 })).toBe(true); // only later days are pending
+    expect(settledDay(end, { count: 3, oldest: end - 1000 })).toBe(false);
   });
   it('states free memory in GB with one decimal', () => {
     expect(freeGb(412_000_000)).toBe(0.4);

@@ -90,6 +90,15 @@ describe('report scheduler', () => {
     manualOk = true; await s.tick();
     expect(ran).toEqual(['2026-09-21']);
   });
+  it('tells manual requests (cancellable) apart from an automatic wait', async () => {
+    const { s } = mk({ gateOk: () => false, manualGateOk: () => false, hasActivity: (d) => d === '2026-09-26' });
+    await s.tick();
+    expect(s.waiting()).toBe('2026-09-26');
+    expect(s.queued('2026-09-26')).toBe(true);
+    expect(s.requested('2026-09-26')).toBe(false); // automatic: no Cancel
+    s.request('2026-09-20');
+    expect(s.requested('2026-09-20')).toBe(true);
+  });
   it('holds automatic runs on low battery but not manual ones', async () => {
     const { s, ran } = mk({ lowBattery: async () => true, hasActivity: (d) => d === '2026-09-26' });
     await s.tick(); expect(ran).toEqual([]);

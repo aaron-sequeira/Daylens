@@ -30,11 +30,16 @@ export function reportCardKind(v: ReportView): CardKind {
   return 'generate';
 }
 
-/** Why a requested write hasn't started. Local mode short of memory gets the real numbers; otherwise the writer is
- * waiting on labelling (the two never run at once). */
-export function waitingText(v: Pick<ReportView, 'writer' | 'needGb' | 'freeGb'>, rewrite: boolean): string {
-  const local = v.writer.state !== 'ready' || v.writer.mode === 'local';
-  if (local && v.freeGb < v.needGb) {
+/** A value from the date picker, or null when it's empty, outside [min, max], or a half-typed year (< 2000). */
+export function pickDate(value: string, min: string | undefined, max: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < '2000-01-01' || value > max || (min !== undefined && value < min)) return null;
+  return value;
+}
+
+/** Why a requested write hasn't started. Local mode short of memory (main's byte-exact `memoryShort`) gets the real
+ * numbers; otherwise the writer is waiting on labelling (the two never run at once). */
+export function waitingText(v: Pick<ReportView, 'memoryShort' | 'needGb' | 'freeGb'>, rewrite: boolean): string {
+  if (v.memoryShort) {
     return `Waiting for memory to ${rewrite ? 'rewrite' : 'write'}: needs ${v.needGb.toFixed(1)} GB free, ${v.freeGb.toFixed(1)} GB free now. It starts by itself when memory frees up.`;
   }
   return 'Waiting for Daylens to finish another job. It starts by itself when that is done.';

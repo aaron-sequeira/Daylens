@@ -23,6 +23,10 @@ export interface ReportView {
   needGb: number; freeGb: number;
   /** This date is in the manual (Generate / Regenerate) queue, or waiting for the gate. */
   queued: boolean;
+  /** In the manual queue: Cancel applies (an automatic wait has no Cancel). */
+  cancellable: boolean;
+  /** Local writer and free memory (bytes, not rounded GB) below what it needs. */
+  memoryShort: boolean;
   /** Built in code for any date, with or without a report. */
   detail: DayDetail;
 }
@@ -36,6 +40,10 @@ export interface WriterView {
 export const needGb = (tier: WriterTier): number => Math.round(writerNeedBytes(tier) / 1e8) / 10;
 /** Free memory now (os.freemem()), in GB with one decimal. */
 export const freeGb = (bytes: number): number => Math.round(bytes / 1e8) / 10;
+/** A past day's views can be cached once no read from that day (or earlier) still waits for a label: labels change its
+ * detail. `pending` is the label store's unlabelled summary (count + oldest pending read time). */
+export const settledDay = (dayEnd: number, pending: { count: number; oldest: number | null }): boolean =>
+  pending.count === 0 || (pending.oldest !== null && pending.oldest >= dayEnd);
 
 export function writerState(i: { mode: 'local' | 'cloud'; hasKey: boolean; cloudModel: string; tier: WriterTier; model: ModelStatus; unavailable: Unavailable | null }): WriterState {
   if (i.mode === 'cloud') return i.hasKey ? { state: 'ready', mode: 'cloud', model: i.cloudModel } : { state: 'cloud_setup' };

@@ -4,7 +4,7 @@ import type { PlanKind } from '../../main/report/schema';
 import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
 import { appColor, appInitials, formatHm } from '../lib/format';
-import { activePercent, detailPanels, goalPercent, reportCardKind, reportDateLabel, useCountUp, waitingText, words } from '../lib/report';
+import { activePercent, detailPanels, goalPercent, pickDate, reportCardKind, reportDateLabel, useCountUp, waitingText, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
 import { Timeline } from './Timeline';
@@ -76,7 +76,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
       <p className="report-note">{waitingText(view, rewrite)}</p>
       {!print && (
         <div className="btn-row">
-          <button className="btn s" onClick={cancel}>Cancel</button>
+          {view.cancellable && <button className="btn s" onClick={cancel}>Cancel</button>}
           {localWriter && <button className="linkish" onClick={() => setShowCloud((v) => !v)}>Use cloud instead</button>}
         </div>
       )}
@@ -183,7 +183,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
           {!print && <button className="arrow" disabled={!view.nextDate} aria-label="Next day" onClick={() => setDate(view.nextDate)}>›</button>}
           {!print && (
             <input type="date" className="date-pick" aria-label="Go to a day" value={view.date} max={view.today} min={days[days.length - 1]}
-              onChange={(e) => { const v = e.target.value; if (v && v <= view.today) setDate(v); }} />
+              onChange={(e) => { const v = pickDate(e.target.value, days[days.length - 1], view.today); if (v) setDate(v); }} />
           )}
           <span className="date">{reportDateLabel(view.date, view.today)}</span>
           {kind === 'report' && view.model && (
