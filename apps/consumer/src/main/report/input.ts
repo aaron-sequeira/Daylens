@@ -112,8 +112,8 @@ function budgetSamples(longest: Episode[], candidates: ReportCandidate[]): { sam
 }
 
 /** A hard cap: while the input is over INPUT_CHARS, give way in this order: episodes' samples (least stuck first); then
- * third titles, second, first (least stuck first); then whole episodes, shortest first; then week headlines, then week
- * topSites (oldest day first); then detail pages (smallest site first). Facts, goals and candidates (already capped by
+ * third titles, second, first (least stuck first); then week headlines, then week topSites (oldest day first), so
+ * today's episodes outlive the week text; then whole episodes, shortest first; then detail pages (smallest site first). Facts, goals and candidates (already capped by
  * buildCandidates) are never cut on a real day; only a pathological input reaches the last resort of dropping
  * candidates' samples, then candidates from the end. A normal day keeps everything. */
 function fitInput(input: ReportInput, order: string[]): void {
@@ -130,10 +130,6 @@ function fitInput(input: ReportInput, order: string[]): void {
       if (e.titles.length > keep) e.titles = e.titles.slice(0, keep);
     }
   }
-  for (const e of [...input.episodes].sort((a, b) => a.minutes - b.minutes)) {
-    if (!over()) return;
-    input.episodes = input.episodes.filter((x) => x !== e);
-  }
   const oldestFirst = [...input.week.days].sort((a, b) => a.date.localeCompare(b.date));
   for (const d of oldestFirst) {
     if (!over()) return;
@@ -142,6 +138,10 @@ function fitInput(input: ReportInput, order: string[]): void {
   for (const d of oldestFirst) {
     if (!over()) return;
     d.topSites = [];
+  }
+  for (const e of [...input.episodes].sort((a, b) => a.minutes - b.minutes)) {
+    if (!over()) return;
+    input.episodes = input.episodes.filter((x) => x !== e);
   }
   for (const s of [...input.detail.sites].reverse()) {
     if (!over()) return;

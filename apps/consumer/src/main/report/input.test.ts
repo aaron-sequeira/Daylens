@@ -173,8 +173,13 @@ describe('report input', () => {
     expect(input.goals).toEqual(goals);
     expect(input.facts.screenMin).toBe(360);
     expect(input.detail.apps).toHaveLength(8);
-    expect(input.week.days).toHaveLength(7);  });
-  it('gives way in order: episode samples, titles, episodes, week headlines, week topSites, then detail pages', () => {
+    expect(input.week.days).toHaveLength(7);
+    // Today's episodes outlive the week text: headlines and topSites went first (7 episodes survived when they didn't).
+    expect(input.week.days.every((d) => !d.headline && d.topSites.length === 0)).toBe(true);
+    expect(input.week.days.every((d) => d.topApps.length === 3)).toBe(true);
+    expect(input.episodes.length).toBeGreaterThanOrEqual(14); // 16 today; 7 under the old order
+  });
+  it('gives way in order: episode samples, titles, week headlines, week topSites, episodes, then detail pages', () => {
     const goals = { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 };
     const seen = { episodesGone: false, headlinesGone: false, topSitesGone: false, pagesGone: false };
     for (let pad = 0; pad <= 6000; pad += 250) {
@@ -189,10 +194,12 @@ describe('report input', () => {
       const headlines = input.week.days.filter((d) => d.headline).length;
       const topSites = input.week.days.filter((d) => d.topSites.length).length;
       const pages = input.detail.sites.filter((s) => s.pages.length).length;
+      const anyTitles = input.episodes.some((e) => e.titles.length > 0);
       if (anySamples) expect(allTitles).toBe(true);
-      if (input.episodes.length) expect(headlines).toBe(7);
+      if (anyTitles) expect(headlines).toBe(7); // titles go before any week text
       if (headlines) expect(topSites).toBe(7);
-      if (topSites) expect(pages).toBe(8);
+      if (topSites) expect(input.episodes).toHaveLength(12); // week text goes before any episode
+      if (input.episodes.length) expect(pages).toBe(8);
       seen.episodesGone ||= input.episodes.length === 0;
       seen.headlinesGone ||= headlines === 0;
       seen.topSitesGone ||= topSites === 0;
