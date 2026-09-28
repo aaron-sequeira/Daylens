@@ -10,6 +10,9 @@ export interface ReportSchedulerDeps {
 export interface ReportScheduler { tick(): Promise<void>; request(date: string): void; running(): string | null; waiting(): string | null; autoPaused(): boolean; resume(): void; }
 
 const CRASH_WINDOW_MS = 10 * 60_000;
+/** An automatic report needs at least this much screen time on the day; a near-empty day makes the writer
+ * invent a narrative. `hasActivity` (wired in index.ts to a day's screen time) enforces it; manual Generate does not. */
+export const MIN_AUTO_SCREEN_SEC = 1800;
 const minutesOf = (hhmm: string): number => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
 
 export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {

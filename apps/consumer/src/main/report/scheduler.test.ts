@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createReportScheduler, type ReportSchedulerDeps } from './scheduler';
+import { createReportScheduler, MIN_AUTO_SCREEN_SEC, type ReportSchedulerDeps } from './scheduler';
 
 const at = (d: number, h: number, m = 0) => new Date(2026, 8, d, h, m).getTime();
 function mk(o: Partial<ReportSchedulerDeps> = {}) {
@@ -14,6 +14,9 @@ function mk(o: Partial<ReportSchedulerDeps> = {}) {
 }
 
 describe('report scheduler', () => {
+  it('requires at least 30 minutes of screen time for an automatic report', () => {
+    expect(MIN_AUTO_SCREEN_SEC).toBe(1800); // the hasActivity dep (wired to a day's screen time in index.ts) uses this
+  });
   it("writes yesterday's missing report first, then today's after wind-down", async () => {
     const { s, ran } = mk();
     await s.tick(); await s.tick(); await s.tick();

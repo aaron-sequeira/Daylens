@@ -44,7 +44,7 @@ import { runLocal, type WriterChild } from './writer/run';
 import { createReportStore, REPORT_SQL } from './report/store';
 import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
-import { createReportScheduler, type ReportScheduler } from './report/scheduler';
+import { createReportScheduler, MIN_AUTO_SCREEN_SEC, type ReportScheduler } from './report/scheduler';
 import { friendlyReason, generateReport } from './report/generate';
 import { batteryPercent } from './report/battery';
 import { buildEpisodes } from './report/episodes';
@@ -389,7 +389,12 @@ if (!app.requestSingleInstanceLock()) {
       now: () => Date.now(),
       windDown: (d) => planOverrides(reportStore.plan(d), d).windDownTime ?? settings.get().windDownTime,
       row: (d) => reportStore.get(d),
-      hasActivity: (d) => repo.getFocusSessions(d).length > 0,
+      // An automatic report needs real screen time for the day, not just a stray focus session (see MIN_AUTO_SCREEN_SEC).
+      hasActivity: (d) => {
+        const { end } = dayBounds(d);
+        const now = Math.min(Date.now(), end);
+        return loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l)).screenSec >= MIN_AUTO_SCREEN_SEC;
+      },
       canWrite: () => (settings.get().writerMode === 'cloud' ? secrets.has(settings.get().aiProvider) : writerDl.status().state === 'ready' && unavailable() === null),
       gateOk: () => settings.get().writerMode === 'cloud' || batchAllowed({
         freeBytes: freemem(), idleSec: powerMonitor.getSystemIdleTime(),
