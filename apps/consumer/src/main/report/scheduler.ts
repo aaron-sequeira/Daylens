@@ -24,10 +24,10 @@ export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {
   const autoDue = (): string | null => {
     const now = d.now();
     const today = localDate(now), yesterday = shiftDate(today, -1);
-    if (d.hasActivity(yesterday) && !d.row(yesterday)) return yesterday;
+    if (!d.row(yesterday) && d.hasActivity(yesterday)) return yesterday; // cheap row check first: hasActivity builds a day view
     const wd = minutesOf(d.windDown(today));
     const nowMin = new Date(now).getHours() * 60 + new Date(now).getMinutes();
-    if (wd >= EARLY_MORNING_MIN && nowMin >= wd && d.hasActivity(today) && !d.row(today)) return today;
+    if (wd >= EARLY_MORNING_MIN && nowMin >= wd && !d.row(today) && d.hasActivity(today)) return today;
     return null;
   };
 

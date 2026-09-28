@@ -385,15 +385,20 @@ if (!app.requestSingleInstanceLock()) {
     let reportEpoch = 0;
     // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.
     let suspendedDuringWrite = false;
+    const pastActivity = new Map<string, boolean>(); // date → ≥30 min screen time, for finished days only (cleared by Delete my activity)
     reportScheduler = createReportScheduler({
       now: () => Date.now(),
       windDown: (d) => planOverrides(reportStore.plan(d), d).windDownTime ?? settings.get().windDownTime,
       row: (d) => reportStore.get(d),
       // An automatic report needs real screen time for the day, not just a stray focus session (see MIN_AUTO_SCREEN_SEC).
       hasActivity: (d) => {
+        const past = d < localDate(Date.now());
+        if (past && pastActivity.has(d)) return pastActivity.get(d) as boolean; // a finished day's screen time can't change
         const { end } = dayBounds(d);
         const now = Math.min(Date.now(), end);
-        return loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l)).screenSec >= MIN_AUTO_SCREEN_SEC;
+        const ok = loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l)).screenSec >= MIN_AUTO_SCREEN_SEC;
+        if (past) pastActivity.set(d, ok);
+        return ok;
       },
       canWrite: () => (settings.get().writerMode === 'cloud' ? secrets.has(settings.get().aiProvider) : writerDl.status().state === 'ready' && unavailable() === null),
       gateOk: () => settings.get().writerMode === 'cloud' || batchAllowed({
@@ -715,6 +720,7 @@ if (!app.requestSingleInstanceLock()) {
           // whether deleteActivity succeeds or throws.
           try {
             reportEpoch++; // before the delete: an in-flight report write must not re-create a row afterwards
+            pastActivity.clear();
             deleteActivity(db);
             pill.dismissAll(); // any on-screen nudges reference rows that just got wiped
             checkpoint(db);
