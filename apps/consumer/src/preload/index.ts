@@ -6,6 +6,7 @@ import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
 import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult } from '../main/ipc';
+import type { SearchHit } from '../main/report/search';
 import type { ReportView, WriterView } from '../main/report/view';
 
 const api = {
@@ -50,7 +51,8 @@ const api = {
     cancel: (date: string): Promise<ReportView> => ipcRenderer.invoke(CH.reportsCancel, date),
     days: (): Promise<string[]> => ipcRenderer.invoke(CH.reportsDays),
     tickPlan: (date: string, index: number, on: boolean): Promise<ReportView> => ipcRenderer.invoke(CH.reportsTickPlan, { date, index, on }),
-    exportPdf: (date: string): Promise<ExportPdfResult> => ipcRenderer.invoke(CH.reportsExportPdf, date)
+    exportPdf: (date: string): Promise<ExportPdfResult> => ipcRenderer.invoke(CH.reportsExportPdf, date),
+    search: (q: string): Promise<SearchHit[]> => ipcRenderer.invoke(CH.reportsSearch, q)
   },
   writer: {
     get: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerGet),

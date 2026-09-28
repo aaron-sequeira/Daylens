@@ -64,6 +64,7 @@ export function deleteActivity(db: Database.Database): void {
     db.exec('DELETE FROM focus_sessions; DELETE FROM app_events; DELETE FROM activity_samples; DELETE FROM daily_summaries; DELETE FROM screen_reads;');
     if (hasTable(db, 'nudges')) db.exec('DELETE FROM nudges; DELETE FROM breaks;');
     if (hasTable(db, 'daily_reports')) db.exec('DELETE FROM daily_reports; DELETE FROM plan_items;');
+    if (hasTable(db, 'report_fts')) db.exec('DELETE FROM report_fts;');
   })();
 }
 

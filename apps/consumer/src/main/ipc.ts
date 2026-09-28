@@ -16,6 +16,7 @@ import { nextEarlyMorning } from './day/time';
 import type { AppLimit, Kind } from './coach/types';
 import type { AiProvider } from '@worksight/core/ai';
 import type { ReportView, WriterView } from './report/view';
+import type { SearchHit } from './report/search';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -55,6 +56,7 @@ export interface ReportsDeps {
   cancel(date: string): ReportView;
   tickPlan(date: string, index: number, on: boolean): ReportView;
   exportPdf(date: string): Promise<ExportPdfResult>;
+  search(q: string): SearchHit[];
 }
 export interface PlanTodayItem { id: number; text: string; enabled: boolean; }
 export interface PlanDeps {
@@ -171,6 +173,7 @@ export function registerIpc(d: IpcDeps): void {
     return d.reports.tickPlan(v.date, v.index, v.on);
   });
   ipcMain.handle(CH.reportsExportPdf, (_e, raw) => d.reports.exportPdf(dateStr.parse(raw)));
+  ipcMain.handle(CH.reportsSearch, (_e, raw) => d.reports.search(z.string().max(200).parse(raw)));
   ipcMain.handle(CH.writerGet, () => d.writer.view());
   ipcMain.handle(CH.writerDownload, () => d.writer.download());
   ipcMain.handle(CH.writerCancelDownload, () => d.writer.cancelDownload());

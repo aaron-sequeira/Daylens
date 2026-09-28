@@ -42,6 +42,7 @@ import { countsAsFailure, localUnavailable, type Unavailable } from './writer/av
 import { createWriter } from './writer/writer';
 import { runLocal, type WriterChild } from './writer/run';
 import { createReportStore, REPORT_SQL } from './report/store';
+import { createReportSearch, reportBody, REPORT_FTS_SQL } from './report/search';
 import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
 import { createReportScheduler, MIN_AUTO_SCREEN_SEC, type ReportScheduler } from './report/scheduler';
@@ -112,6 +113,8 @@ if (!app.requestSingleInstanceLock()) {
     db.exec(REPORT_SQL);
     const reportStore = createReportStore(db);
     reportStore.clearPending(Date.now());
+    db.exec(REPORT_FTS_SQL);
+    const reportSearch = createReportSearch(db);
     // DAYLENS_MODEL_DIR points at a dev folder holding the only exported copy of the model: read-only.
     const devModelDir = process.env['DAYLENS_MODEL_DIR'] || undefined;
     const modelDir = devModelDir ?? join(app.getPath('userData'), 'models', 'laya');
@@ -411,6 +414,18 @@ if (!app.requestSingleInstanceLock()) {
         candidateIds: new Set(input.candidates.map((c) => c.id)), view, candidates, stats, detail
       };
     };
+    // Top 5 app names for a day's search body: the cached detail for a finished day, the live one for today.
+    const topAppsFor = (date: string): string[] => {
+      const detail = date < localDate(Date.now()) ? pastDay(date).detail : detailFor(date, Math.min(Date.now(), dayBounds(date).end));
+      return detail.apps.slice(0, 5).map((a) => a.app);
+    };
+    // Once at startup, index every ready report so search works immediately (e.g. after an upgrade).
+    try {
+      for (const d of reportStore.dates()) {
+        const row = reportStore.get(d);
+        if (row?.status === 'ready' && row.report) reportSearch.upsert(d, reportBody(row.report, topAppsFor(d)));
+      }
+    } catch (e) { console.error('[search] backfill failed:', e); }
     // Bumped by "Delete my activity": a report written across it must not be stored.
     let reportEpoch = 0;
     // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.
@@ -453,6 +468,12 @@ if (!app.requestSingleInstanceLock()) {
         if (outcome === 'crash') pushCrash();
         if (outcome === 'load') writerHealth.loadFailed = true;
         writerHealth.consecutiveTimeouts = outcome === 'timeout' ? writerHealth.consecutiveTimeouts + 1 : outcome === 'ok' ? 0 : writerHealth.consecutiveTimeouts;
+        if (outcome === 'ok') {
+          try {
+            const fresh = reportStore.get(date);
+            if (fresh?.status === 'ready' && fresh.report) reportSearch.upsert(date, reportBody(fresh.report, topAppsFor(date)));
+          } catch (e) { console.error('[search] upsert failed:', e); }
+        }
         return outcome;
       },
       onChange: () => win?.webContents.send(CH.eventsUpdate)
@@ -624,7 +645,8 @@ if (!app.requestSingleInstanceLock()) {
             write: (p, b) => writeFile(p, b)
           }, filePath);
           return r === 'ok' ? { ok: true, path: filePath } : { ok: false, reason: r };
-        }
+        },
+        search: (q) => reportSearch.search(q)
       },
       plan: {
         today: () => reportStore.plan(localDate(Date.now())).map((p) => ({ id: p.id, text: p.item.text, enabled: p.enabled })),

@@ -6,6 +6,7 @@ import { DEFAULT_PROFILE } from '../../shared/profileOptions';
 import { SCREEN_SCHEMA, createScreenStore, checkpoint, deleteActivity, exportAll, type ScreenReadInput } from './store';
 import { COACH_SCHEMA, createCoachStore } from '../coach/store';
 import { REPORT_SQL, createReportStore } from '../report/store';
+import { REPORT_FTS_SQL, createReportSearch } from '../report/search';
 
 let db: Database.Database;
 beforeEach(() => { db = new Database(':memory:'); db.exec(SCHEMA_SQL); db.exec(SCREEN_SCHEMA); });
@@ -100,6 +101,15 @@ describe('deleteActivity', () => {
     deleteActivity(db);
     expect(db.prepare('SELECT count(*) AS n FROM daily_reports').get()).toEqual({ n: 0 });
     expect(db.prepare('SELECT count(*) AS n FROM plan_items').get()).toEqual({ n: 0 });
+  });
+
+  it('clears report_fts when it exists', () => {
+    db.exec(REPORT_FTS_SQL);
+    const search = createReportSearch(db);
+    search.upsert('2026-09-24', 'figma');
+    expect(search.count()).toBe(1);
+    deleteActivity(db);
+    expect(search.count()).toBe(0);
   });
 });
 

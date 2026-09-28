@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activePercent, detailPanels, goalPercent, pickDate, reportCardKind, reportDateLabel, waitingText, words } from './report';
+import { activePercent, detailPanels, goalPercent, pickDate, reportCardKind, reportDateLabel, snippetParts, waitingText, words } from './report';
 
 describe('report UI helpers', () => {
   it('labels dates relative to today', () => {
@@ -52,6 +52,16 @@ describe('report UI helpers', () => {
     expect(waitingText({ memoryShort: true, needGb: 2.1, freeGb: 2.1 } as never, true)).toMatch(/^Waiting for memory/);
     // Enough memory (or cloud): it's waiting on another Daylens job, not memory.
     expect(waitingText({ memoryShort: false, needGb: 2.1, freeGb: 0.4 } as never, true)).toMatch(/^Waiting for Daylens to finish another job/);
+  });
+  it('splits a search snippet into plain and highlighted parts, never leaving stray brackets', () => {
+    expect(snippetParts('You worked in [Figma] all day')).toEqual([
+      { text: 'You worked in ', mark: false }, { text: 'Figma', mark: true }, { text: ' all day', mark: false }
+    ]);
+    expect(snippetParts('[Figma] again, then [YouTube]')).toEqual([
+      { text: 'Figma', mark: true }, { text: ' again, then ', mark: false }, { text: 'YouTube', mark: true }
+    ]);
+    expect(snippetParts('no matches here')).toEqual([{ text: 'no matches here', mark: false }]);
+    expect(snippetParts('')).toEqual([]);
   });
   it('accepts a picked date only within [min, max] and from year 2000 on', () => {
     expect(pickDate('2026-09-20', '2026-01-05', '2026-09-28')).toBe('2026-09-20');

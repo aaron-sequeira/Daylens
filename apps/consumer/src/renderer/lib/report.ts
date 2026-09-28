@@ -57,6 +57,13 @@ export function detailPanels(d: DayDetail): DetailPanel[] {
   ].filter((p) => p.rows.length > 0);
 }
 
+/** Splits an FTS `snippet()` result (matches wrapped in `[` `]`) into plain data the renderer turns into text and
+ * `<mark>` nodes itself, so a search hit is never rendered with dangerouslySetInnerHTML. */
+export function snippetParts(snippet: string): { text: string; mark: boolean }[] {
+  return snippet.split(/(\[[^[\]]*\])/g).filter((s) => s !== '')
+    .map((s) => (s.startsWith('[') && s.endsWith(']') ? { text: s.slice(1, -1), mark: true } : { text: s, mark: false }));
+}
+
 const reduced = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Animated count from 0 to `target` over ~900 ms; returns the target straight away when motion is reduced or disabled. */
 export function useCountUp(target: number, enabled: boolean): number {

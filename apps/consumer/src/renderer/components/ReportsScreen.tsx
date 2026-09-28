@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReportView, WriterView } from '../../main/report/view';
 import type { PlanKind } from '../../main/report/schema';
+import type { SearchHit } from '../../main/report/search';
 import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
 import { appColor, appInitials, formatHm } from '../lib/format';
-import { activePercent, detailPanels, goalPercent, pickDate, reportCardKind, reportDateLabel, useCountUp, waitingText, words } from '../lib/report';
+import { activePercent, detailPanels, goalPercent, pickDate, reportCardKind, reportDateLabel, snippetParts, useCountUp, waitingText, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
 import { Timeline } from './Timeline';
@@ -53,6 +54,24 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
     if (print) return;
     api.reports.days().then(setDays).catch((e) => console.error('[renderer] reports.days failed:', e));
   }, [date, print]);
+
+  // Search box: debounced 250ms, closed whenever the query is empty.
+  const [searchQ, setSearchQ] = useState('');
+  const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    if (print || !searchQ.trim()) { setSearchHits([]); setSearchOpen(false); return; }
+    const t = setTimeout(() => {
+      api.reports.search(searchQ).then((hits) => { setSearchHits(hits); setSearchOpen(true); })
+        .catch((e) => { console.error('[renderer] reports.search failed:', e); setSearchHits([]); setSearchOpen(false); });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [searchQ, print]);
+  const closeSearch = (): void => { setSearchQ(''); setSearchHits([]); setSearchOpen(false); };
+  const pickSearchHit = (hit: SearchHit): void => { setDate(hit.date); closeSearch(); };
+  // Losing focus just hides the dropdown (a stray click elsewhere shouldn't lose what was typed); Escape and
+  // picking a result clear the query too.
+  const hideSearchDropdown = (): void => setSearchOpen(false);
 
   const animate = !print;
   const score = useCountUp(view?.stats?.health.score ?? 0, animate);
@@ -184,6 +203,32 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
           {!print && (
             <input type="date" className="date-pick" aria-label="Go to a day" value={view.date} max={view.today} min={days[days.length - 1]}
               onChange={(e) => { const v = pickDate(e.target.value, days[days.length - 1], view.today); if (v) setDate(v); }} />
+          )}
+          {!print && (
+            <div className="rep-search">
+              <input
+                type="search"
+                aria-label="Search reports"
+                placeholder="Search reports"
+                value={searchQ}
+                onChange={(e) => setSearchQ(e.target.value)}
+                onFocus={() => { if (searchHits.length > 0) setSearchOpen(true); }}
+                onBlur={hideSearchDropdown}
+                onKeyDown={(e) => { if (e.key === 'Escape') closeSearch(); }}
+              />
+              {searchOpen && searchHits.length > 0 && (
+                <ul className="rep-hits">
+                  {searchHits.map((h) => (
+                    <li key={h.date}>
+                      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pickSearchHit(h)}>
+                        <b>{reportDateLabel(h.date, view.today)}</b>
+                        <span>{snippetParts(h.snippet).map((p, i) => (p.mark ? <mark key={i}>{p.text}</mark> : p.text))}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
           <span className="date">{reportDateLabel(view.date, view.today)}</span>
           {kind === 'report' && view.model && (
