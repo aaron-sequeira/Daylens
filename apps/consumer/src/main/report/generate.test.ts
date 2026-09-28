@@ -9,7 +9,9 @@ function store(status: 'ready' | 'failed' | null = null) {
     setFailed: (d: string, e: string) => log.push(`failed ${d} ${e}`), noteError: (d: string, e: string) => log.push(`note ${d} ${e}`) } as unknown as ReportStore;
   return { s, log };
 }
-const build = () => ({ input: { date: '2026-09-26' } as never, candidateIds: new Set(['stuck:e1']) });
+const emptyInput = { date: '2026-09-26', facts: { screenMin: 360, activeMin: 300, deepWorkMin: 0, longestStretchMin: 60, breaks: 3,
+  expectedBreaks: 6, lateNight: false, goalMin: 420, weekAvgMin: 300, topApps: [], switches: 10 }, episodes: [], candidates: [] } as never;
+const build = () => ({ input: emptyInput, candidateIds: new Set(['stuck:e1']) });
 const base = { build, now: () => 1, epoch: () => 0 };
 const okWriter = { write: async (job: any) => ({ ok: true, value: job.parse({ headline: 'Good day', story: 's', advice: 'a',
   doBetter: [{ candidateId: 'made:up', what: 'x', better: 'y' }] }), model: 'Qwen3 4B' }) } as never;
@@ -72,6 +74,26 @@ describe('generateReport', () => {
     const { s, log } = store('failed');
     expect(await generateReport('2026-09-26', { ...base, writer: okWriter, store: s })).toBe('ok');
     expect(log[0]).toBe('pending 2026-09-26');
+  });
+  it('normalizes first-person voice and drops invented numbers before storing the report', async () => {
+    const { s, log } = store();
+    const writer = { write: async (job: any) => ({ ok: true, value: job.parse({
+      headline: 'My best day', story: 'I had a 90-minute deep-work streak today.', wins: ['I stayed on task'], habits: [], doBetter: [], advice: 'Watch my screen time.'
+    }), model: 'Qwen3 4B' }) } as never;
+    expect(await generateReport('2026-09-26', { ...base, writer, store: s })).toBe('ok');
+    expect(log).toEqual(['pending 2026-09-26', 'ready 2026-09-26 My best day Qwen3 4B']); // headline untouched by grounding (no digits)
+  });
+  it('drops a fabricated deep-work claim (deepWorkMin is 0) and rewrites "my" before storing', async () => {
+    const { s } = store();
+    let saved: any = null;
+    const store2 = { ...s, setReady: (d: string, r: any) => { saved = r; } } as never;
+    const writer = { write: async (job: any) => ({ ok: true, value: job.parse({
+      headline: 'A day', story: 'You had a 90-minute deep-work streak today.', wins: ['I stayed on task'], habits: [], doBetter: [], advice: 'Watch my screen time.'
+    }), model: 'Qwen3 4B' }) } as never;
+    expect(await generateReport('2026-09-26', { ...base, writer, store: store2 })).toBe('ok');
+    expect(saved.story).toBe(''); // the only sentence claimed a 90-minute deep-work streak with deepWorkMin: 0
+    expect(saved.wins).toEqual(['You stayed on task']);
+    expect(saved.advice).toBe('Watch your screen time.');
   });
 });
 

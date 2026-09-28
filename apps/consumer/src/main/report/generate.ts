@@ -1,6 +1,6 @@
 import type { ReportInput } from './input';
-import { reportPrompt } from './input';
-import { parseReport, REPORT_JSON_SCHEMA, type ReportJson } from './schema';
+import { allowedMinutes, reportPrompt } from './input';
+import { groundNumbers, normalizeVoice, parseReport, REPORT_JSON_SCHEMA, type ReportJson } from './schema';
 import type { ReportStore } from './store';
 import type { Writer } from '../writer/writer';
 
@@ -42,8 +42,11 @@ export async function generateReport(date: string, deps: { build(date: string): 
   const { system, user } = reportPrompt(built.input);
   let r;
   try {
+    const allowed = allowedMinutes(built.input);
     r = await deps.writer.write<ReportJson>({ kind: 'report', system, user, schema: REPORT_JSON_SCHEMA, maxTokens: MAX_TOKENS,
-      parse: (v) => parseReport(v, built.candidateIds) });
+      // Both local and cloud go through the same safety net: fix stray first-person voice, then drop any number
+      // the writer invented (kept separate from parseReport's schema/shape checks).
+      parse: (v) => { const p = parseReport(v, built.candidateIds); return p ? groundNumbers(normalizeVoice(p), allowed) : null; } });
   } catch {
     if (deps.epoch() === epoch) fail('The writer stopped unexpectedly.');
     return 'failed';

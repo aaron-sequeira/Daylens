@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildReportInput, buildStats, forCloud, INPUT_CHARS, INPUT_EPISODES, reportPrompt } from './input';
+import { allowedMinutes, buildReportInput, buildStats, forCloud, INPUT_CHARS, INPUT_EPISODES, reportPrompt } from './input';
 import { buildCandidates } from './candidates';
 import type { Episode } from './episodes';
 import type { TodayView } from '../day/today';
@@ -19,6 +19,11 @@ describe('report input', () => {
     expect(s).toMatchObject({ date: '2026-09-26', screenSec: 21600, deepWorkSec: 1800, switches: 42, health: { score: 80 } });
     expect(s.topApps).toHaveLength(5);
     expect(s.weekAvgSec).toBe((5 * 4 * 3600 + 6 * 3600) / 6); // the 6 days before, excluding the report date
+  });
+  it('clamps active time to screen time (the tracker can log more active samples than open screen time)', () => {
+    const over = { ...view, screenSec: 3600, activeSec: 7200 } as unknown as TodayView;
+    const s = buildStats(over, [], 0);
+    expect(s.activeSec).toBe(3600);
   });
   it('passes the 40 longest episodes in time order, compacted', () => {
     const eps = Array.from({ length: 50 }, (_, i) => ep(i, i + 1));
@@ -94,6 +99,33 @@ describe('report input', () => {
     expect(p.system).toMatch(/candidateId/);
     expect(p.system).toMatch(/do not invent/i);
     expect(p.user).toContain('"stuck:e1"');
+  });
+  it('carries a human-readable facts object for the writer, in minutes, active capped at screen time', () => {
+    const stats = { ...buildStats(view, [ep(1, 30)], 42), activeSec: 999999 }; // pretend the tracker over-counted
+    const input = buildReportInput({ stats, episodes: [ep(1, 30)], candidates: [], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
+    expect(input.facts).toMatchObject({
+      screenMin: 360, activeMin: 360, deepWorkMin: 30, breaks: 3, expectedBreaks: 6, lateNight: false, goalMin: 420, switches: 42
+    });
+    expect(input.facts.topApps[0]).toMatchObject({ app: 'app0' });
+    expect((input as any).stats).toBeUndefined(); // the raw seconds/health blob no longer rides along
+  });
+  it('collects allowed minute values from facts, episode minutes and numbers in candidate text', () => {
+    const eps = [ep(1, 30), ep(2, 10)];
+    const candidates = [{ id: 'cap:YouTube', kind: 'cap' as const, text: 'YouTube: 75 min used, limit 30 min' }];
+    const input = buildReportInput({ stats: buildStats(view, eps, 42), episodes: eps, candidates, goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
+    const allowed = allowedMinutes(input);
+    expect(allowed).toEqual(expect.arrayContaining([360, 30, 10, 75, 420]));
+  });
+  it('builds a system prompt that demands second-person voice and grounded facts, with a numberless example', () => {
+    const input = buildReportInput({ stats: buildStats(view, [], 0), episodes: [], candidates: [], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
+    const { system } = reportPrompt(input);
+    expect(system).toMatch(/never use ['"]?i['"]?, ['"]?me['"]?, ['"]?my['"]? or ['"]?we['"]?/i);
+    expect(system).toMatch(/habits.*(?:to improve|never praise)/i);
+    expect(system).toMatch(/wins.*genuine positives.*facts/i);
+    expect(system).toMatch(/deepWorkMin is 0/);
+    const exampleMatch = system.match(/\{[^{}]*"headline"[^{}]*\}/);
+    expect(exampleMatch).not.toBeNull();
+    expect(exampleMatch![0]).not.toMatch(/\d/);
   });
   it('strips every screen-text sample for the cloud, leaving the rest intact', () => {
     const input = buildReportInput({ stats: buildStats(view, [], 0), episodes: [ep(1, 30)], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 },

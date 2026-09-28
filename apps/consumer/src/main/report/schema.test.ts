@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parsePlanItem, parseReport, REPORT_JSON_SCHEMA } from './schema';
+import { groundNumbers, normalizeVoice, parsePlanItem, parseReport, REPORT_JSON_SCHEMA, type ReportJson } from './schema';
 
 const ids = new Set(['stuck:e1', 'nudge:7']);
 const good = { headline: 'A focused morning', story: 'You coded.', wins: ['a'], habits: ['b'],
@@ -47,5 +47,75 @@ describe('report schema', () => {
   });
   it('skips blank list items before capping the count', () => {
     expect(parseReport({ ...good, wins: ['', '  ', 7, 'a', 'b', 'c', 'd'], habits: [null, 'h'] }, ids)).toMatchObject({ wins: ['a', 'b', 'c'], habits: ['h'] });
+  });
+});
+
+const bare = (o: Partial<ReportJson> = {}): ReportJson =>
+  ({ headline: 'A day', story: '', wins: [], habits: [], doBetter: [], plan: [], advice: '', ...o });
+
+describe('normalizeVoice', () => {
+  it('turns a sentence-start "I" into "You", mid-sentence "I" into "you"', () => {
+    const r = normalizeVoice(bare({ story: 'I coded a lot today. You focused well, but I got distracted after lunch.' }));
+    expect(r.story).toBe('You coded a lot today. You focused well, but you got distracted after lunch.');
+  });
+  it('rewrites my/me/myself/I\'m/I\'ve at word boundaries', () => {
+    const r = normalizeVoice(bare({
+      story: "My focus was good. Trust me, I'm proud of myself. I've done well.",
+      wins: ['I kept my streak going'], habits: ['My evenings ran long'], advice: 'Watch my screen time.',
+      doBetter: [{ candidateId: 'x', what: 'I got stuck searching', better: 'Try my bookmarks instead' }]
+    }));
+    expect(r.story).toBe("Your focus was good. Trust you, you're proud of yourself. You've done well.");
+    expect(r.wins).toEqual(['You kept your streak going']);
+    expect(r.habits).toEqual(['Your evenings ran long']);
+    expect(r.advice).toBe('Watch your screen time.');
+    expect(r.doBetter).toEqual([{ candidateId: 'x', what: 'You got stuck searching', better: 'Try your bookmarks instead' }]);
+  });
+  it('does not touch words that merely contain these substrings', () => {
+    const r = normalizeVoice(bare({ story: 'You came home and started a meeting about my_project immediately.' }));
+    expect(r.story).toBe('You came home and started a meeting about my_project immediately.');
+  });
+  it('leaves headline and plan untouched', () => {
+    const r = normalizeVoice(bare({ headline: 'My best day', plan: [{ text: 'my plan', kind: 'break_interval', payload: { minutes: 30 } }] }));
+    expect(r.headline).toBe('My best day');
+    expect(r.plan[0].text).toBe('my plan');
+  });
+});
+
+describe('groundNumbers', () => {
+  it('drops a wins/habits/doBetter/advice item that mentions an ungrounded duration', () => {
+    const r = groundNumbers(bare({
+      wins: ['a 60-minute deep-work streak', 'a solid morning'],
+      habits: ['3 hours of late scrolling', 'kept it low-key'],
+      advice: 'Try a 45 min focus block.',
+      doBetter: [{ candidateId: 'x', what: 'Stuck for 20 minutes', better: 'use a shortcut' }, { candidateId: 'y', what: 'ok', better: 'ok' }]
+    }), [0, 11]);
+    expect(r.wins).toEqual(['a solid morning']);
+    expect(r.habits).toEqual(['kept it low-key']);
+    expect(r.advice).toBe('');
+    expect(r.doBetter).toEqual([{ candidateId: 'y', what: 'ok', better: 'ok' }]);
+  });
+  it('keeps a mention that matches an allowed number within tolerance', () => {
+    const r = groundNumbers(bare({ wins: ['your 11 minutes on Chrome'] }), [11]);
+    expect(r.wins).toEqual(['your 11 minutes on Chrome']);
+    const r2 = groundNumbers(bare({ wins: ['about 12 minutes on Chrome'] }), [11]); // +-1 tolerance
+    expect(r2.wins).toEqual(['about 12 minutes on Chrome']);
+  });
+  it('treats hour mentions as their minute equivalent', () => {
+    const r = groundNumbers(bare({ wins: ['a solid 1 hour focus session'] }), [60]);
+    expect(r.wins).toEqual(['a solid 1 hour focus session']);
+    const r2 = groundNumbers(bare({ wins: ['a solid 2 hour focus session'] }), [60]);
+    expect(r2.wins).toEqual([]);
+  });
+  it('removes only the offending sentence from story, falls back to "Your day" if headline is emptied', () => {
+    const r = groundNumbers(bare({
+      headline: 'A 60-minute win',
+      story: 'You started slow. You then had a 90-minute deep-work streak. Later you relaxed.'
+    }), [30]);
+    expect(r.headline).toBe('Your day');
+    expect(r.story).toBe('You started slow. Later you relaxed.');
+  });
+  it('leaves a report with no invented numbers untouched', () => {
+    const good = bare({ headline: 'A steady day', story: 'You had a calm morning.', wins: ['You kept a steady pace.'], advice: 'Keep it up.' });
+    expect(groundNumbers(good, [])).toEqual(good);
   });
 });

@@ -1,5 +1,6 @@
 import type { Health } from '../day/health';
 import type { TodayView } from '../day/today';
+import { displayAppName } from '../../shared/categories';
 import { deepWorkSec, type Episode } from './episodes';
 import type { ReportCandidate } from './candidates';
 
@@ -16,16 +17,33 @@ export interface ReportStats { date: string; screenSec: number; activeSec: numbe
 /** `start` + `minutes` (no `end`: it's derivable, and every digit costs a token). */
 export interface WriterEpisode { id: string; start: string; minutes: number; app: string; category: string; activity: string | null;
   titles: string[]; samples: string[]; stuck: number; distraction: number; }
-export interface ReportInput { date: string; stats: ReportStats; episodes: WriterEpisode[]; candidates: ReportCandidate[];
+/** Human-readable numbers for the writer, in minutes (never raw seconds/health internals): the only numbers it
+ * should ever repeat back, besides episode minutes and the numbers already spelled out in candidate text. */
+export interface ReportFacts { screenMin: number; activeMin: number; deepWorkMin: number; longestStretchMin: number;
+  breaks: number; expectedBreaks: number; lateNight: boolean; goalMin: number; weekAvgMin: number;
+  topApps: { app: string; min: number }[]; switches: number; }
+export interface ReportInput { date: string; facts: ReportFacts; episodes: WriterEpisode[]; candidates: ReportCandidate[];
   goals: { dailyGoalMin: number; windDownTime: string; breakIntervalMin: number }; }
 
 const hhmm = (ms: number): string => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const r1 = (x: number): number => Math.round(x * 10) / 10;
+const toMin = (sec: number): number => Math.round(sec / 60);
+
+export function buildFacts(stats: ReportStats): ReportFacts {
+  return {
+    screenMin: toMin(stats.screenSec), activeMin: Math.min(toMin(stats.activeSec), toMin(stats.screenSec)),
+    deepWorkMin: toMin(stats.deepWorkSec), longestStretchMin: toMin(stats.health.longestStretchSec),
+    breaks: stats.health.breaks, expectedBreaks: stats.health.expectedBreaks, lateNight: stats.health.lateNight,
+    goalMin: toMin(stats.goalSec), weekAvgMin: toMin(stats.weekAvgSec), switches: stats.switches,
+    topApps: stats.topApps.map((a) => ({ app: displayAppName(a.appName), min: toMin(a.seconds) }))
+  };
+}
 
 export function buildStats(view: TodayView, episodes: Episode[], switches: number): ReportStats {
   const prior = view.week.filter((d) => d.date !== view.date);
   return {
-    date: view.date, screenSec: view.screenSec, activeSec: view.activeSec, goalSec: view.goalSec, deepWorkSec: deepWorkSec(episodes), switches,
+    // ponytail: the tracker can log more active samples than open screen time on a bad clock; never claim over 100%.
+    date: view.date, screenSec: view.screenSec, activeSec: Math.min(view.activeSec, view.screenSec), goalSec: view.goalSec, deepWorkSec: deepWorkSec(episodes), switches,
     health: view.health, topApps: view.apps.slice(0, 5), categories: view.cards.map((c) => ({ category: c.category, seconds: c.seconds })),
     weekAvgSec: prior.length ? prior.reduce((a, d) => a + d.seconds, 0) / prior.length : 0
   };
@@ -97,7 +115,7 @@ export function buildReportInput(i: { stats: ReportStats; episodes: Episode[]; c
   const longest = [...i.episodes].sort((a, b) => dur(b) - dur(a)).slice(0, INPUT_EPISODES);
   const { samples, candidates } = budgetSamples(longest, i.candidates);
   const input: ReportInput = {
-    date: i.stats.date, stats: i.stats, candidates, goals: i.goals,
+    date: i.stats.date, facts: buildFacts(i.stats), candidates, goals: i.goals,
     episodes: [...longest].sort((a, b) => a.start - b.start).map((e) => ({ id: e.id, start: hhmm(e.start),
       minutes: Math.round(dur(e) / 60_000), app: e.app, category: e.category, activity: e.activity, titles: e.titles.map((t) => t.slice(0, TITLE_CHARS)),
       samples: samples.get(e.id) ?? [], stuck: r1(e.avgStuck), distraction: r1(e.avgDistraction) }))
@@ -115,15 +133,34 @@ export function forCloud(input: ReportInput): ReportInput {
   };
 }
 
+const numbersIn = (text: string): number[] => [...text.matchAll(/\d+(?:\.\d+)?/g)].map((m) => parseFloat(m[0]));
+
+/** Real minute values the writer is allowed to repeat back: from `facts`, each episode's minutes, and any number
+ * already spelled out in a candidate's text (those came from code, not the model). Used to ground the writer's
+ * answer against invented numbers (see `groundNumbers` in ./schema). */
+export function allowedMinutes(input: ReportInput): number[] {
+  const f = input.facts;
+  return [
+    f.screenMin, f.activeMin, f.deepWorkMin, f.longestStretchMin, f.breaks, f.expectedBreaks, f.goalMin, f.weekAvgMin, f.switches,
+    ...f.topApps.map((a) => a.min), ...input.episodes.map((e) => e.minutes), ...input.candidates.flatMap((c) => numbersIn(c.text))
+  ];
+}
+
 const SYSTEM = [
   "You are Daylens, a warm, concise coach writing a person's end-of-day report about their computer use.",
   'Write in second person ("you"), plain friendly English, no emoji, no markdown.',
+  "Always write to the reader as 'you' / 'your'. Never use 'I', 'me', 'my' or 'we'.",
   'Use only the facts in the input. Do not invent apps, events, problems or numbers; if you mention a number, copy it from the input.',
+  'Only mention durations or counts that appear in facts or episodes; if deepWorkMin is 0, do not claim deep work.',
   'headline: one short line capturing the day. story: 3-5 sentences on how the day went, in time order.',
-  'wins: up to 3 genuine positives. habits: up to 3 patterns worth watching, kind not judgmental.',
+  'wins: up to 3 genuine positives supported by the facts. habits: up to 3 patterns to improve, never praise, kind not judgmental.',
   'doBetter: up to 4 items; each MUST set candidateId to one of the ids in "candidates" and give what happened and a concrete better approach.',
   'plan: up to 4 suggestions for tomorrow, each with kind focus_block {start "HH:MM", minutes}, app_cap {app, minutes}, break_interval {minutes} or wind_down {time "HH:MM"}.',
-  'advice: one short paragraph of the single most useful advice.'
+  'advice: one short paragraph of the single most useful advice.',
+  'Example voice (illustrative only, no numbers): {"headline": "A steady day", "story": "You started slow but found your rhythm by midday. '
+    + 'Your focus held through the afternoon.", "wins": ["You kept a steady pace after lunch."], '
+    + '"habits": ["Your evening browsing crept later than usual."], "doBetter": [], "plan": [], '
+    + '"advice": "Try closing distracting tabs before your next focus block."}'
 ].join('\n');
 
 export function reportPrompt(input: ReportInput): { system: string; user: string } {
