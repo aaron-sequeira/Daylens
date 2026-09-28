@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { navDates, needGb, writerState } from './view';
+import { freeGb, navDates, needGb, writerState } from './view';
 
 describe('report view helpers', () => {
   it('navigates between report days and today', () => {
@@ -10,6 +10,10 @@ describe('report view helpers', () => {
   it('states the free memory a local write needs, in GB with one decimal (model file + 1 GiB)', () => {
     expect(needGb('4b')).toBe(3.6);   // 2 497 281 120 + 1 073 741 824 bytes
     expect(needGb('1.7b')).toBe(2.2); // 1 107 409 472 + 1 073 741 824 bytes
+  });
+  it('states free memory in GB with one decimal', () => {
+    expect(freeGb(412_000_000)).toBe(0.4);
+    expect(freeGb(2_160_000_000)).toBe(2.2);
   });
   it('derives the writer state, preferring an unavailable reason over "missing" in local mode', () => {
     const base = { mode: 'local' as const, hasKey: false, cloudModel: 'claude-haiku-4-5', tier: '4b' as const, unavailable: null };

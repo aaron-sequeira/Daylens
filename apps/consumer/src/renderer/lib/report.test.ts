@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activePercent, goalPercent, reportCardKind, reportDateLabel, words } from './report';
+import { activePercent, goalPercent, reportCardKind, reportDateLabel, waitingText, words } from './report';
 
 describe('report UI helpers', () => {
   it('labels dates relative to today', () => {
@@ -29,7 +29,18 @@ describe('report UI helpers', () => {
     expect(reportCardKind(v({ waiting: true, writer: { state: 'cloud_setup' } }))).toBe('cloud_offer');
     expect(reportCardKind(v({ waiting: true, writer: { state: 'missing', tier: '4b', sizeBytes: 1 } }))).toBe('download');
     expect(reportCardKind(v({ waiting: true, status: 'failed' }))).toBe('waiting'); // a retry of a failed day that's queued
+    expect(reportCardKind(v({ queued: true }))).toBe('waiting'); // queued behind another day's write
     expect(reportCardKind(v({ stats: { screenSec: 0 } }))).toBe('empty');
     expect(reportCardKind(v({}))).toBe('generate');
+  });
+  it('explains a queued write with the real memory numbers', () => {
+    const local = { writer: { state: 'ready', mode: 'local', model: 'm' }, needGb: 2.1, freeGb: 0.4 } as never;
+    expect(waitingText(local, true)).toBe('Waiting for memory to rewrite: needs 2.1 GB free, 0.4 GB free now. It starts by itself when memory frees up.');
+    expect(waitingText(local, false)).toBe('Waiting for memory to write: needs 2.1 GB free, 0.4 GB free now. It starts by itself when memory frees up.');
+    // Enough memory (or cloud): it's waiting on another Daylens job, not memory.
+    const enough = { writer: { state: 'ready', mode: 'local', model: 'm' }, needGb: 2.1, freeGb: 3 } as never;
+    expect(waitingText(enough, true)).toMatch(/^Waiting for Daylens to finish another job/);
+    const cloud = { writer: { state: 'ready', mode: 'cloud', model: 'm' }, needGb: 2.1, freeGb: 0.4 } as never;
+    expect(waitingText(cloud, false)).toMatch(/^Waiting for Daylens to finish another job/);
   });
 });

@@ -27,6 +27,7 @@ export const CH = {
   reportsGenerate: 'reports:generate',
   reportsTickPlan: 'reports:tickPlan',
   reportsExportPdf: 'reports:exportPdf',
+  reportsCancel: 'reports:cancel',
   planToday: 'plan:today',
   planSetEnabled: 'plan:setEnabled',
   writerGet: 'writer:get',

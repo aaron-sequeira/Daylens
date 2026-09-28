@@ -7,7 +7,7 @@ function mk(o: Partial<ReportSchedulerDeps> = {}) {
   let now = at(26, 23, 5);
   const d: ReportSchedulerDeps = {
     now: () => now, windDown: () => '23:00', row: (date) => (rows.has(date) ? { status: rows.get(date)! } : null), hasActivity: () => true,
-    canWrite: () => true, gateOk: () => true, otherJobRunning: () => false, lowBattery: async () => false,
+    canWrite: () => true, gateOk: () => true, manualGateOk: () => true, otherJobRunning: () => false, lowBattery: async () => false,
     generate: async (date) => { ran.push(date); rows.set(date, 'ready'); return 'ok'; }, ...o
   };
   return { s: createReportScheduler(d), rows, ran, setNow: (t: number) => { now = t; } };
@@ -59,6 +59,36 @@ describe('report scheduler', () => {
     await s.tick(); expect(asked).toBe(0); expect(s.waiting()).toBe('2026-09-26');
     gate = true; busy = true; await s.tick(); expect(asked).toBe(0);
     busy = false; await s.tick(); expect(asked).toBe(1); expect(ran).toEqual(['2026-09-26']);
+  });
+  it('runs a manual request on the lighter manual gate, without waiting for idle', async () => {
+    let manualOk = true;
+    const { s, ran } = mk({ gateOk: () => false, manualGateOk: () => manualOk, hasActivity: () => false });
+    manualOk = false;
+    s.request('2026-09-20'); await s.tick();
+    expect(ran).toEqual([]);
+    expect(s.waiting()).toBe('2026-09-20');
+    expect(s.queued('2026-09-20')).toBe(true);
+    manualOk = true; await s.tick();
+    expect(ran).toEqual(['2026-09-20']);
+    expect(s.queued('2026-09-20')).toBe(false);
+  });
+  it('keeps automatic runs on the full gate even when the manual gate is open', async () => {
+    const { s, ran } = mk({ gateOk: () => false, manualGateOk: () => true, hasActivity: (d) => d === '2026-09-26' });
+    await s.tick();
+    expect(ran).toEqual([]);
+    expect(s.waiting()).toBe('2026-09-26');
+  });
+  it('cancels a queued manual request and clears waiting', async () => {
+    let manualOk = false;
+    const { s, ran } = mk({ manualGateOk: () => manualOk, hasActivity: () => false });
+    s.request('2026-09-20'); s.request('2026-09-21'); await s.tick();
+    expect(s.waiting()).toBe('2026-09-20');
+    s.cancel('2026-09-20');
+    expect(s.waiting()).toBeNull();
+    expect(s.queued('2026-09-20')).toBe(false);
+    expect(s.queued('2026-09-21')).toBe(true);
+    manualOk = true; await s.tick();
+    expect(ran).toEqual(['2026-09-21']);
   });
   it('holds automatic runs on low battery but not manual ones', async () => {
     const { s, ran } = mk({ lowBattery: async () => true, hasActivity: (d) => d === '2026-09-26' });

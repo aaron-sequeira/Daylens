@@ -4,7 +4,7 @@ import type { PlanKind } from '../../main/report/schema';
 import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
 import { appColor, appInitials, formatHm } from '../lib/format';
-import { activePercent, goalPercent, reportCardKind, reportDateLabel, useCountUp, words } from '../lib/report';
+import { activePercent, goalPercent, reportCardKind, reportDateLabel, useCountUp, waitingText, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
 import { Timeline } from './Timeline';
@@ -60,6 +60,22 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
     p.then((v) => { if (accept(v)) setView(v); }).catch((e) => { console.error(`[renderer] ${label} failed:`, e); load(); });
   };
   const regenerate = (): void => { act(api.reports.generate(view.date), 'reports.generate'); };
+  const cancel = (): void => { act(api.reports.cancel(view.date), 'reports.cancel'); };
+  const queued = (view.waiting || view.queued) && !view.running;
+  const localWriter = view.writer.state === 'ready' && view.writer.mode === 'local';
+  // The waiting line, with Cancel and (local writer only) an inline switch to cloud.
+  const waitingLine = (rewrite: boolean) => (
+    <div className="report-waiting" role="status">
+      <p className="report-note">{waitingText(view, rewrite)}</p>
+      {!print && (
+        <div className="btn-row">
+          <button className="btn s" onClick={cancel}>Cancel</button>
+          {localWriter && <button className="linkish" onClick={() => setShowCloud((v) => !v)}>Use cloud instead</button>}
+        </div>
+      )}
+      {!print && localWriter && showCloud && writer && <CloudSetup view={writer} onSaved={(v) => { setWriter(v); load(); }} />}
+    </div>
+  );
   const exportPdf = (): void => {
     setExportStatus(null);
     api.reports.exportPdf(view.date)
@@ -87,7 +103,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
       case 'writing':
         return <div className="report-card"><p>Writing your report…</p></div>;
       case 'waiting':
-        return <div className="report-card"><p>Waiting for a quiet moment to write your report (it needs about {view.needGb.toFixed(1)} GB of free memory).</p></div>;
+        return <div className="report-card">{waitingLine(false)}</div>;
       case 'failed':
         return (
           <div className="report-card">
@@ -161,10 +177,10 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
           {kind === 'report' && view.model && (
             <span className="badge"><i />Written {view.writer.state === 'ready' && view.writer.mode === 'local' ? 'on-device' : 'in the cloud'} · {view.model}</span>
           )}
-          {!print && canRegenerate && <button className="btn s" onClick={regenerate}>Regenerate</button>}
+          {!print && canRegenerate && !queued && <button className="btn s" onClick={regenerate}>Regenerate</button>}
           {!print && kind === 'report' && (view.running
             ? <span className="report-note" role="status">Rewriting…</span>
-            : view.error && <span className="report-note" role="status">Couldn't regenerate: {view.error}</span>)}
+            : !queued && view.error && <span className="report-note" role="status">Couldn't regenerate: {view.error}</span>)}
           {!print && (
             <div className="rep-actions">
               <button className="export" onClick={exportPdf}>Export PDF</button>
@@ -172,6 +188,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
             </div>
           )}
         </div>
+        {!print && kind === 'report' && queued && waitingLine(true)}
 
         {kind === 'report' && report ? (
           <>

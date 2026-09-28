@@ -5,9 +5,12 @@ import type { GenerateOutcome } from './generate';
 export interface ReportSchedulerDeps {
   now(): number; windDown(date: string): string; row(date: string): { status: string } | null; hasActivity(date: string): boolean;
   canWrite(): boolean; gateOk(): boolean; otherJobRunning(): boolean; lowBattery(): Promise<boolean>;
+  /** The lighter gate for a click (Generate / Regenerate): enough free memory now, no wait for idle. */
+  manualGateOk(): boolean;
   generate(date: string): Promise<GenerateOutcome>; onChange?(): void;
 }
-export interface ReportScheduler { tick(): Promise<void>; request(date: string): void; running(): string | null; waiting(): string | null; autoPaused(): boolean; resume(): void; }
+export interface ReportScheduler { tick(): Promise<void>; request(date: string): void; cancel(date: string): void; queued(date: string): boolean;
+  running(): string | null; waiting(): string | null; autoPaused(): boolean; resume(): void; }
 
 const CRASH_WINDOW_MS = 10 * 60_000;
 /** An automatic report needs at least this much screen time on the day; a near-empty day makes the writer
@@ -43,7 +46,7 @@ export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {
         // No usable writer: drop a manual request (so it can't block the queue), and don't call anything "waiting".
         if (!d.canWrite()) { if (isManual) manual.shift(); wait(null); return; }
         // Cheap checks first: the battery query spawns a process, so only ask once the gate is open.
-        if (!d.gateOk() || d.otherJobRunning()) { wait(date); return; }
+        if (!(isManual ? d.manualGateOk() : d.gateOk()) || d.otherJobRunning()) { wait(date); return; }
         if (!isManual && await d.lowBattery()) { wait(null); return; }
         if (isManual) manual.shift();
         running = date; wait(null); change();
@@ -62,6 +65,13 @@ export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {
       } finally { checking = false; }
     },
     request(date) { if (!manual.includes(date)) manual.push(date); change(); },
+    cancel(date) {
+      const i = manual.indexOf(date);
+      if (i >= 0) manual.splice(i, 1);
+      if (waiting === date) waiting = null;
+      change();
+    },
+    queued: (date) => manual.includes(date) || waiting === date,
     running: () => running,
     waiting: () => waiting,
     autoPaused: () => paused,

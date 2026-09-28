@@ -18,8 +18,10 @@ export interface ReportView {
   status: 'none' | 'pending' | 'ready' | 'failed'; report: ReportJson | null; error: string | null; model: string | null;
   stats: ReportStats | null; timeline: TimelineSegment[]; candidates: ReportCandidate[];
   ticked: string[]; writer: WriterState; waiting: boolean; running: boolean; autoPaused: boolean;
-  /** GB of free memory the local writer waits for. */
-  needGb: number;
+  /** GB of free memory the local writer waits for, and GB free right now. */
+  needGb: number; freeGb: number;
+  /** This date is in the manual (Generate / Regenerate) queue, or waiting for the gate. */
+  queued: boolean;
 }
 // Kept here (rather than in ipc.ts, which imports electron) so the renderer can type-import it too.
 export interface WriterView {
@@ -29,6 +31,8 @@ export interface WriterView {
 
 /** Free memory a local write needs (the Phase 5 gate's writer need), in GB with one decimal, for the waiting card. */
 export const needGb = (tier: WriterTier): number => Math.round(writerNeedBytes(tier) / 1e8) / 10;
+/** Free memory now (os.freemem()), in GB with one decimal. */
+export const freeGb = (bytes: number): number => Math.round(bytes / 1e8) / 10;
 
 export function writerState(i: { mode: 'local' | 'cloud'; hasKey: boolean; cloudModel: string; tier: WriterTier; model: ModelStatus; unavailable: Unavailable | null }): WriterState {
   if (i.mode === 'cloud') return i.hasKey ? { state: 'ready', mode: 'cloud', model: i.cloudModel } : { state: 'cloud_setup' };

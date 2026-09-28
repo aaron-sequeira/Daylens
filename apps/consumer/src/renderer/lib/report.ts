@@ -23,10 +23,20 @@ export function reportCardKind(v: ReportView): CardKind {
   if (v.running || v.status === 'pending') return 'writing';
   if (v.writer.state === 'unavailable' || v.writer.state === 'cloud_setup') return 'cloud_offer';
   if (v.writer.state === 'missing' || v.writer.state === 'downloading' || v.writer.state === 'verifying') return 'download';
-  if (v.waiting) return 'waiting';
+  if (v.waiting || v.queued) return 'waiting';
   if (v.status === 'failed') return 'failed';
   if (!v.stats || v.stats.screenSec === 0) return 'empty';
   return 'generate';
+}
+
+/** Why a requested write hasn't started. Local mode short of memory gets the real numbers; otherwise the writer is
+ * waiting on labelling (the two never run at once). */
+export function waitingText(v: Pick<ReportView, 'writer' | 'needGb' | 'freeGb'>, rewrite: boolean): string {
+  const local = v.writer.state !== 'ready' || v.writer.mode === 'local';
+  if (local && v.freeGb < v.needGb) {
+    return `Waiting for memory to ${rewrite ? 'rewrite' : 'write'}: needs ${v.needGb.toFixed(1)} GB free, ${v.freeGb.toFixed(1)} GB free now. It starts by itself when memory frees up.`;
+  }
+  return 'Waiting for Daylens to finish another job. It starts by itself when that is done.';
 }
 
 const reduced = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

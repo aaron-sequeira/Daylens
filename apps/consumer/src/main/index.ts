@@ -51,7 +51,7 @@ import { buildEpisodes } from './report/episodes';
 import { buildCandidates } from './report/candidates';
 import { buildReportInput, buildStats, forCloud, type ReportStats } from './report/input';
 import type { ReportCandidate } from './report/candidates';
-import { writerState, navDates, needGb, type ReportView, type WriterView } from './report/view';
+import { writerState, navDates, needGb, freeGb, type ReportView, type WriterView } from './report/view';
 
 app.setName('Daylens');
 const startHidden = process.argv.includes('--hidden');
@@ -405,6 +405,8 @@ if (!app.requestSingleInstanceLock()) {
         freeBytes: freemem(), idleSec: powerMonitor.getSystemIdleTime(),
         locked: powerMonitor.getSystemIdleState(60) === 'locked', needBytes: writerNeedBytes(writerTier())
       }),
+      // A click runs as soon as there's enough free memory; it doesn't wait for idle.
+      manualGateOk: () => settings.get().writerMode === 'cloud' || freemem() >= writerNeedBytes(writerTier()),
       otherJobRunning: () => scheduler.status().state === 'running',
       lowBattery: async () => powerMonitor.isOnBatteryPower() && ((await batteryPercent()) ?? 100) < 20,
       generate: async (date) => {
@@ -452,7 +454,7 @@ if (!app.requestSingleInstanceLock()) {
         stats, timeline, candidates, ticked: reportStore.tickedTexts(d),
         writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
         waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused(),
-        needGb: needGb(writerTier())
+        needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(d)
       };
     };
     // Also refreshes free disk for download / retryLocal, which both answer with writerView().
@@ -563,6 +565,7 @@ if (!app.requestSingleInstanceLock()) {
           void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e));
           return reportView(date);
         },
+        cancel: (date) => { reportScheduler.cancel(date); return reportView(date); },
         tickPlan: (date, index, on) => {
           const item = reportStore.get(date)?.report?.plan[index];
           if (item) reportStore.tick(date, item, on);
