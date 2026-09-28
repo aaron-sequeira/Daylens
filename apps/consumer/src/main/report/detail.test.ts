@@ -19,7 +19,10 @@ describe('parseBrowserTitle', () => {
     expect(parseBrowserTitle('Array.prototype.map() - JavaScript | MDN — Mozilla Firefox')).toEqual({ site: 'MDN Web Docs', page: 'Array.prototype.map() - JavaScript' });
     expect(parseBrowserTitle('Lofi beats - YouTube - Personal - Microsoft​ Edge')).toEqual({ site: 'YouTube', page: 'Lofi beats' });
     expect(parseBrowserTitle('React docs - GitHub and 4 more pages - Work - Microsoft​ Edge')).toEqual({ site: 'GitHub', page: 'React docs' });
-    expect(parseBrowserTitle('Rust book - Brave')).toEqual({ site: 'Rust book', page: null });
+    expect(parseBrowserTitle('Issues · facebook/react · GitHub - Google Chrome')).toEqual({ site: 'GitHub', page: 'Issues · facebook/react' });
+    expect(parseBrowserTitle('GitHub - facebook/react: The library for web and native user interfaces. - Google Chrome'))
+      .toEqual({ site: 'GitHub', page: 'facebook/react: The library for web and native user interfaces.' });
+    expect(parseBrowserTitle('Lofi hip hop radio - YouTube - Aaron - Microsoft​ Edge', 'Aaron')).toEqual({ site: 'YouTube', page: 'Lofi hip hop radio' });
     expect(parseBrowserTitle('Weekly notes - Notion - Opera')).toEqual({ site: 'Notion', page: 'Weekly notes' });
     expect(parseBrowserTitle('Settings | Vivaldi - Vivaldi')).toEqual({ site: 'Vivaldi', page: 'Settings' });
     expect(parseBrowserTitle('Home / X - Google Chrome')).toEqual({ site: 'X', page: 'Home' });
@@ -28,6 +31,14 @@ describe('parseBrowserTitle', () => {
     expect(parseBrowserTitle('(3) YouTube - Google Chrome')).toEqual({ site: 'YouTube', page: null });
     expect(parseBrowserTitle('(12) Big talk explained - YouTube - Google Chrome')).toEqual({ site: 'YouTube', page: 'Big talk explained' });
     expect(parseBrowserTitle('Gmail - Google Chrome')).toEqual({ site: 'Gmail', page: null });
+  });
+  it('gives no site when no separator is left, unless the whole title is a known site', () => {
+    expect(parseBrowserTitle('The Rust Programming Language - Brave')).toBeNull();
+    expect(parseBrowserTitle('localhost:5173/ - Google Chrome')).toBeNull();
+    expect(parseBrowserTitle('YouTube - Google Chrome')).toEqual({ site: 'YouTube', page: null });
+  });
+  it('caps site names at 80 characters', () => {
+    expect(parseBrowserTitle(`Post - ${'Very Long Site Name '.repeat(8)}- Google Chrome`)?.site.length).toBeLessThanOrEqual(80);
   });
   it('normalises known sites, keeps unknown ones raw, and ignores blank tabs', () => {
     expect(parseBrowserTitle('Some post : r/rust - reddit - Google Chrome')?.site).toBe('Reddit');
@@ -69,8 +80,8 @@ describe('buildDayDetail', () => {
     expect(d.videos).toEqual([{ title: 'Stranger Things', site: 'Netflix', min: 50 }, { title: 'Lofi mix', site: 'YouTube', min: 25 }]);
   });
   it('detects games from the known list or mostly-gaming reads, never launchers', () => {
-    const reads = [0, 1, 2].map((i) => ({ at: T0 + (70 + i) * 60_000, appName: 'Hades.exe', activity: i < 2 ? 'gaming' : 'other', category: 'entertainment' }))
-      .concat([{ at: T0 + 125 * 60_000, appName: 'steam.exe', activity: 'gaming', category: 'entertainment' }]);
+    const reads = [0, 1, 2, 3, 4, 5].map((i) => ({ at: T0 + (70 + i) * 60_000, appName: 'Hades.exe', activity: i < 3 ? 'gaming' : 'other', category: 'entertainment' }))
+      .concat([0, 1, 2, 3, 4].map((i) => ({ at: T0 + (125 + i) * 60_000, appName: 'steam.exe', activity: 'gaming', category: 'entertainment' })));
     const d = build([
       s('VALORANT-Win64-Shipping.exe', null, 0, 60), s('Hades.exe', 'Hades', 60, 30), s('steam.exe', 'Steam Big Picture', 120, 20),
       s('Code.exe', 'a.ts', 150, 40)
@@ -99,16 +110,56 @@ describe('buildDayDetail', () => {
     expect(JSON.stringify(d)).not.toMatch(/Bank|Secret|Hidden|Incognito|Private/);
     expect(d.apps[0]).toEqual({ app: 'Google Chrome', min: 65 }); // app time still counts
   });
-  it('drops page titles that carry an email address', () => {
-    const d = build([s('Google Chrome', 'Inbox (3) - someone@example.com - Gmail - Google Chrome', 0, 10)]);
+  it('drops page titles that carry an email address anywhere in the title', () => {
+    const d = build([s('Google Chrome', 'Inbox (3) - someone@example.com - Gmail - Google Chrome', 0, 10),
+      s('Google Chrome', 'Inbox - someone@example.com - Google Chrome', 10, 5)]);
     expect(d.sites).toEqual([{ site: 'Gmail', min: 10, pages: [] }]);
+    expect(JSON.stringify(d)).not.toContain('@');
+  });
+  it('treats "(Private)" windows as private', () => {
+    const d = build([s('Brave', 'Secret page - GitHub - Brave (Private)', 0, 10)]);
+    expect(d.sites).toEqual([]);
+  });
+  it('counts a browser title with no site under the browser app only', () => {
+    const d = build([s('Google Chrome', 'The Rust Programming Language - Google Chrome', 0, 10)]);
+    expect(d.sites).toEqual([]);
+    expect(d.apps).toEqual([{ app: 'Google Chrome', min: 10 }]);
+  });
+  it('drops a custom Edge profile name that ends every Edge title that day', () => {
+    const d = build([
+      s('msedge.exe', 'Lofi hip hop radio - YouTube - Aaron - Microsoft​ Edge', 0, 20),
+      s('msedge.exe', 'Pull requests · facebook/react · GitHub - Aaron - Microsoft​ Edge', 20, 10),
+      s('msedge.exe', 'New tab - Aaron - Microsoft​ Edge', 30, 1)
+    ]);
+    expect(d.videos).toEqual([{ title: 'Lofi hip hop radio', site: 'YouTube', min: 20 }]);
+    expect(d.sites.map((x) => x.site)).toEqual(['YouTube', 'GitHub']);
+  });
+  it('does not mistake a site shared by every Edge title for a profile', () => {
+    const d = build([s('msedge.exe', 'Lofi mix - YouTube - Microsoft Edge', 0, 20), s('msedge.exe', 'Jazz mix - YouTube - Microsoft Edge', 20, 10)]);
+    expect(d.videos.map((v) => v.title)).toEqual(['Lofi mix', 'Jazz mix']);
+  });
+  it('requires 5+ reads for the gaming rule, never counts browsers, and excludes only the Steam client by exact name', () => {
+    const gamingReads = (app: string, at: number, n: number) => Array.from({ length: n }, (_, i) => ({ at: T0 + (at + i) * 60_000, appName: app, activity: 'gaming', category: 'entertainment' }));
+    const d = build([
+      s('NewGame.exe', null, 0, 20), s('Google Chrome', 'Chess - Lichess - Google Chrome', 30, 20),
+      s('steamwebhelper.exe', 'Steam', 60, 20), s('SteamWorld Dig 2.exe', null, 90, 20)
+    ], { reads: [...gamingReads('NewGame.exe', 0, 4), ...gamingReads('Google Chrome', 30, 6), ...gamingReads('steamwebhelper.exe', 60, 6), ...gamingReads('SteamWorld Dig 2.exe', 90, 6)] });
+    expect(d.games).toEqual([{ name: 'SteamWorld Dig 2', min: 20 }]);
+  });
+  it('keeps learning to known sites and docs.* hosts, never Google Docs, Word or Notion', () => {
+    const learnReads = (app: string, at: number) => [{ at: T0 + at * 60_000, appName: app, activity: null, category: 'learning' }];
+    const d = build([
+      s('Google Chrome', 'Project plan - Google Docs - Google Chrome', 0, 20), s('Google Chrome', 'os — Python 3.12 documentation - Google Chrome', 20, 15),
+      s('Google Chrome', 'Tutorial - docs.python.org - Google Chrome', 40, 10), s('WINWORD.EXE', 'Essay.docx - Word', 60, 20), s('Notion.exe', 'Study notes', 90, 20)
+    ], { reads: [...learnReads('Google Chrome', 5), ...learnReads('WINWORD.EXE', 65), ...learnReads('Notion.exe', 95)] });
+    expect(d.learning).toEqual([{ title: 'Tutorial', where: 'docs.python.org', min: 10 }]);
   });
   it('caps each list', () => {
     const many = Array.from({ length: 14 }, (_, i) => [
       s(`App${i}.exe`, 'x', i * 100, 20 - i), s('Google Chrome', `P${i} - Site${i} - Google Chrome`, i * 100 + 30, 20 - i),
       s('Google Chrome', `Video ${i} - YouTube - Google Chrome`, i * 100 + 60, 20 - i), s(`Game${i}.exe`, null, i * 100 + 90, 5)
     ]).flat();
-    const reads = Array.from({ length: 14 }, (_, i) => ({ at: T0 + (i * 100 + 91) * 60_000, appName: `Game${i}.exe`, activity: 'gaming', category: 'entertainment' }));
+    const reads = Array.from({ length: 14 * 5 }, (_, k) => ({ at: T0 + (Math.floor(k / 5) * 100 + 90 + (k % 5)) * 60_000, appName: `Game${Math.floor(k / 5)}.exe`, activity: 'gaming', category: 'entertainment' }));
     const tut = Array.from({ length: 10 }, (_, i) => s('Google Chrome', `Tutorial ${i} - YouTube - Google Chrome`, 2000 + i * 10, 3));
     const d = build([...many, ...tut], { reads });
     expect(d.apps).toHaveLength(10);
