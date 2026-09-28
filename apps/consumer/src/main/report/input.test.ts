@@ -110,7 +110,7 @@ describe('report input', () => {
     expect(c.apps[0]).toEqual({ app: 'App0', min: 60 });
     expect(detail.sites[0].pages).toHaveLength(3); // not mutated
   });
-  it('builds the 7-day memory: screen minutes, top 3 apps and sites, a stored headline, and the average', () => {
+  it('builds the 7-day memory: screen minutes, top 3 apps and sites, a stored headline, and no second average', () => {
     const d = (apps: string[], sites: string[]) => ({ apps: apps.map((app) => ({ app, min: 10 })), sites: sites.map((site) => ({ site, min: 5, pages: ['x'] })), videos: [], games: [], learning: [] });
     const week = buildWeek([
       { date: '2026-09-25', screenSec: 6 * 3600, detail: d(['Code', 'Chrome', 'Slack', 'Spotify'], ['GitHub', 'YouTube', 'Reddit', 'X']), headline: 'A focused Friday' },
@@ -121,15 +121,16 @@ describe('report input', () => {
       { date: '2026-09-25', screenMin: 360, topApps: ['Code', 'Chrome', 'Slack'], topSites: ['GitHub', 'YouTube', 'Reddit'], headline: 'A focused Friday' },
       { date: '2026-09-23', screenMin: 120, topApps: ['Code'], topSites: [] }
     ]);
-    expect(week.avgScreenMin).toBe(240); // over the days with screen time
-    expect(buildWeek([]).avgScreenMin).toBe(0);
+    // One weekly average only: facts.weekAvgMin (the same number the "vs avg" stat tile uses).
+    expect(week).not.toHaveProperty('avgScreenMin');
+    expect(buildWeek([])).toEqual({ days: [] });
   });
   it('allows detail and week minute values in the numeric grounding guard', () => {
     const detail = { apps: [{ app: 'Code', min: 91 }], sites: [{ site: 'GitHub', min: 17, pages: [] }], videos: [{ title: 'v', site: 'YouTube', min: 23 }],
       games: [{ name: 'Hades', min: 44 }], learning: [{ title: 'l', where: 'MDN Web Docs', min: 13 }] };
-    const week = { days: [{ date: '2026-09-25', screenMin: 333, topApps: [], topSites: [] }], avgScreenMin: 287 };
+    const week = { days: [{ date: '2026-09-25', screenMin: 333, topApps: [], topSites: [] }] };
     const input = buildReportInput({ stats: buildStats(view, [], 0), episodes: [], candidates: [], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 }, detail, week });
-    expect(allowedMinutes(input)).toEqual(expect.arrayContaining([91, 17, 23, 44, 13, 333, 287]));
+    expect(allowedMinutes(input)).toEqual(expect.arrayContaining([91, 17, 23, 44, 13, 333, input.facts.weekAvgMin]));
   });
   it('tells the writer to use detail for specifics and week for trends, never inventing items', () => {
     const { system } = reportPrompt(buildReportInput({ stats: buildStats(view, [], 0), episodes: [], candidates: [], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } }));
@@ -207,13 +208,17 @@ describe('report input', () => {
     }
     expect(seen).toEqual({ episodesGone: true, headlinesGone: true, topSitesGone: true, pagesGone: true });
   });
-  it('keeps detail titles for the cloud but strips samples', () => {
+  it('keeps detail titles for the cloud but strips samples and week headlines (a local headline can paraphrase screen text)', () => {
+    const week = { days: [{ date: '2026-09-25', screenMin: 300, topApps: ['Code'], topSites: ['GitHub'], headline: 'You fixed the TypeError in auth.ts' }] };
     const input = buildReportInput({ stats: buildStats(view, [], 0), episodes: [ep(1, 30)], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 },
-      candidates: [], detail: { apps: [], sites: [{ site: 'GitHub', min: 5, pages: ['Repo'] }], videos: [{ title: 'Lofi', site: 'YouTube', min: 9 }], games: [], learning: [] } });
+      candidates: [], detail: { apps: [], sites: [{ site: 'GitHub', min: 5, pages: ['Repo'] }], videos: [{ title: 'Lofi', site: 'YouTube', min: 9 }], games: [], learning: [] }, week });
     const c = forCloud(input);
     expect(c.detail.sites[0].pages).toEqual(['Repo']);
     expect(c.detail.videos[0].title).toBe('Lofi');
     expect(c.episodes[0].samples).toEqual([]);
+    expect(c.week.days).toEqual([{ date: '2026-09-25', screenMin: 300, topApps: ['Code'], topSites: ['GitHub'] }]);
+    expect(reportPrompt(c).user).not.toContain('TypeError');
+    expect(input.week.days[0].headline).toBe('You fixed the TypeError in auth.ts'); // the local input is not mutated
   });
   it('builds a prompt that names candidate ids and forbids invented numbers', () => {
     const input = buildReportInput({ stats: buildStats(view, [], 0), episodes: [], candidates: [{ id: 'stuck:e1', kind: 'stuck', text: 'Stuck' }], goals: { dailyGoalMin: 420, windDownTime: '23:00', breakIntervalMin: 50 } });
