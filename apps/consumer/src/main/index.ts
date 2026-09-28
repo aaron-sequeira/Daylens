@@ -49,6 +49,8 @@ import { friendlyReason, generateReport } from './report/generate';
 import { batteryPercent } from './report/battery';
 import { buildEpisodes } from './report/episodes';
 import { buildCandidates } from './report/candidates';
+import { buildDayDetail, type DayDetail } from './report/detail';
+import { finalCategory } from './brain/finalCategory';
 import { buildReportInput, buildStats, forCloud, type ReportStats } from './report/input';
 import type { ReportCandidate } from './report/candidates';
 import { writerState, navDates, needGb, freeGb, type ReportView, type WriterView } from './report/view';
@@ -358,10 +360,17 @@ if (!app.requestSingleInstanceLock()) {
       },
       cloudModel: () => settings.get().aiModel
     });
+    // Window titles + read labels only (never screen text), the final category as Today uses it.
+    const detailFor = (date: string, now: number): DayDetail => buildDayDetail({
+      sessions: repo.getFocusSessions(date), now, exclusions: parseExclusions(settings.get().exclusions),
+      reads: labelStore.readsForDay(date).map((r) => ({ at: r.at, appName: r.appName, activity: r.activity,
+        category: r.category ? finalCategory(r.category, r.conf ?? 0, r.appName) : null }))
+    });
     const buildReportFor = (date: string) => {
       const s = settings.get();
       const { end } = dayBounds(date);
       const now = Math.min(Date.now(), end);
+      const detail = detailFor(date, now);
       const view = loadTodayView(repo, s, date, now, (d) => labelStore.labelsForDay(d), (d) => coachStore.completedBreaksForDay(d));
       // Screen text never leaves the PC: the cloud writer gets episodes and candidates without samples.
       const cloud = s.writerMode === 'cloud';
@@ -378,7 +387,7 @@ if (!app.requestSingleInstanceLock()) {
       return {
         input: cloud ? forCloud(input) : input,
         // Only ids the writer was actually shown (the input cap can drop candidates as a last resort).
-        candidateIds: new Set(input.candidates.map((c) => c.id)), view, candidates, stats
+        candidateIds: new Set(input.candidates.map((c) => c.id)), view, candidates, stats, detail
       };
     };
     // Bumped by "Delete my activity": a report written across it must not be stored.
@@ -437,11 +446,13 @@ if (!app.requestSingleInstanceLock()) {
       let stats: ReportStats | null = null;
       let timeline: TimelineSegment[] = [];
       let candidates: ReportCandidate[] = [];
+      let detail: DayDetail = { apps: [], sites: [], videos: [], games: [], learning: [] };
       try {
         const built = buildReportFor(d);
         stats = built.stats;
         timeline = built.view.timeline;
         candidates = built.candidates;
+        detail = built.detail;
       } catch (e) {
         console.error('[report] view build failed:', e);
       }
@@ -454,7 +465,7 @@ if (!app.requestSingleInstanceLock()) {
         stats, timeline, candidates, ticked: reportStore.tickedTexts(d),
         writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
         waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused(),
-        needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(d)
+        needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(d), detail
       };
     };
     // Also refreshes free disk for download / retryLocal, which both answer with writerView().
@@ -557,6 +568,8 @@ if (!app.requestSingleInstanceLock()) {
       },
       reports: {
         view: (date) => reportView(date),
+        // Days with tracked activity, newest first, for the date picker.
+        days: () => repo.getAvailableDays().slice(0, 365),
         generate: (date) => {
           const today = localDate(Date.now());
           // Future dates and a date already being written are both no-ops: just report the current view.

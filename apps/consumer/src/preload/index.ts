@@ -48,6 +48,7 @@ const api = {
     get: (date?: string | null): Promise<ReportView> => ipcRenderer.invoke(CH.reportsGet, date ?? null),
     generate: (date: string): Promise<ReportView> => ipcRenderer.invoke(CH.reportsGenerate, date),
     cancel: (date: string): Promise<ReportView> => ipcRenderer.invoke(CH.reportsCancel, date),
+    days: (): Promise<string[]> => ipcRenderer.invoke(CH.reportsDays),
     tickPlan: (date: string, index: number, on: boolean): Promise<ReportView> => ipcRenderer.invoke(CH.reportsTickPlan, { date, index, on }),
     exportPdf: (date: string): Promise<ExportPdfResult> => ipcRenderer.invoke(CH.reportsExportPdf, date)
   },

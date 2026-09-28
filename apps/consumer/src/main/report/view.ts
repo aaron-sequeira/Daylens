@@ -3,6 +3,7 @@ import { UNAVAILABLE_TEXT, type Unavailable } from '../writer/availability';
 import { WRITER_MODELS, writerNeedBytes, type WriterTier } from '../writer/config';
 import type { TimelineSegment } from '../day/today';
 import type { ReportCandidate } from './candidates';
+import type { DayDetail } from './detail';
 import type { ReportStats } from './input';
 import type { ReportJson } from './schema';
 
@@ -22,6 +23,8 @@ export interface ReportView {
   needGb: number; freeGb: number;
   /** This date is in the manual (Generate / Regenerate) queue, or waiting for the gate. */
   queued: boolean;
+  /** Built in code for any date, with or without a report. */
+  detail: DayDetail;
 }
 // Kept here (rather than in ipc.ts, which imports electron) so the renderer can type-import it too.
 export interface WriterView {

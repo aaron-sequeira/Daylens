@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activePercent, goalPercent, reportCardKind, reportDateLabel, waitingText, words } from './report';
+import { activePercent, detailPanels, goalPercent, reportCardKind, reportDateLabel, waitingText, words } from './report';
 
 describe('report UI helpers', () => {
   it('labels dates relative to today', () => {
@@ -32,6 +32,17 @@ describe('report UI helpers', () => {
     expect(reportCardKind(v({ queued: true }))).toBe('waiting'); // queued behind another day's write
     expect(reportCardKind(v({ stats: { screenSec: 0 } }))).toBe('empty');
     expect(reportCardKind(v({}))).toBe('generate');
+  });
+  it('lists only the non-empty detail panels, in order, with their rows', () => {
+    const empty = { apps: [], sites: [], videos: [], games: [], learning: [] };
+    expect(detailPanels(empty)).toEqual([]);
+    const panels = detailPanels({ ...empty, apps: [{ app: 'Code', min: 90 }], sites: [{ site: 'GitHub', min: 20, pages: ['Repo'] }], learning: [{ title: 'Closures', where: 'MDN Web Docs', min: 5 }] });
+    expect(panels.map((p) => p.title)).toEqual(['Apps', 'Websites', 'Learning']);
+    expect(panels[0].rows).toEqual([{ name: 'Code', min: 90, sub: [] }]);
+    expect(panels[1].rows).toEqual([{ name: 'GitHub', min: 20, sub: ['Repo'] }]);
+    expect(panels[2].rows).toEqual([{ name: 'Closures', min: 5, sub: ['MDN Web Docs'] }]);
+    const v = detailPanels({ ...empty, videos: [{ title: 'Lofi', site: 'YouTube', min: 25 }], games: [{ name: 'Hades', min: 30 }] });
+    expect(v).toEqual([{ title: 'Videos', rows: [{ name: 'Lofi', min: 25, sub: ['YouTube'] }] }, { title: 'Games', rows: [{ name: 'Hades', min: 30, sub: [] }] }]);
   });
   it('explains a queued write with the real memory numbers', () => {
     const local = { writer: { state: 'ready', mode: 'local', model: 'm' }, needGb: 2.1, freeGb: 0.4 } as never;

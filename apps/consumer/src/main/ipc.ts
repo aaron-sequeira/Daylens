@@ -50,6 +50,7 @@ export interface CoachIpcDeps { held(): CoachView['held']; dismissHeld(id: numbe
 export type ExportPdfResult = { ok: true; path: string } | { ok: false; reason: string } | { ok: false; cancelled: true };
 export interface ReportsDeps {
   view(date: string | null): ReportView;
+  days(): string[];
   generate(date: string): ReportView;
   cancel(date: string): ReportView;
   tickPlan(date: string, index: number, on: boolean): ReportView;
@@ -163,6 +164,7 @@ export function registerIpc(d: IpcDeps): void {
 
   ipcMain.handle(CH.reportsGet, (_e, raw) => d.reports.view(raw === null || raw === undefined ? null : dateStr.parse(raw)));
   ipcMain.handle(CH.reportsGenerate, (_e, raw) => d.reports.generate(dateStr.parse(raw)));
+  ipcMain.handle(CH.reportsDays, () => d.reports.days());
   ipcMain.handle(CH.reportsCancel, (_e, raw) => d.reports.cancel(dateStr.parse(raw)));
   ipcMain.handle(CH.reportsTickPlan, (_e, raw) => {
     const v = z.object({ date: dateStr, index: z.number().int().min(0).max(3), on: z.boolean() }).strict().parse(raw);

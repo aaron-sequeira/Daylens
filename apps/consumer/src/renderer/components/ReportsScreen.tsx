@@ -4,7 +4,7 @@ import type { PlanKind } from '../../main/report/schema';
 import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
 import { appColor, appInitials, formatHm } from '../lib/format';
-import { activePercent, goalPercent, reportCardKind, reportDateLabel, useCountUp, waitingText, words } from '../lib/report';
+import { activePercent, detailPanels, goalPercent, reportCardKind, reportDateLabel, useCountUp, waitingText, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
 import { Timeline } from './Timeline';
@@ -46,6 +46,13 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
     return () => { alive = false; off(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
+
+  // Days with activity (newest first), for the date picker's lower bound.
+  const [days, setDays] = useState<string[]>([]);
+  useEffect(() => {
+    if (print) return;
+    api.reports.days().then(setDays).catch((e) => console.error('[renderer] reports.days failed:', e));
+  }, [date, print]);
 
   const animate = !print;
   const score = useCountUp(view?.stats?.health.score ?? 0, animate);
@@ -164,6 +171,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   const activePct = stats ? activePercent(stats) : 0;
   const deepPct = stats && stats.activeSec > 0 ? Math.round((stats.deepWorkSec / stats.activeSec) * 100) : 0;
   const topMax = stats?.topApps[0]?.seconds ?? 0;
+  const panels = detailPanels(view.detail);
   const [ty, tm, td] = view.date.split('-').map(Number);
   const timelineNow = view.date === view.today ? Date.now() : new Date(ty, tm - 1, td + 1).getTime();
 
@@ -173,6 +181,10 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
         <div className="rhead">
           {!print && <button className="arrow" disabled={!view.prevDate} aria-label="Previous day" onClick={() => setDate(view.prevDate)}>‹</button>}
           {!print && <button className="arrow" disabled={!view.nextDate} aria-label="Next day" onClick={() => setDate(view.nextDate)}>›</button>}
+          {!print && (
+            <input type="date" className="date-pick" aria-label="Go to a day" value={view.date} max={view.today} min={days[days.length - 1]}
+              onChange={(e) => { const v = e.target.value; if (v && v <= view.today) setDate(v); }} />
+          )}
           <span className="date">{reportDateLabel(view.date, view.today)}</span>
           {kind === 'report' && view.model && (
             <span className="badge"><i />Written {view.writer.state === 'ready' && view.writer.mode === 'local' ? 'on-device' : 'in the cloud'} · {view.model}</span>
@@ -235,6 +247,27 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
             <div className="stat" style={{ animationDelay: '.28s' }}><small>App switches</small><b>{stats.switches}</b></div>
             <div className="stat" style={{ animationDelay: '.34s' }}><small>Breaks</small><b>{stats.health.breaks}</b><em className="flat">goal: {stats.health.expectedBreaks}</em></div>
           </div>
+        )}
+
+        {panels.length > 0 && (
+          <section className="detail">
+            <h2>Your day in detail</h2>
+            <div className="detail-grid">
+              {panels.map((p, k) => (
+                <div className="blk dpanel" key={p.title} style={{ animationDelay: `${0.3 + k * 0.06}s` }}>
+                  <h3>{p.title}</h3>
+                  <ul>
+                    {p.rows.map((r, i) => (
+                      <li key={i}>
+                        <div className="dname">{r.name}{r.sub.map((x, j) => <small key={j}>{x}</small>)}</div>
+                        <em>{formatHm(r.min * 60)}</em>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
 
         {kind === 'report' && report && (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReportView } from '../../main/report/view';
 import type { ReportStats } from '../../main/report/input';
+import type { DayDetail } from '../../main/report/detail';
 
 // Ledger ruling: 'en-GB' keeps the format (and its unit test) machine-independent.
 export function reportDateLabel(date: string, today: string): string {
@@ -37,6 +38,18 @@ export function waitingText(v: Pick<ReportView, 'writer' | 'needGb' | 'freeGb'>,
     return `Waiting for memory to ${rewrite ? 'rewrite' : 'write'}: needs ${v.needGb.toFixed(1)} GB free, ${v.freeGb.toFixed(1)} GB free now. It starts by itself when memory frees up.`;
   }
   return 'Waiting for Daylens to finish another job. It starts by itself when that is done.';
+}
+
+export interface DetailPanel { title: string; rows: { name: string; min: number; sub: string[] }[]; }
+/** "Your day in detail" panels in display order; empty panels are left out (an empty list hides the section). */
+export function detailPanels(d: DayDetail): DetailPanel[] {
+  return [
+    { title: 'Apps', rows: d.apps.map((a) => ({ name: a.app, min: a.min, sub: [] })) },
+    { title: 'Websites', rows: d.sites.map((s) => ({ name: s.site, min: s.min, sub: s.pages })) },
+    { title: 'Videos', rows: d.videos.map((v) => ({ name: v.title, min: v.min, sub: [v.site] })) },
+    { title: 'Games', rows: d.games.map((g) => ({ name: g.name, min: g.min, sub: [] })) },
+    { title: 'Learning', rows: d.learning.map((l) => ({ name: l.title, min: l.min, sub: [l.where] })) }
+  ].filter((p) => p.rows.length > 0);
 }
 
 const reduced = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
