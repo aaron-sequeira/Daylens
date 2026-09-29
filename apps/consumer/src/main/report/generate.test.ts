@@ -156,6 +156,12 @@ describe('generateWeek', () => {
       expect(log).toEqual(['pending 2026-09-21']);
     }
   });
+  it('stores a week-worded friendly failure reason ("The week had too much to fit.")', async () => {
+    const { s, log } = wstore();
+    const writer = { write: async () => ({ ok: false, reason: 'input too long', local: undefined }) } as never;
+    expect(await generateWeek('2026-09-21', { ...wbase, writer, store: s })).toBe('failed');
+    expect(log).toEqual(['pending 2026-09-21', 'failed 2026-09-21 The week had too much to fit.']);
+  });
   it('sends the cloud no local headlines', async () => {
     for (const cloud of [true, false]) {
       let seen: WeekInput | null = null;
@@ -181,5 +187,10 @@ describe('friendlyReason', () => {
       ['HTTP 500 oops', "Couldn't write this report."], ['generation failed', "Couldn't write this report."], ['', "Couldn't write this report."]
     ];
     for (const [raw, text] of cases) expect(friendlyReason(raw), raw).toBe(text);
+  });
+  it('uses week wording for a week-keyed failure', () => {
+    expect(friendlyReason('input too long', 'week')).toBe('The week had too much to fit.');
+    expect(friendlyReason('input too long', 'day')).toBe('The day had too much to fit.'); // explicit default, unchanged
+    expect(friendlyReason('timeout', 'week')).toBe('The writer took too long.'); // wording only differs for "too long to fit"
   });
 });

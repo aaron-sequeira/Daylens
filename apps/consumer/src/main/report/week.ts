@@ -96,14 +96,17 @@ export function weekForCloud(w: WeekInput): WeekInput {
 }
 
 /** Real minute values the writer is allowed to repeat back: every per-day screenMin/deepWorkMin plus the week's
- * totals and (when there was a previous week) its screenMin. Used to ground the writer's answer against invented
- * numbers (see groundText in ./schema). */
+ * totals and (when there was a previous week) its screenMin, plus each value's hour-rounded equivalent (floor,
+ * round and ceil of minutes/60, ×60) so a plain-English "about 21 hours" for 1234 min isn't dropped as invented.
+ * Used to ground the writer's answer against invented numbers (see groundText in ./schema). */
 export function weekAllowedMinutes(w: WeekInput): number[] {
-  return [
+  const base = [
     ...w.days.flatMap((d) => [d.screenMin, d.deepWorkMin]),
     w.totals.screenMin, w.totals.deepWorkMin,
     ...(w.totals.prevScreenMin !== null ? [w.totals.prevScreenMin] : [])
   ];
+  const hourRounded = base.flatMap((v) => [Math.floor(v / 60), Math.round(v / 60), Math.ceil(v / 60)].map((h) => h * 60));
+  return [...base, ...hourRounded];
 }
 
 const WEEK_SYSTEM = [
@@ -111,6 +114,7 @@ const WEEK_SYSTEM = [
   'Write in second person ("you"), plain friendly English, no emoji, no markdown.',
   "Always write to the reader as 'you' / 'your'. Never use 'I', 'me', 'my' or 'we'.",
   'Use only the numbers in the input. Do not invent apps, events or numbers; if you mention a number, copy it from the input.',
+  "State times exactly as given in the input (as minutes, or as Xh Ym); don't round or convert.",
   'headline: the week in one line.',
   "summary: 3-5 sentences comparing the days in the week, and comparing this week with the previous week's totals when given.",
   'focusForNextWeek: one concrete suggestion for next week.'

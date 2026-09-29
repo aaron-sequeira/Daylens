@@ -10,15 +10,17 @@ const MAX_TOKENS = 1400;
 const WEEK_MAX_TOKENS = 800; // headline 80 + summary 600 + focus 200 characters, with room for the JSON
 const FALLBACK = "Couldn't write this report.";
 
-/** Short user text for a raw writer failure. Raw text (file paths from `load: …`, provider bodies) never reaches the UI. */
-export function friendlyReason(raw: string): string {
+/** Short user text for a raw writer failure. Raw text (file paths from `load: …`, provider bodies) never reaches the
+ * UI. `kind` picks day vs. week wording for the one reason that names its subject ("too much to fit"). */
+export function friendlyReason(raw: string, kind: 'day' | 'week' = 'day'): string {
   const r = raw.trim();
   if (r === 'timeout' || r.startsWith('no answer in') || /abort/i.test(r)) return 'The writer took too long.';
   if (r === 'crash' || /^exit(ed)?\b/.test(r)) return 'The writer stopped unexpectedly.';
   if (r === 'load' || r.startsWith('load:')) return "The writer model couldn't start.";
   if (r === 'no_model') return "The writer model isn't downloaded.";
   if (r === 'no_key') return 'Add your API key in Settings.';
-  if (r === 'input too long') return 'The day had too much to fit.'; // deterministic: retrying won't help
+  // deterministic: retrying won't help
+  if (r === 'input too long') return kind === 'week' ? 'The week had too much to fit.' : 'The day had too much to fit.';
   if (/(?:HTTP |Error: )401\b/.test(r)) return 'The API key was rejected.';
   if (/(?:HTTP |Error: )429\b/.test(r)) return 'The AI provider is busy; try again later.';
   return FALLBACK;
@@ -36,7 +38,7 @@ interface JobStore<T> {
 /** `epoch` changes when "Delete my activity" runs: a write that straddles it stores nothing. A failed regenerate of a
  * ready row keeps the old one and only notes why. `prepare` gathers the input and builds the writer job; if it throws,
  * the row fails with the generic text (the error is logged by `what`, never shown). */
-async function runJob<T>(key: string, what: string, deps: { writer: Writer; store: JobStore<T>; now(): number; epoch(): number },
+async function runJob<T>(key: string, what: 'day' | 'week', deps: { writer: Writer; store: JobStore<T>; now(): number; epoch(): number },
   prepare: () => WriteJob<T>): Promise<GenerateOutcome> {
   const epoch = deps.epoch();
   const hadReport = deps.store.get(key)?.status === 'ready';
@@ -61,7 +63,7 @@ async function runJob<T>(key: string, what: string, deps: { writer: Writer; stor
   if (deps.epoch() !== epoch) return 'failed';
   if (r.ok) { deps.store.setReady(key, r.value, r.model, deps.now()); return 'ok'; }
   const kind = r.local === 'timeout' || r.local === 'crash' || r.local === 'load' ? r.local : null;
-  fail(friendlyReason(kind ?? r.reason));
+  fail(friendlyReason(kind ?? r.reason, what));
   return kind ?? 'failed';
 }
 

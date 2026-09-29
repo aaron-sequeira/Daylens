@@ -66,10 +66,19 @@ export interface ReportsDeps {
   email(date: string): Promise<EmailResult>;
 }
 /** One week (Monday `weekStart`) on the Insights page: numbers built in code, plus the weekly summary row if any.
- * `waiting` / `running` / `queued` are the report scheduler's state for this week's `W:` key. */
+ * `waiting` / `running` / `queued` / `autoPaused` / `cancellable` / `needGb` / `freeGb` / `memoryShort` are the
+ * report scheduler's and writer's state for this week's `W:` key, mirroring ReportView (see report/view.ts). */
 export interface InsightsView {
   numbers: InsightsNumbers; weekStart: string; prevWeek: string | null; nextWeek: string | null;
-  row: WeeklyRow | null; writer: WriterState; waiting: boolean; running: boolean; queued: boolean;
+  row: WeeklyRow | null; writer: WriterState; waiting: boolean; running: boolean; autoPaused: boolean;
+  /** GB of free memory the local writer waits for, and GB free right now. */
+  needGb: number; freeGb: number;
+  /** This week is in the manual (Generate / Regenerate) queue, or waiting for the gate. */
+  queued: boolean;
+  /** In the manual queue: Cancel applies (an automatic wait has no Cancel). */
+  cancellable: boolean;
+  /** Local writer and free memory (bytes, not rounded GB) below what it needs. */
+  memoryShort: boolean;
 }
 export interface InsightsDeps {
   view(weekStart: string | null): InsightsView;

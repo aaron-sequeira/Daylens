@@ -614,9 +614,11 @@ if (!app.requestSingleInstanceLock()) {
         prevWeek: oldest !== null && weekStart(oldest) < ws ? shiftDate(ws, -7) : null,
         nextWeek: ws < current ? shiftDate(ws, 7) : null,
         // Never show a raw `load: <path>` error (same rule as reportView).
-        row: row?.error?.startsWith('load:') ? { ...row, error: friendlyReason(row.error) } : row,
+        row: row?.error?.startsWith('load:') ? { ...row, error: friendlyReason(row.error, 'week') } : row,
         writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
-        waiting: reportScheduler.waiting() === key, running: reportScheduler.running() === key, queued: reportScheduler.queued(key)
+        waiting: reportScheduler.waiting() === key, running: reportScheduler.running() === key, autoPaused: reportScheduler.autoPaused(),
+        needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(key), cancellable: reportScheduler.requested(key),
+        memoryShort: s.writerMode === 'local' && freemem() < writerNeedBytes(writerTier())
       };
     };
     // Also refreshes free disk for download / retryLocal, which both answer with writerView().
@@ -930,7 +932,7 @@ if (!app.requestSingleInstanceLock()) {
           const r = await dialog.showMessageBox(win!, {
             type: 'warning', buttons: ['Delete', 'Cancel'], defaultId: 1, cancelId: 1, title: 'Delete my activity',
             message: 'Delete all your activity and screen text?',
-            detail: "Screen time, app history, screen reads, daily reports and plan items will be erased from this PC. Your settings and answers are kept. This can't be undone."
+            detail: "Screen time, app history, screen reads, daily reports, weekly summaries and plan items will be erased from this PC. Your settings and answers are kept. This can't be undone."
           });
           if (r.response !== 0) return { deleted: false };
           const s = settings.get();

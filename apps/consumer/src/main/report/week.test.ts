@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
-import { buildInsights, buildWeekInput, createWeeklyStore, parseWeek, weekAllowedMinutes, weekDates, weekForCloud, WEEKLY_SQL, weekStart, type InsightsDay } from './week';
+import { buildInsights, buildWeekInput, createWeeklyStore, parseWeek, weekAllowedMinutes, weekDates, weekForCloud, weekPrompt, WEEKLY_SQL, weekStart, type InsightsDay } from './week';
+import { groundText } from './schema';
 
 const day = (date: string, h: number, deep = 0, score: number | null = 80): InsightsDay => ({ date, screenSec: h * 3600, byCategory: { work: h * 3600 }, healthScore: score, deepWorkSec: deep * 60 });
 describe('week helpers', () => {
@@ -33,6 +34,18 @@ describe('week helpers', () => {
     expect(w.totals).toMatchObject({ screenMin: 120, deepWorkMin: 30, activeDays: 1, prevScreenMin: null });
     expect(weekForCloud(w).days.every((d) => d.headline === undefined)).toBe(true);
     expect(weekAllowedMinutes(w)).toEqual(expect.arrayContaining([120, 30]));
+  });
+  it('also allows an hour-rounded mention of a real minute value ("about 21 hours" for 1234 min)', () => {
+    const n = buildInsights({ weekStart: '2026-09-28', days: [day('2026-09-28', 1234 / 60), ...weekDates('2026-09-28').slice(1).map((d) => day(d, 0, 0, null))], prevDays: null, apps: [], nudges: [] });
+    const w = buildWeekInput(n, weekDates('2026-09-28').map(() => ({ topApps: [], topSites: [] })));
+    expect(w.days[0].screenMin).toBe(1234);
+    const allowed = weekAllowedMinutes(w);
+    expect(allowed).toEqual(expect.arrayContaining([1200, 1260])); // floor/round/ceil of 1234/60, ×60
+    expect(groundText('You spent about 21 hours on screen this week.', allowed)).toBe('You spent about 21 hours on screen this week.');
+  });
+  it('tells the writer to state times exactly, not rounded or converted', () => {
+    expect(weekPrompt({ weekStart: '2026-09-28', days: [], totals: { screenMin: 0, deepWorkMin: 0, activeDays: 0, prevScreenMin: null } }).system)
+      .toContain("State times exactly as given in the input (as minutes, or as Xh Ym); don't round or convert.");
   });
   it('stores weekly rows and fails pending rows on restart', () => {
     const db = new Database(':memory:'); db.exec(WEEKLY_SQL);

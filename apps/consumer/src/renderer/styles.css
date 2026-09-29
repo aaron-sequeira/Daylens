@@ -374,6 +374,9 @@ main.report { overflow-y: auto; padding: 10px 12px 20px 10px; }
 .report .hrow:first-of-type { border-top: 0; }
 .report .ok { color: #0F7A4A; font-weight: 600; }
 .report .meh { color: #B45309; font-weight: 600; }
+.report .week-chart { position: relative; background: #fff; border-radius: 18px; padding: 14px 16px 6px; }
+.report .week-chart .bars { border-top: 0; padding-top: 0; }
+.report .health-line { position: absolute; left: 16px; right: 16px; top: 14px; height: 118px; width: calc(100% - 32px); pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .report .story span { animation: none; opacity: 1; transform: none; }

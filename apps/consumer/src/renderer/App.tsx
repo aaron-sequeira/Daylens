@@ -7,6 +7,7 @@ import { Rail, type Route } from './components/Rail';
 import { Onboarding } from './components/Onboarding';
 import { TodayScreen } from './components/TodayScreen';
 import { ReportsScreen } from './components/ReportsScreen';
+import { InsightsScreen } from './components/InsightsScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 
 type OnboardingState = { mode: 'first' | 'redo'; initial: Profile };
@@ -66,6 +67,7 @@ export default function App() {
         <Rail route={route} onNavigate={setRoute} />
         {route === 'today' && <TodayScreen settings={settings} onChange={setSettings} />}
         {route === 'reports' && <ReportsScreen />}
+        {route === 'insights' && <InsightsScreen />}
         {route === 'settings' && <SettingsScreen settings={settings} onChange={setSettings} onRedo={redo} />}
       </div>
     </>
