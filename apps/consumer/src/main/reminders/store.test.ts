@@ -45,6 +45,23 @@ describe('reminder store', () => {
     expect(s.states().get(r2.id)?.lastFiredDate ?? null).toBeNull();
   });
 
+  it('editing only the name of a reminder whose time has passed keeps today’s pending pop-up', () => {
+    const s = createReminderStore(db); s.seed([1, 2, 3, 4, 5]);
+    const lunch = s.list()[1];
+    s.save({ ...lunch, name: 'Lunch break' }, at(13, 30)); // 13:00 passed, not shown yet, schedule unchanged
+    expect(s.states().get(lunch.id)?.lastFiredDate ?? null).toBeNull();
+    s.save({ ...lunch, schedule: { type: 'time', time: '12:00', days: [1, 2, 3, 4, 5] } }, at(13, 30)); // re-timed into the past
+    expect(s.states().get(lunch.id)?.lastFiredDate).toBe('2026-09-30');
+  });
+
+  it('a damaged days value reads as no days instead of breaking the whole list', () => {
+    const s = createReminderStore(db); s.seed([1, 2, 3, 4, 5]);
+    db.prepare("UPDATE reminders SET days = 'not json' WHERE builtin = 'lunch'").run();
+    const list = s.list();
+    expect(list).toHaveLength(4);
+    expect(list[1].schedule).toEqual({ type: 'time', time: '13:00', days: [] });
+  });
+
   it('reset restores a built-in to its defaults; state marks work; clearState wipes state only', () => {
     const s = createReminderStore(db); s.seed([1, 2, 3, 4, 5]);
     const lunch = s.list()[1];

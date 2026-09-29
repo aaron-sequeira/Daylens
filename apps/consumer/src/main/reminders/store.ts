@@ -15,9 +15,13 @@ CREATE TABLE IF NOT EXISTS reminder_state (
 `;
 
 type Row = { id: number; builtin: string | null; name: string; message: string; animation: string; schedule_type: string; time: string | null; days: string | null; interval_min: number | null; break_sec: number; enabled: number };
+/** One damaged `days` value must not take down the whole list: it reads as "no days" (never fires) instead. */
+const parseDays = (json: string | null): number[] => {
+  try { const v: unknown = JSON.parse(json ?? '[]'); return Array.isArray(v) ? v.filter((d): d is number => Number.isInteger(d)) : []; } catch { return []; }
+};
 const toReminder = (r: Row): Reminder => ({
   id: r.id, builtin: r.builtin as Builtin | null, name: r.name, message: r.message, animation: r.animation as Reminder['animation'],
-  schedule: r.schedule_type === 'time' ? { type: 'time', time: r.time ?? '12:00', days: JSON.parse(r.days ?? '[]') as number[] } : { type: 'interval', minutes: r.interval_min ?? 60 },
+  schedule: r.schedule_type === 'time' ? { type: 'time', time: r.time ?? '12:00', days: parseDays(r.days) } : { type: 'interval', minutes: r.interval_min ?? 60 },
   breakSec: r.break_sec, enabled: r.enabled === 1
 });
 const cols = (s: Schedule) => (s.type === 'time'
@@ -62,16 +66,19 @@ export function createReminderStore(db: Database.Database) {
       const err = validateReminder(input);
       if (err) throw new Error(err);
       let id = input.id;
+      let scheduleChanged = true;
       if (id === undefined) {
         if ((customCount.get() as { n: number }).n >= LIMITS.custom) throw new Error('You can have up to 20 reminders of your own.');
         id = Number(ins.run(row({ ...input, builtin: null, enabled: true }, now)).lastInsertRowid);
       } else {
         const cur = store.get(id);
         if (!cur) throw new Error('That reminder no longer exists.');
+        scheduleChanged = JSON.stringify(cols(cur.schedule)) !== JSON.stringify(cols(input.schedule));
         upd.run({ ...fields({ ...cur, ...input }), id });
       }
       ensure(id);
-      if (pastToday(input.schedule, now)) setFiredDate.run(localDate(now), id);
+      // Only a new or re-timed reminder skips a time already past today; renaming one mustn't swallow today's pop-up.
+      if (scheduleChanged && pastToday(input.schedule, now)) setFiredDate.run(localDate(now), id);
       return store.get(id) as Reminder;
     },
     remove(id: number): boolean {
