@@ -118,4 +118,22 @@ describe('groundNumbers', () => {
     const good = bare({ headline: 'A steady day', story: 'You had a calm morning.', wins: ['You kept a steady pace.'], advice: 'Keep it up.' });
     expect(groundNumbers(good, [])).toEqual(good);
   });
+  it('reads a combined "Xh Ym" mention as one value, not just its hours part', () => {
+    const kept = groundNumbers(bare({ wins: ['a 5h 40m deep-work block'] }), [340]);
+    expect(kept.wins).toEqual(['a 5h 40m deep-work block']);
+    const dropped = groundNumbers(bare({ wins: ['a 5h 40m deep-work block'] }), [300]); // the hours-only value must not save it
+    expect(dropped.wins).toEqual([]);
+    // Old bug: "20h 59m" passed because only the hours part (1200) was ever checked, and it happened to round
+    // near an allowed value. The real total (1259) must be what's compared.
+    const longDropped = groundNumbers(bare({ wins: ['spent 20h 59m online'] }), [1234]);
+    expect(longDropped.wins).toEqual([]);
+    const longKept = groundNumbers(bare({ wins: ['spent 20h 59m online'] }), [1259]);
+    expect(longKept.wins).toEqual(['spent 20h 59m online']);
+  });
+  it('accepts a bare "m" as minutes when not part of a combined "Xh Ym" mention', () => {
+    const kept = groundNumbers(bare({ wins: ['a quick 40m break'] }), [40]);
+    expect(kept.wins).toEqual(['a quick 40m break']);
+    const dropped = groundNumbers(bare({ wins: ['a quick 40m break'] }), [10]);
+    expect(dropped.wins).toEqual([]);
+  });
 });

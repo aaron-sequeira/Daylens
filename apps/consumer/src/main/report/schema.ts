@@ -80,14 +80,29 @@ export function normalizeVoice(report: ReportJson): ReportJson {
   };
 }
 
-// Matches a duration mention the writer might invent: "60 minutes", "45 min", "3 hours", "60-minute", "2h".
-const DURATION_RE = /\b(\d+(?:\.\d+)?)\s*-?\s*(minutes|minute|mins|min|hours|hour|hrs|hr|h)\b/gi;
+// Matches a duration mention the writer might invent: "60 minutes", "45 min", "3 hours", "60-minute", "2h", "40m".
+const DURATION_RE = /\b(\d+(?:\.\d+)?)\s*-?\s*(minutes|minute|mins|min|hours|hour|hrs|hr|h|m)\b/gi;
+// The week prompt asks for "minutes, or Xh Ym" (report/week.ts), so the writer often states a combined duration
+// like "5h 40m": matched (and consumed, below) as a single h*60+m value before the single-unit pass runs, so
+// "5h" is never checked on its own (300) while the "40m" part goes ungrounded, or vice versa.
+const COMBINED_DURATION_RE = /\b(\d+)\s*h(?:ours?|rs?)?\s*(?:and\s*)?(\d+)\s*m(?:in(?:ute)?s?)?\b/gi;
 const toMinutes = (n: number, unit: string): number => (unit.toLowerCase().startsWith('h') ? n * 60 : n);
 
 function hasUngroundedDuration(text: string, isGrounded: (mins: number) => boolean): boolean {
+  COMBINED_DURATION_RE.lastIndex = 0;
+  const spans: [number, number][] = [];
+  let c: RegExpExecArray | null;
+  while ((c = COMBINED_DURATION_RE.exec(text))) {
+    if (!isGrounded(parseInt(c[1], 10) * 60 + parseInt(c[2], 10))) return true;
+    spans.push([c.index, c.index + c[0].length]);
+  }
+  // Blank out (not remove: keeps offsets simple) each combined match before the single-unit pass, so its "Xh"
+  // half is never re-checked on its own.
+  let remaining = text;
+  for (const [start, end] of spans) remaining = remaining.slice(0, start) + ' '.repeat(end - start) + remaining.slice(end);
   DURATION_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
-  while ((m = DURATION_RE.exec(text))) {
+  while ((m = DURATION_RE.exec(remaining))) {
     if (!isGrounded(toMinutes(parseFloat(m[1]), m[2]))) return true;
   }
   return false;
