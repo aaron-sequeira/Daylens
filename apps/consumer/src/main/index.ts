@@ -49,7 +49,7 @@ import { autoSavePath, autoSavePdf, mailtoUrl } from './report/share';
 import { createPdfQueue } from './report/pdfQueue';
 import { createReportScheduler, MIN_AUTO_SCREEN_SEC, weekDueKey, type ReportScheduler } from './report/scheduler';
 import { friendlyReason, generateReport, generateWeek } from './report/generate';
-import { buildInsights, buildWeekInput, createWeeklyStore, weekDates, weekStart, WEEKLY_SQL, type InsightsDay, type InsightsNumbers, type WeekInput } from './report/week';
+import { buildInsights, buildWeekInput, canGenerateWeek, createWeeklyStore, weekDates, weekStart, WEEKLY_SQL, type InsightsDay, type InsightsNumbers, type WeekInput } from './report/week';
 import type { InsightsView } from './ipc';
 import { batteryPercent } from './report/battery';
 import { buildEpisodes, deepWorkSec } from './report/episodes';
@@ -793,8 +793,10 @@ if (!app.requestSingleInstanceLock()) {
         generate: (req) => {
           const ws = weekStart(req);
           const key = `W:${ws}`;
-          // A future week and a week already being written are both no-ops: just report the current view.
-          if (ws > weekStart(localDate(Date.now())) || reportScheduler.running() === key) return insightsView(ws);
+          const today = localDate(Date.now());
+          // A future week, the current week before its own Sunday, and a week already being written are all no-ops:
+          // just report the current view (the renderer hides the button in the first two cases; this backs it up).
+          if (ws > weekStart(today) || !canGenerateWeek(ws, today) || reportScheduler.running() === key) return insightsView(ws);
           reportScheduler.request(key);
           void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e));
           return insightsView(ws);

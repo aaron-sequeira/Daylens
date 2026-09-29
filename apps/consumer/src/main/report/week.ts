@@ -16,6 +16,13 @@ export function weekDates(start: string): string[] {
   return Array.from({ length: 7 }, (_, i) => shiftDate(start, i));
 }
 
+/** Generate may run for a week only once it's finished: any past week (its Sunday has already passed), or the
+ * current week from its own Sunday onward. Mirrors weekReady in the renderer's lib/insights.ts (kept as a
+ * separate, identical function there: the renderer must not import this main-only module). */
+export function canGenerateWeek(ws: string, today: string): boolean {
+  return today >= shiftDate(ws, 6);
+}
+
 export interface InsightsDay { date: string; screenSec: number; byCategory: Record<string, number>; healthScore: number | null; deepWorkSec: number; }
 export interface InsightsNumbers {
   weekStart: string; days: InsightsDay[];
@@ -95,17 +102,29 @@ export function weekForCloud(w: WeekInput): WeekInput {
   return { ...w, days: w.days.map(({ headline: _headline, ...d }) => d) };
 }
 
+// An hour-rounded mention is only close enough to a value below this to be worth allowing at all (a 5-minute
+// value "rounded" to an hour would be nonsense), and even then only within HOUR_ROUND_TOLERANCE of the real value.
+const HOUR_ROUND_MIN_VALUE = 120;
+const HOUR_ROUND_TOLERANCE = 0.1;
+
 /** Real minute values the writer is allowed to repeat back: every per-day screenMin/deepWorkMin plus the week's
  * totals and (when there was a previous week) its screenMin, plus each value's hour-rounded equivalent (floor,
- * round and ceil of minutes/60, ×60) so a plain-English "about 21 hours" for 1234 min isn't dropped as invented.
- * Used to ground the writer's answer against invented numbers (see groundText in ./schema). */
+ * round and ceil of minutes/60, ×60) — but only for values of at least two hours, and only the roundings within
+ * 10% of the real value — so a plain-English "about 21 hours" for 1234 min isn't dropped as invented, while a
+ * 45-minute value still can't be claimed as "about 1 hour". Used to ground the writer's answer against invented
+ * numbers (see groundText in ./schema). */
 export function weekAllowedMinutes(w: WeekInput): number[] {
   const base = [
     ...w.days.flatMap((d) => [d.screenMin, d.deepWorkMin]),
     w.totals.screenMin, w.totals.deepWorkMin,
     ...(w.totals.prevScreenMin !== null ? [w.totals.prevScreenMin] : [])
   ];
-  const hourRounded = base.flatMap((v) => [Math.floor(v / 60), Math.round(v / 60), Math.ceil(v / 60)].map((h) => h * 60));
+  const hourRounded = base.filter((v) => v >= HOUR_ROUND_MIN_VALUE).flatMap((v) => {
+    const hours = v / 60;
+    return [Math.floor(hours), Math.round(hours), Math.ceil(hours)]
+      .map((h) => h * 60)
+      .filter((rounded) => Math.abs(rounded - v) <= v * HOUR_ROUND_TOLERANCE);
+  });
   return [...base, ...hourRounded];
 }
 
