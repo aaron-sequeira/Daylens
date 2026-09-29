@@ -25,6 +25,7 @@ import { createCoach, type CoachDeps } from './coach/engine';
 import { planOverrides } from './coach/plan';
 import { ruleWeight } from './coach/weights';
 import { holdReason, type Rect } from './coach/gate';
+import { createHoldCache } from './coach/holdCache';
 import { REMINDERS_SQL, createReminderStore } from './reminders/store';
 import { planReminders } from './reminders/schedule';
 import { reminderTitle } from '../shared/reminders';
@@ -294,11 +295,13 @@ if (!app.requestSingleInstanceLock()) {
       snoozeUntil: () => settings.get().snoozeUntil,
       fewer: () => parseFewer(settings.get().nudgeFewer),
       weight: (c, now) => ruleWeight(c.ruleId, c.kind, readProfile(settings.get()), now),
-      holdReason: async () => {
+      // Cached for 2 minutes while a hold applies: a reminder held behind the same call would otherwise re-spawn
+      // PowerShell every 30s tick. A clear answer (null) is never cached, so a new call/fullscreen is seen at once.
+      holdReason: createHoldCache(async () => {
         const fg = await new ActiveWinForegroundSource().get().catch(() => null);
         const displays: Rect[] = screen.getAllDisplays().map((dsp) => dsp.bounds);
         return holdReason(fg ? { appName: fg.appName, title: fg.title, bounds: fg.bounds ? screen.screenToDipRect(null, fg.bounds) : null } : null, displays, await queryNotificationState());
-      },
+      }, () => Date.now()),
       record: (c, status, now) => {
         const id = coachStore.record({ at: now, date: localDate(now), kind: c.kind, ruleId: c.ruleId, key: c.key, title: c.title, body: c.body, status });
         if (status === 'shown') {
@@ -525,7 +528,8 @@ if (!app.requestSingleInstanceLock()) {
       const dates = weekDates(ws);
       const days = dates.map((d) => insightsDay(d, today));
       const prev = weekDates(shiftDate(ws, -7)).map((d) => insightsDay(d, today).day);
-      const nudges = coachStore.since(dayBounds(ws).start).filter((n) => dates.includes(n.date));
+      // Reminders are routine, not the acted/dismissed behaviour Insights reports on.
+      const nudges = coachStore.since(dayBounds(ws).start).filter((n) => dates.includes(n.date) && n.kind !== 'reminder');
       const numbers = buildInsights({
         weekStart: ws, days: days.map((x) => x.day), prevDays: prev.some((d) => d.screenSec > 0) ? prev : null, // no week to compare with
         apps: days.map((x) => x.detail.apps), nudges

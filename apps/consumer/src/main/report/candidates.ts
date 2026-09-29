@@ -20,7 +20,8 @@ export function buildCandidates(i: { episodes: Episode[]; searches: { query: str
       ...(e.samples[0] ? { sample: e.samples[0].slice(0, 200) } : {}) });
   }
   i.searches.slice(0, MAX_OTHER).forEach((s, n) => out.push({ id: `search:${n}`, kind: 'search', text: `Searched "${s.query}" ${s.count} times this week` }));
-  for (const n of i.nudges.slice(0, MAX_OTHER)) out.push({ id: `nudge:${n.id}`, kind: 'nudge', text: `Pop-up "${n.title}" (${n.status})` });
+  // Reminders (water/lunch/etc.) are routine, not noteworthy behaviour: they never enter the report.
+  for (const n of i.nudges.filter((x) => x.ruleId !== 'reminder').slice(0, MAX_OTHER)) out.push({ id: `nudge:${n.id}`, kind: 'nudge', text: `Pop-up "${n.title}" (${n.status})` });
   // Same test as the app_cap pop-up (unrounded), so the report never claims a limit the pop-up didn't.
   for (const c of i.caps.filter((x) => x.usedMs >= x.minutes * 60_000).slice(0, MAX_OTHER)) {
     out.push({ id: `cap:${c.app}`, kind: 'cap', text: `${c.app}: ${c.usedMin} min used, limit ${c.minutes} min` });

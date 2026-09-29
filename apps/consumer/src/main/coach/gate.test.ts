@@ -63,6 +63,11 @@ describe('decide', () => {
     const recentRem: NudgeRow = { id: 2, at: now - 60_000, date: 'd', kind: 'reminder', ruleId: 'reminder', key: 'reminder:1:123', title: '', body: '', status: 'shown' };
     expect(decide(TIP_CANDIDATE, ctx({ history: [recentRem] })).status).toBe('show');
   });
+  it('never offers "show fewer" for a reminder, even after 3+ dismissals of its kind', () => {
+    const rem = cand({ kind: 'reminder', ruleId: 'reminder', key: 'reminder:9:x' });
+    const h = [1, 2, 3].map((d) => row({ at: now - d * 24 * 60 * MIN, status: 'dismissed', kind: 'reminder', ruleId: 'reminder', key: 'y' + d }));
+    expect(decide(rem, ctx({ history: h }))).toEqual({ status: 'show', offerFewer: false });
+  });
 });
 
 describe('holdReason', () => {

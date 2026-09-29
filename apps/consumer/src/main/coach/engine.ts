@@ -33,8 +33,9 @@ export function createCoach(d: CoachDeps) {
         let c: Candidate | null = null;
         try { c = rule(snap); } catch (e) { console.error('[coach] rule failed:', e); continue; }
         if (!c) continue;
-        // A planned focus block silences behaviour and tip pop-ups (the block's own start reminder still shows).
-        if (inFocus(snap.focusBlocks, now) && (c.kind === 'behaviour' || c.kind === 'tip') && c.ruleId !== 'focus_start') continue;
+        // A planned focus block silences behaviour, tip and reminder pop-ups (the block's own start reminder still
+        // shows). Not recorded: a reminder just waits out the block and shows once it ends, same as a held one.
+        if (inFocus(snap.focusBlocks, now) && (c.kind === 'behaviour' || c.kind === 'tip' || c.kind === 'reminder') && c.ruleId !== 'focus_start') continue;
         const base = { now, history, kinds: d.kinds(), snoozeUntil: d.snoozeUntil(), fewer: d.fewer(), weight: d.weight(c, now) };
         let dec = decide(c, { ...base, hold: null });
         if (dec.status === 'show') {

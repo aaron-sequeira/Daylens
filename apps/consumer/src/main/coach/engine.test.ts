@@ -83,13 +83,26 @@ describe('coach engine', () => {
     expect(await createCoach(d).tick()).toBe('shown');
     expect(shown).toHaveLength(1);
   });
-  it('drops behaviour and tip candidates during a focus block, but not health or focus_start', async () => {
+  it('drops behaviour, tip and reminder candidates during a focus block, but not health or focus_start', async () => {
     const now = T(12);
     const blocks = [{ start: now - 60_000, end: now + 60 * 60_000, label: '11:59', minutes: 60 }];
     const { d, shown } = deps({ snapshot: () => snap({ now, focusBlocks: blocks }),
-      rules: [() => c({ kind: 'behaviour', ruleId: 'scattered', key: 'b' }), () => c({ kind: 'tip', ruleId: 'stuck_tip', key: 't' }), () => c({ kind: 'health', ruleId: 'goal_80', key: 'h' })] });
+      rules: [() => c({ kind: 'behaviour', ruleId: 'scattered', key: 'b' }), () => c({ kind: 'tip', ruleId: 'stuck_tip', key: 't' }),
+        () => c({ kind: 'reminder', ruleId: 'reminder', key: 'reminder:1:123' }), () => c({ kind: 'health', ruleId: 'goal_80', key: 'h' })] });
     await createCoach(d).tick();
     expect(shown.map((n) => n.kind)).toEqual(['health']);
+  });
+  it('silences a reminder during a focus block without recording it, so it shows once the block ends', async () => {
+    const now = T(12);
+    const blocks = [{ start: now - 60_000, end: now + 60 * 60_000, label: '11:59', minutes: 60 }];
+    const rem = (): Candidate => ({ ruleId: 'reminder', kind: 'reminder', key: 'reminder:1:123', mini: 'm', stat: 's', title: 't', body: 'b', primary: { label: 'Start break', action: 'break_reminder' } });
+    const { d, rows, shown } = deps({ snapshot: () => snap({ now, focusBlocks: blocks }), rules: [rem] });
+    expect(await createCoach(d).tick()).toBe('none');
+    expect(rows).toHaveLength(0);
+    expect(shown).toHaveLength(0);
+    const { d: d2, shown: shown2 } = deps({ snapshot: () => snap({ now, focusBlocks: [] }), rules: [rem] });
+    expect(await createCoach(d2).tick()).toBe('shown');
+    expect(shown2).toHaveLength(1);
   });
 
   describe('AI tip rewrite', () => {

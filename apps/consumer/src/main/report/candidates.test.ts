@@ -19,6 +19,14 @@ describe('report candidates', () => {
     expect(c[3].text).toBe('Pop-up "You\'ve been scrolling Reddit 20 min" (dismissed)');
     expect(c[4].text).toBe('YouTube: 52 min used, limit 30 min');
   });
+  it('keeps reminder pop-ups out of the report candidates', () => {
+    const c = buildCandidates({
+      episodes: [], searches: [],
+      nudges: [{ id: 1, ruleId: 'reminder', title: 'Time for some water 💧', status: 'shown' }, { id: 2, ruleId: 'doomscroll', title: 'Reddit', status: 'dismissed' }],
+      caps: []
+    });
+    expect(c.map((x) => x.id)).toEqual(['nudge:2']);
+  });
   it('lists a limit only once it is really passed, like the pop-up rule (not when rounding says so)', () => {
     const caps = [{ app: 'YouTube', minutes: 30, usedMin: 30, usedMs: 29.6 * 60_000 }, { app: 'Discord', minutes: 30, usedMin: 30, usedMs: 30 * 60_000 }];
     expect(buildCandidates({ episodes: [], searches: [], nudges: [], caps }).map((c) => c.id)).toEqual(['cap:Discord']);

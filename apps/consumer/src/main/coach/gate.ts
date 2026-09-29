@@ -30,7 +30,9 @@ export function decide(c: Candidate, x: GateContext): Decision {
   }
   if (x.now < x.snoozeUntil) return { status: 'held', reason: 'snoozed' };
   if (x.hold) return { status: 'held', reason: x.hold };
-  return { status: 'show', offerFewer: dismissals >= 3 };
+  // The "show fewer" back-off scales the rule cooldown, which reminders skip entirely: offering it would promise
+  // something a reminder can't act on.
+  return { status: 'show', offerFewer: dismissals >= 3 && c.kind !== 'reminder' };
 }
 
 export interface Rect { x: number; y: number; width: number; height: number; }
