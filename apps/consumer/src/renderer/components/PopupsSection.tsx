@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { LIMIT_CHOICES, addLimit, limitSuggestions, snoozeText } from '../lib/coach';
 import { formatHm } from '../lib/format';
 
-const KIND_TEXT = { health: 'Eye breaks, stretching, wind-down, daily goal', behaviour: 'Doom-scrolling, scattered, app limits', tip: 'Short tips when you seem stuck', win: 'Deep-work streaks and good days' } as const;
+const KIND_TEXT = { health: 'Eye breaks, stretching, wind-down, daily goal', behaviour: 'Doom-scrolling, scattered, app limits', tip: 'Short tips when you seem stuck', win: 'Deep-work streaks and good days', reminder: 'Water, meals, tea and your own reminders' } as const;
 
 export function PopupsSection() {
   const [view, setView] = useState<CoachView | null>(null);

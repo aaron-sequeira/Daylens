@@ -15,7 +15,7 @@ export interface PillWindowLike {
 
 export const pillMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('hover'), hover: z.boolean() }).strict(),
-  z.object({ type: z.literal('action'), id: z.number().int(), action: z.enum(['primary', 'dismiss', 'snooze', 'fewer', 'expired']) }).strict(),
+  z.object({ type: z.literal('action'), id: z.number().int(), action: z.enum(['primary', 'secondary', 'dismiss', 'snooze', 'fewer', 'expired']) }).strict(),
   z.object({ type: z.literal('empty') }).strict()
 ]);
 export type PillMessage = z.infer<typeof pillMessage>;

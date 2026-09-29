@@ -1,18 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import { decide, holdReason, type GateContext } from './gate';
-import type { Candidate, NudgeRow } from './types';
+import type { Candidate, Kind, NudgeRow } from './types';
 
 const MIN = 60_000, now = 10_000 * MIN;
 const cand = (o: Partial<Candidate> = {}): Candidate => ({ ruleId: 'goal_80', kind: 'health', key: 'goal_80:d', mini: 'm', stat: 's', title: 't', body: 'b', primary: { label: 'OK', action: 'ack' }, ...o });
 const row = (o: Partial<NudgeRow>): NudgeRow => ({ id: 1, at: now - 60 * MIN, date: 'd', kind: 'health', ruleId: 'x', key: 'k', title: 't', body: 'b', status: 'shown', ...o });
-const ctx = (o: Partial<GateContext> = {}): GateContext => ({ now, history: [], kinds: { health: true, behaviour: true, tip: true, win: true }, snoozeUntil: 0, fewer: {}, weight: 1, hold: null, ...o });
+const ALL_ON: Record<Kind, boolean> = { health: true, behaviour: true, tip: true, win: true, reminder: true };
+const TIP_CANDIDATE = cand({ kind: 'tip', ruleId: 'stuck_tip', key: 'stuck_tip:x' });
+const ctx = (o: Partial<GateContext> = {}): GateContext => ({ now, history: [], kinds: ALL_ON, snoozeUntil: 0, fewer: {}, weight: 1, hold: null, ...o });
 
 describe('decide', () => {
   it('shows a fresh candidate', () => { expect(decide(cand(), ctx())).toEqual({ status: 'show', offerFewer: false }); });
   it('drops a key that already fired (shown or held) within the history window', () => {
     expect(decide(cand(), ctx({ history: [row({ key: 'goal_80:d', status: 'held' })] })).status).toBe('drop');
   });
-  it('drops disabled kinds', () => { expect(decide(cand(), ctx({ kinds: { health: false, behaviour: true, tip: true, win: true } })).status).toBe('drop'); });
+  it('drops disabled kinds', () => { expect(decide(cand(), ctx({ kinds: { ...ALL_ON, health: false } })).status).toBe('drop'); });
   it('enforces the 20-minute global cooldown except for eye_break/stretch', () => {
     const h = [row({ at: now - 10 * MIN, ruleId: 'scattered', kind: 'behaviour' })];
     expect(decide(cand(), ctx({ history: h })).status).toBe('drop');
@@ -47,6 +49,19 @@ describe('decide', () => {
   it('holds while snoozed or when a hold reason applies', () => {
     expect(decide(cand(), ctx({ snoozeUntil: now + MIN }))).toEqual({ status: 'held', reason: 'snoozed' });
     expect(decide(cand(), ctx({ hold: 'call' }))).toEqual({ status: 'held', reason: 'call' });
+  });
+  it('reminders ignore the global and rule cooldowns but still obey snooze, holds and the kind switch', () => {
+    const rem: Candidate = { ruleId: 'reminder', kind: 'reminder', key: 'reminder:2:2026-09-30', mini: '🍱 Lunch', stat: '1:00 pm', title: 'Lunch time 🍱', body: 'b', primary: { label: 'Start break', action: 'break_reminder' } };
+    const recentTip: NudgeRow = { id: 1, at: now - 60_000, date: 'd', kind: 'tip', ruleId: 'stuck_tip', key: 'x', title: '', body: '', status: 'shown' };
+    const recentRem: NudgeRow = { ...recentTip, id: 2, kind: 'reminder', ruleId: 'reminder', key: 'reminder:1:123' };
+    expect(decide(rem, ctx({ history: [recentTip, recentRem] })).status).toBe('show');
+    expect(decide(rem, ctx({ snoozeUntil: now + 1 })).status).toBe('held');
+    expect(decide(rem, ctx({ hold: 'call' })).status).toBe('held');
+    expect(decide(rem, ctx({ kinds: { ...ALL_ON, reminder: false } })).status).toBe('drop');
+  });
+  it('a shown reminder does not start the global cooldown for other pop-ups', () => {
+    const recentRem: NudgeRow = { id: 2, at: now - 60_000, date: 'd', kind: 'reminder', ruleId: 'reminder', key: 'reminder:1:123', title: '', body: '', status: 'shown' };
+    expect(decide(TIP_CANDIDATE, ctx({ history: [recentRem] })).status).toBe('show');
   });
 });
 

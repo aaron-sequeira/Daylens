@@ -5,5 +5,6 @@ export const NUDGE_LOOK: Record<Kind, { color: string; emoji: string; label: str
   health: { color: '#BFEBD3', emoji: '👁', label: 'Health' },
   behaviour: { color: '#F4C6C8', emoji: '↻', label: 'Behaviour' },
   tip: { color: '#D8D2FC', emoji: '💡', label: 'Tip' },
-  win: { color: '#F9DDB9', emoji: '★', label: 'Win' }
+  win: { color: '#F9DDB9', emoji: '★', label: 'Win' },
+  reminder: { color: '#CFE6FB', emoji: '⏰', label: 'Reminders' }
 };

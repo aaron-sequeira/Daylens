@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { COACH_SCHEMA, createCoachStore, type CoachStore } from './store';
+import { COACH_SCHEMA, createCoachStore, migrateCoachSchema, type CoachStore } from './store';
 
 let s: CoachStore;
 beforeEach(() => { const db = new Database(':memory:'); db.exec(COACH_SCHEMA); s = createCoachStore(db); });
@@ -33,6 +33,19 @@ describe('coach store', () => {
     s.clear();
     expect(s.since(0)).toEqual([]);
     expect(s.lastCompletedBreakAt()).toBeNull();
+  });
+  it('migrates an old nudges table so reminder rows are allowed, keeping existing rows', () => {
+    const db = new Database(':memory:');
+    db.exec(`CREATE TABLE nudges (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, date TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('health','behaviour','tip','win')), rule_id TEXT NOT NULL, key TEXT NOT NULL DEFAULT '',
+      title TEXT NOT NULL, body TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('shown','held','dismissed','acted','snoozed','expired')));
+      INSERT INTO nudges (at, date, kind, rule_id, key, title, body, status) VALUES (1, 'd', 'health', 'eye_break', 'k', 't', 'b', 'shown');`);
+    db.exec(COACH_SCHEMA);
+    migrateCoachSchema(db);
+    migrateCoachSchema(db); // idempotent
+    const s = createCoachStore(db);
+    expect(s.since(0)).toHaveLength(1);
+    expect(() => s.record({ at: 2, date: 'd', kind: 'reminder', ruleId: 'reminder', key: 'r', title: 't', body: 'b', status: 'shown' })).not.toThrow();
   });
   it('expireHeld() only changes a held row, and reports whether it changed', () => {
     const held = s.record(n(1000, 'held'));

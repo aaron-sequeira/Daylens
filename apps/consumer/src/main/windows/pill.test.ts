@@ -54,6 +54,7 @@ describe('pill manager', () => {
   });
   it('validates renderer messages', () => {
     expect(pillMessage.safeParse({ type: 'action', id: 3, action: 'primary' }).success).toBe(true);
+    expect(pillMessage.safeParse({ type: 'action', id: 1, action: 'secondary' }).success).toBe(true);
     expect(pillMessage.safeParse({ type: 'action', id: 3, action: 'hack' }).success).toBe(false);
   });
   it('dismissAll before the page is ready clears the queue and reports each queued nudge expired (bulk dismiss is not a dismissal)', () => {

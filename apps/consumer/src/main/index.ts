@@ -20,11 +20,14 @@ import { createLabelScheduler, type BrainChild } from './brain/scheduler';
 import { createDownloader, type ModelStatus } from './models/downloader';
 import { LAYA_MANIFEST } from './models/manifest';
 import { batchAllowed, LAYA_NEED_BYTES } from './brain/resources';
-import { COACH_SCHEMA, createCoachStore } from './coach/store';
+import { COACH_SCHEMA, createCoachStore, migrateCoachSchema } from './coach/store';
 import { createCoach, type CoachDeps } from './coach/engine';
 import { planOverrides } from './coach/plan';
 import { ruleWeight } from './coach/weights';
 import { holdReason, type Rect } from './coach/gate';
+import { REMINDERS_SQL, createReminderStore } from './reminders/store';
+import { planReminders } from './reminders/schedule';
+import { reminderTitle } from '../shared/reminders';
 import { queryNotificationState } from './coach/notifState';
 import { parseFewer, parseKinds, parseLimits } from './coach/settings';
 import { repeatedSearches, searchTitlesFrom, switchesBetween } from './coach/activity';
@@ -122,7 +125,11 @@ if (!app.requestSingleInstanceLock()) {
     if (settings.get().screenReading && !settings.get().screenReadingAsked) settings.set({ screenReadingAsked: true });
     const labelStore = createLabelStore(db);
     db.exec(COACH_SCHEMA);
+    migrateCoachSchema(db);
     const coachStore = createCoachStore(db);
+    db.exec(REMINDERS_SQL);
+    const reminderStore = createReminderStore(db);
+    reminderStore.seed(readProfile(settings.get()).days);
     // Created early: buildSnapshot (below) needs it for plan overrides.
     db.exec(REPORT_SQL);
     const reportStore = createReportStore(db);
@@ -209,10 +216,11 @@ if (!app.requestSingleInstanceLock()) {
       onDone: (r) => {
         const now = Date.now();
         coachStore.recordBreak({ at: now, date: localDate(now), kind: r.spec.label, seconds: r.seconds, completed: r.completed });
+        if (r.completed && r.spec.reminderId !== undefined) reminderStore.markDone(r.spec.reminderId, now);
         win?.webContents.send(CH.eventsUpdate);
       }
     });
-    const primaryActions = new Map<number, { kind: string; action: string }>();
+    const primaryActions = new Map<number, { kind: string; action: string; reminderId?: number }>();
     let testPillId = 0; // decrementing counter for "Test a pop-up": unique negative ids, never collide with real (positive) nudge ids
     const pill = createPillManager({
       makeWindow: () => electronPillWindow(join(__dirname, '../preload/pill.js'), (w) => loadPage(w, 'pill'), (raw) => {
@@ -234,7 +242,7 @@ if (!app.requestSingleInstanceLock()) {
         if (id < 0) return; // "Test a pop-up"
         const meta = primaryActions.get(id);
         primaryActions.delete(id);
-        const status = action === 'primary' ? 'acted' : action === 'dismiss' || action === 'fewer' ? 'dismissed' : action === 'snooze' ? 'snoozed' : 'expired';
+        const status = action === 'primary' || action === 'secondary' ? 'acted' : action === 'dismiss' || action === 'fewer' ? 'dismissed' : action === 'snooze' ? 'snoozed' : 'expired';
         coachStore.setStatus(id, status);
         if (action === 'snooze') settings.set({ snoozeUntil: Date.now() + 3_600_000 });
         if (action === 'fewer' && meta) {
@@ -244,6 +252,14 @@ if (!app.requestSingleInstanceLock()) {
         }
         if (action === 'primary' && meta?.action === 'break_eye') overlay.start(PRESETS.eye);
         if (action === 'primary' && meta?.action === 'break_stretch') overlay.start(PRESETS.stretch);
+        if (meta?.reminderId !== undefined) {
+          const rem = reminderStore.get(meta.reminderId); // Task 6 extends this with a travel-reminder lookup
+          if (action === 'secondary' || (action === 'primary' && meta.action === 'reminder_done')) reminderStore.markDone(meta.reminderId, Date.now());
+          if (action === 'primary' && meta.action === 'break_reminder' && rem) {
+            overlay.start({ label: `reminder:${rem.id}`, animation: rem.animation, seconds: rem.breakSec, title: reminderTitle(rem),
+              text: rem.message.trim() || 'Time for a short break.', doneLabel: rem.builtin === 'water' ? 'I had some' : undefined, reminderId: rem.id });
+          }
+        }
         refreshTray();
         win?.webContents.send(CH.eventsUpdate);
       }
@@ -251,15 +267,20 @@ if (!app.requestSingleInstanceLock()) {
     const buildSnapshot = (now: number) => {
       const s = settings.get();
       const date = localDate(now);
+      const samples = repo.getActivitySamples(date);
       const view = loadTodayView(repo, s, date, now, (d) => labelStore.labelsForDay(d), (d) => coachStore.completedBreaksForDay(d));
       const searchTitles = searchTitlesFrom(Array.from({ length: 7 }, (_, i) => repo.getFocusSessions(shiftDate(date, -i))).flat(), parseExclusions(s.exclusions));
       const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
       const o = planOverrides(reportStore.plan(date), date);
+      // Task 6 adds travel reminders and the water-interval override here.
+      const planned = planReminders({ reminders: reminderStore.list(), states: reminderStore.states(), now, samples });
+      for (const sk of planned.skipped) reminderStore.markFired(sk.id, sk.date); // away at its time: skip today
       return {
         now, date, settings: { ...s, breakIntervalMin: o.breakIntervalMin ?? s.breakIntervalMin, windDownTime: o.windDownTime ?? s.windDownTime },
-        profile: readProfile(s), samples: repo.getActivitySamples(date), sessions: repo.getFocusSessions(date),
+        profile: readProfile(s), samples, sessions: repo.getFocusSessions(date),
         readsToday: labelStore.readsSince(dayStart.getTime()), // rules apply their own freshness windows
-        view, searchTitles, limits: [...parseLimits(s.appLimits), ...o.limits], lastBreakAt: coachStore.lastCompletedBreakAt(), focusBlocks: o.focus
+        view, searchTitles, limits: [...parseLimits(s.appLimits), ...o.limits], lastBreakAt: coachStore.lastCompletedBreakAt(), focusBlocks: o.focus,
+        reminderDue: planned.due
       };
     };
     // `rewrite` (the AI-written tip dep) is filled in below, once the writer/report-scheduler/label-scheduler
@@ -280,7 +301,10 @@ if (!app.requestSingleInstanceLock()) {
       },
       record: (c, status, now) => {
         const id = coachStore.record({ at: now, date: localDate(now), kind: c.kind, ruleId: c.ruleId, key: c.key, title: c.title, body: c.body, status });
-        if (status === 'shown') primaryActions.set(id, { kind: c.kind, action: c.primary.action });
+        if (status === 'shown') {
+          primaryActions.set(id, { kind: c.kind, action: c.primary.action, reminderId: c.reminderId });
+          if (c.reminderId !== undefined) reminderStore.markShown(c.reminderId, now, localDate(now));
+        }
         return id;
       },
       setStatus: (id, st) => {

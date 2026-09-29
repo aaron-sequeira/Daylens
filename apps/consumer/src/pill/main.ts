@@ -11,7 +11,7 @@ import {
 
 declare global { interface Window { pill?: PillApi } }
 
-type Action = 'primary' | 'dismiss' | 'snooze' | 'fewer' | 'expired';
+type Action = 'primary' | 'secondary' | 'dismiss' | 'snooze' | 'fewer' | 'expired';
 
 interface Card {
   n: PillNudge;
@@ -171,13 +171,15 @@ function init(pillApi: PillApi): void {
     const acts = el('div', 'acts');
     const primary = el('span', undefined, n.primaryLabel);
     const snooze = el('span', undefined, 'Snooze 1 h');
-    acts.append(primary, snooze);
+    const secondary = n.secondaryLabel ? el('span', undefined, n.secondaryLabel) : null;
+    acts.append(...(secondary ? [primary, secondary, snooze] : [primary, snooze]));
     full.append(el('b', undefined, n.title), el('p', undefined, n.body), acts);
     const card: Card = { n, el: root, done: false, openReady: false, autoHide: { remainingMs: AUTO_HIDE_MS, running: false }, hideStartedAt: null };
     if (n.offerFewer) { const f = el('button', 'fewer-link', 'Show fewer like this?'); full.append(f); root.classList.add('fewer'); f.onclick = () => finish(card, 'fewer'); }
     const bar = el('div', 'bar'); bar.append(el('i'));
     root.append(head, full, bar);
     primary.onclick = () => finish(card, 'primary');
+    if (secondary) secondary.onclick = () => finish(card, 'secondary');
     snooze.onclick = () => finish(card, 'snooze');
     x.onclick = () => finish(card, 'dismiss');
     stack.append(root);

@@ -6,6 +6,7 @@ import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
 import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult, ShareGetView, EmailResult, InsightsView, AboutView } from '../main/ipc';
+import type { Kind } from '../main/coach/types';
 import type { SearchHit } from '../main/report/search';
 import type { ReportView, WriterView } from '../main/report/view';
 
@@ -39,7 +40,7 @@ const api = {
   },
   coach: {
     get: (): Promise<CoachView> => ipcRenderer.invoke(CH.coachGet),
-    setKinds: (k: Record<'health' | 'behaviour' | 'tip' | 'win', boolean>): Promise<CoachView> => ipcRenderer.invoke(CH.coachSetKinds, k),
+    setKinds: (k: Record<Kind, boolean>): Promise<CoachView> => ipcRenderer.invoke(CH.coachSetKinds, k),
     snooze: (v: '1h' | 'tomorrow' | 'off'): Promise<CoachView> => ipcRenderer.invoke(CH.coachSnooze, v),
     setLimits: (l: { app: string; minutes: number }[]): Promise<CoachView> => ipcRenderer.invoke(CH.coachSetLimits, l),
     dismissHeld: (id: number): Promise<CoachView> => ipcRenderer.invoke(CH.coachDismissHeld, id),

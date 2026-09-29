@@ -9,7 +9,7 @@ function deps(o: Partial<CoachDeps> = {}) {
   const shown: PillNudge[] = [];
   const d: CoachDeps = {
     now: () => T(12), snapshot: () => snap(), history: () => rows,
-    kinds: () => ({ health: true, behaviour: true, tip: true, win: true }), snoozeUntil: () => 0, fewer: () => ({}),
+    kinds: () => ({ health: true, behaviour: true, tip: true, win: true, reminder: true }), snoozeUntil: () => 0, fewer: () => ({}),
     weight: () => 1, holdReason: async () => null,
     record: (cand, status, now) => { rows.push({ id: rows.length + 1, at: now, date: 'd', kind: cand.kind, ruleId: cand.ruleId, key: cand.key, title: cand.title, body: cand.body, status }); return rows.length; },
     setStatus: (id, s) => { rows[id - 1].status = s; },
@@ -72,6 +72,16 @@ describe('coach engine', () => {
     await coach.tick();
     await coach.tick();
     expect(rows).toHaveLength(1);
+  });
+  it('a held reminder is not recorded, so it shows once the hold ends', async () => {
+    let hold: string | null = 'call';
+    const rem = (): Candidate => ({ ruleId: 'reminder', kind: 'reminder', key: 'reminder:2:2026-09-30', mini: '🍱 Lunch', stat: '1:00 pm', title: 'Lunch time 🍱', body: 'b', primary: { label: 'Start break', action: 'break_reminder' } });
+    const { d, rows, shown } = deps({ rules: [rem], holdReason: async () => hold });
+    expect(await createCoach(d).tick()).toBe('held');
+    expect(rows).toHaveLength(0);
+    hold = null;
+    expect(await createCoach(d).tick()).toBe('shown');
+    expect(shown).toHaveLength(1);
   });
   it('drops behaviour and tip candidates during a focus block, but not health or focus_start', async () => {
     const now = T(12);

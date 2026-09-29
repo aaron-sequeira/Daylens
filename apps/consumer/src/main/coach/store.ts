@@ -5,7 +5,7 @@ export const COACH_SCHEMA = `
 CREATE TABLE IF NOT EXISTS nudges (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   at INTEGER NOT NULL, date TEXT NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('health','behaviour','tip','win')),
+  kind TEXT NOT NULL CHECK (kind IN ('health','behaviour','tip','win','reminder')),
   rule_id TEXT NOT NULL, key TEXT NOT NULL DEFAULT '', title TEXT NOT NULL, body TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('shown','held','dismissed','acted','snoozed','expired'))
 );
@@ -17,6 +17,17 @@ CREATE TABLE IF NOT EXISTS breaks (
 );
 CREATE INDEX IF NOT EXISTS idx_breaks_date ON breaks(date, at);
 `;
+
+/** SQLite can't alter a CHECK: an older nudges table (before 'reminder') is rebuilt with the current definition. */
+export function migrateCoachSchema(db: Database.Database): void {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'nudges'").get() as { sql: string } | undefined;
+  if (!row || row.sql.includes("'reminder'")) return;
+  db.transaction(() => {
+    db.exec('ALTER TABLE nudges RENAME TO nudges_old; DROP INDEX IF EXISTS idx_nudges_date; DROP INDEX IF EXISTS idx_nudges_at;');
+    db.exec(COACH_SCHEMA); // recreates nudges (+ indexes); breaks already exists
+    db.exec('INSERT INTO nudges (id, at, date, kind, rule_id, key, title, body, status) SELECT id, at, date, kind, rule_id, key, title, body, status FROM nudges_old; DROP TABLE nudges_old;');
+  })();
+}
 
 export interface CoachStore {
   record(n: Omit<NudgeRow, 'id'>): number;

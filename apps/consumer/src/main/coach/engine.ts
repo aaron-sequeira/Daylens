@@ -48,7 +48,9 @@ export function createCoach(d: CoachDeps) {
           outcome = 'held';
         };
         if (dec.status === 'held') {
-          recordHeld(c);
+          // A held reminder isn't recorded: its key stays free, so it pops up once the call/fullscreen/snooze ends.
+          if (c.kind === 'reminder') outcome = 'held';
+          else recordHeld(c);
           continue;
         }
         if (d.rewrite && REWRITE_RULES.has(c.ruleId)) {
@@ -68,7 +70,7 @@ export function createCoach(d: CoachDeps) {
           }
         }
         const id = d.record(c, 'shown', now);
-        const ok = d.show({ id, kind: c.kind, mini: c.mini, stat: c.stat, title: c.title, body: c.body, primaryLabel: c.primary.label, offerFewer: dec.offerFewer });
+        const ok = d.show({ id, kind: c.kind, mini: c.mini, stat: c.stat, title: c.title, body: c.body, primaryLabel: c.primary.label, offerFewer: dec.offerFewer, secondaryLabel: c.secondary?.label });
         if (!ok) { d.setStatus(id, 'held'); return 'held'; }
         return 'shown';
       }

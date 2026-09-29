@@ -6,6 +6,8 @@ export const RULE_COOLDOWN_MS = 2 * 3_600_000;
 /** Fallback eye_break/stretch gap at weight 1; the rules pass their own (0.9 × cadence) via Candidate.gapMs. */
 export const OWN_GAP_MS = 45 * 60_000;
 const OWN_CADENCE = new Set(['eye_break', 'stretch']);
+/** Reminders ignore both the global and the rule cooldown: their own schedule and unique keys prevent repeats. */
+const exempt = (ruleId: string, kind: Kind): boolean => OWN_CADENCE.has(ruleId) || kind === 'reminder';
 const DISPLAYED = new Set<NudgeStatus>(['shown', 'dismissed', 'acted', 'snoozed', 'expired']);
 
 export interface GateContext { now: number; history: NudgeRow[]; kinds: Record<Kind, boolean>; snoozeUntil: number; fewer: Partial<Record<Kind, number>>; weight: number; hold: string | null; }
@@ -19,10 +21,13 @@ export function decide(c: Candidate, x: GateContext): Decision {
   const dismissals = x.history.filter((n) => n.kind === c.kind && n.status === 'dismissed').length;
   const backoff = (dismissals >= 3 ? 2 : 1) * (x.fewer[c.kind] ?? 1);
   const own = OWN_CADENCE.has(c.ruleId);
-  // eye_break/stretch skip the global cooldown but still honour weight, back-off and "show fewer" via their own gap.
-  if (!own && shown.some((n) => !OWN_CADENCE.has(n.ruleId) && x.now - n.at < GLOBAL_COOLDOWN_MS)) return { status: 'drop', reason: 'global cooldown' };
-  const gap = (own ? (c.gapMs ?? OWN_GAP_MS) : RULE_COOLDOWN_MS) * x.weight * backoff;
-  if (shown.some((n) => n.ruleId === c.ruleId && x.now - n.at < gap)) return { status: 'drop', reason: 'rule cooldown' };
+  // eye_break/stretch skip the global cooldown but still honour weight, back-off and "show fewer" via their own gap;
+  // reminders skip the global cooldown entirely and never start it for anything else.
+  if (!exempt(c.ruleId, c.kind) && shown.some((n) => !exempt(n.ruleId, n.kind) && x.now - n.at < GLOBAL_COOLDOWN_MS)) return { status: 'drop', reason: 'global cooldown' };
+  if (c.kind !== 'reminder') {
+    const gap = (own ? (c.gapMs ?? OWN_GAP_MS) : RULE_COOLDOWN_MS) * x.weight * backoff;
+    if (shown.some((n) => n.ruleId === c.ruleId && x.now - n.at < gap)) return { status: 'drop', reason: 'rule cooldown' };
+  }
   if (x.now < x.snoozeUntil) return { status: 'held', reason: 'snoozed' };
   if (x.hold) return { status: 'held', reason: x.hold };
   return { status: 'show', offerFewer: dismissals >= 3 };
