@@ -15,10 +15,16 @@ export function ftsQuery(raw: string): string | null {
   return terms.length ? terms.map((t) => `"${t}"*`).join(' ') : null;
 }
 
+// Snippet highlight markers: control characters that never occur in real report text, so the renderer's
+// snippetParts (renderer/lib/report.ts, which must use the same two characters) never mistakes literal
+// "[" / "]" typed in a report for a match marker.
+export const SNIPPET_MARK_OPEN = '\u0001';
+export const SNIPPET_MARK_CLOSE = '\u0002';
+
 export function createReportSearch(db: Database.Database): ReportSearch {
   const del = db.prepare('DELETE FROM report_fts WHERE date = ?');
   const ins = db.prepare('INSERT INTO report_fts (date, body) VALUES (?, ?)');
-  const find = db.prepare(`SELECT date, snippet(report_fts, 1, '[', ']', '…', 12) AS snippet FROM report_fts WHERE report_fts MATCH ? ORDER BY date DESC LIMIT 50`);
+  const find = db.prepare(`SELECT date, snippet(report_fts, 1, '${SNIPPET_MARK_OPEN}', '${SNIPPET_MARK_CLOSE}', '…', 12) AS snippet FROM report_fts WHERE report_fts MATCH ? ORDER BY date DESC LIMIT 50`);
   const upsert = db.transaction((date: string, body: string) => { del.run(date); ins.run(date, body); });
   return {
     upsert: (date, body) => { upsert(date, body); },

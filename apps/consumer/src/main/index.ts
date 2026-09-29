@@ -419,13 +419,15 @@ if (!app.requestSingleInstanceLock()) {
       const detail = date < localDate(Date.now()) ? pastDay(date).detail : detailFor(date, Math.min(Date.now(), dayBounds(date).end));
       return detail.apps.slice(0, 5).map((a) => a.app);
     };
-    // Once at startup, index every ready report so search works immediately (e.g. after an upgrade).
-    try {
-      for (const d of reportStore.dates()) {
+    // Once at startup, index every ready report so search works immediately (e.g. after an upgrade). Per-date
+    // try/catch: one bad row must not stop the rest from being indexed; the log names only the date, never
+    // the error (which could otherwise echo report text into the log).
+    for (const d of reportStore.dates()) {
+      try {
         const row = reportStore.get(d);
         if (row?.status === 'ready' && row.report) reportSearch.upsert(d, reportBody(row.report, topAppsFor(d)));
-      }
-    } catch (e) { console.error('[search] backfill failed:', e); }
+      } catch { console.error('[search] backfill failed for', d); }
+    }
     // Bumped by "Delete my activity": a report written across it must not be stored.
     let reportEpoch = 0;
     // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.

@@ -25,7 +25,7 @@ describe('report search', () => {
     s.upsert('2026-09-22', reportBody(rep({ story: 'Only email today.', headline: 'Quiet', wins: [], habits: [], doBetter: [], plan: [], advice: 'x' }), []));
     const hits = s.search('figma');
     expect(hits.map((h) => h.date)).toEqual(['2026-09-25', '2026-09-20']);
-    expect(hits[0].snippet).toMatch(/\[Figma\]/i);
+    expect(hits[0].snippet).toMatch(/\u0001Figma\u0002/i);
     s.upsert('2026-09-25', reportBody(rep({ story: 'Nothing relevant.', headline: 'H', wins: [], habits: [], doBetter: [], plan: [], advice: 'a' }), []));
     expect(s.search('figma').map((h) => h.date)).toEqual(['2026-09-20']);
   });

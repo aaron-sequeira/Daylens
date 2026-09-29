@@ -57,11 +57,25 @@ export function detailPanels(d: DayDetail): DetailPanel[] {
   ].filter((p) => p.rows.length > 0);
 }
 
-/** Splits an FTS `snippet()` result (matches wrapped in `[` `]`) into plain data the renderer turns into text and
- * `<mark>` nodes itself, so a search hit is never rendered with dangerouslySetInnerHTML. */
+// Must match the SNIPPET_MARK_OPEN/CLOSE control characters main/report/search.ts's snippet() call uses:
+// unusual enough that they never collide with literal "[" / "]" (or anything else) typed in a real report.
+const MARK_OPEN = '\u0001';
+const MARK_CLOSE = '\u0002';
+/** Splits an FTS `snippet()` result into plain data the renderer turns into text and `<mark>` nodes itself,
+ * so a search hit is never rendered with dangerouslySetInnerHTML. */
 export function snippetParts(snippet: string): { text: string; mark: boolean }[] {
-  return snippet.split(/(\[[^[\]]*\])/g).filter((s) => s !== '')
-    .map((s) => (s.startsWith('[') && s.endsWith(']') ? { text: s.slice(1, -1), mark: true } : { text: s, mark: false }));
+  return snippet.split(new RegExp(`(${MARK_OPEN}[^${MARK_OPEN}${MARK_CLOSE}]*${MARK_CLOSE})`, 'g')).filter((s) => s !== '')
+    .map((s) => (s.startsWith(MARK_OPEN) && s.endsWith(MARK_CLOSE) ? { text: s.slice(1, -1), mark: true } : { text: s, mark: false }));
+}
+
+/** The next highlighted index for ArrowUp/ArrowDown in the search results dropdown, wrapping at both ends;
+ * -1 means nothing highlighted yet (ArrowDown from -1 goes to the first result, ArrowUp to the last). Any
+ * other key leaves the index unchanged. */
+export function nextIndex(i: number, len: number, key: string): number {
+  if (len <= 0) return -1;
+  if (key === 'ArrowDown') return i < 0 || i >= len - 1 ? 0 : i + 1;
+  if (key === 'ArrowUp') return i <= 0 ? len - 1 : i - 1;
+  return i;
 }
 
 const reduced = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

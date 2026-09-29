@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activePercent, detailPanels, goalPercent, pickDate, reportCardKind, reportDateLabel, snippetParts, waitingText, words } from './report';
+import { activePercent, detailPanels, goalPercent, nextIndex, pickDate, reportCardKind, reportDateLabel, snippetParts, waitingText, words } from './report';
 
 describe('report UI helpers', () => {
   it('labels dates relative to today', () => {
@@ -53,15 +53,27 @@ describe('report UI helpers', () => {
     // Enough memory (or cloud): it's waiting on another Daylens job, not memory.
     expect(waitingText({ memoryShort: false, needGb: 2.1, freeGb: 0.4 } as never, true)).toMatch(/^Waiting for Daylens to finish another job/);
   });
-  it('splits a search snippet into plain and highlighted parts, never leaving stray brackets', () => {
-    expect(snippetParts('You worked in [Figma] all day')).toEqual([
+  it('splits a search snippet into plain and highlighted parts on the control-character markers, never a literal [ or ]', () => {
+    expect(snippetParts('You worked in \u0001Figma\u0002 all day')).toEqual([
       { text: 'You worked in ', mark: false }, { text: 'Figma', mark: true }, { text: ' all day', mark: false }
     ]);
-    expect(snippetParts('[Figma] again, then [YouTube]')).toEqual([
+    expect(snippetParts('\u0001Figma\u0002 again, then \u0001YouTube\u0002')).toEqual([
       { text: 'Figma', mark: true }, { text: ' again, then ', mark: false }, { text: 'YouTube', mark: true }
     ]);
     expect(snippetParts('no matches here')).toEqual([{ text: 'no matches here', mark: false }]);
+    // A literal bracket typed in a report is never mistaken for a match marker.
+    expect(snippetParts('You wrote [TODO] in the file')).toEqual([{ text: 'You wrote [TODO] in the file', mark: false }]);
     expect(snippetParts('')).toEqual([]);
+  });
+  it('cycles the highlighted search result with the arrow keys, wrapping at both ends', () => {
+    expect(nextIndex(-1, 3, 'ArrowDown')).toBe(0);
+    expect(nextIndex(0, 3, 'ArrowDown')).toBe(1);
+    expect(nextIndex(2, 3, 'ArrowDown')).toBe(0);
+    expect(nextIndex(-1, 3, 'ArrowUp')).toBe(2);
+    expect(nextIndex(0, 3, 'ArrowUp')).toBe(2);
+    expect(nextIndex(2, 3, 'ArrowUp')).toBe(1);
+    expect(nextIndex(0, 0, 'ArrowDown')).toBe(-1);
+    expect(nextIndex(1, 3, 'Enter')).toBe(1); // any other key leaves the index unchanged
   });
   it('accepts a picked date only within [min, max] and from year 2000 on', () => {
     expect(pickDate('2026-09-20', '2026-01-05', '2026-09-28')).toBe('2026-09-20');

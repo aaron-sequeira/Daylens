@@ -5,7 +5,7 @@ import type { SearchHit } from '../../main/report/search';
 import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
 import { appColor, appInitials, formatHm } from '../lib/format';
-import { activePercent, detailPanels, goalPercent, pickDate, reportCardKind, reportDateLabel, snippetParts, useCountUp, waitingText, words } from '../lib/report';
+import { activePercent, detailPanels, goalPercent, nextIndex, pickDate, reportCardKind, reportDateLabel, snippetParts, useCountUp, waitingText, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
 import { Timeline } from './Timeline';
@@ -55,23 +55,51 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
     api.reports.days().then(setDays).catch((e) => console.error('[renderer] reports.days failed:', e));
   }, [date, print]);
 
-  // Search box: debounced 250ms, closed whenever the query is empty.
+  // Search box: debounced 250ms, closed whenever the query is empty. A combobox with aria-activedescendant:
+  // real DOM focus stays on the input the whole time, so ArrowUp/ArrowDown/Enter work without ever needing
+  // to Tab into a result.
   const [searchQ, setSearchQ] = useState('');
   const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(-1);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  // Only the most recently *dispatched* search's response is applied: a slow earlier request that resolves
+  // after a newer one must not clobber the results of what's on screen now.
+  const searchSeq = useRef(0);
   useEffect(() => {
-    if (print || !searchQ.trim()) { setSearchHits([]); setSearchOpen(false); return; }
+    if (print || !searchQ.trim()) { setSearchHits([]); setSearchOpen(false); setHighlighted(-1); return; }
     const t = setTimeout(() => {
-      api.reports.search(searchQ).then((hits) => { setSearchHits(hits); setSearchOpen(true); })
-        .catch((e) => { console.error('[renderer] reports.search failed:', e); setSearchHits([]); setSearchOpen(false); });
+      const mySeq = ++searchSeq.current;
+      api.reports.search(searchQ).then((hits) => {
+        if (searchSeq.current !== mySeq) return; // a newer search has since been sent; drop this stale reply
+        setSearchHits(hits); setSearchOpen(true); setHighlighted(-1);
+      }).catch((e) => {
+        if (searchSeq.current !== mySeq) return;
+        console.error('[renderer] reports.search failed:', e); setSearchHits([]); setSearchOpen(false);
+      });
     }, 250);
     return () => clearTimeout(t);
   }, [searchQ, print]);
-  const closeSearch = (): void => { setSearchQ(''); setSearchHits([]); setSearchOpen(false); };
+  const closeSearch = (): void => { setSearchQ(''); setSearchHits([]); setSearchOpen(false); setHighlighted(-1); };
   const pickSearchHit = (hit: SearchHit): void => { setDate(hit.date); closeSearch(); };
-  // Losing focus just hides the dropdown (a stray click elsewhere shouldn't lose what was typed); Escape and
-  // picking a result clear the query too.
-  const hideSearchDropdown = (): void => setSearchOpen(false);
+  // The container (input + dropdown) closes only when focus leaves it entirely: a plain input blur would
+  // otherwise fire (and hide the list) the instant a result tries to take focus.
+  const onSearchBoxBlur = (e: React.FocusEvent<HTMLDivElement>): void => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSearchOpen(false);
+  };
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (searchHits.length === 0) return;
+      e.preventDefault();
+      setHighlighted((i) => nextIndex(i, searchHits.length, e.key));
+      setSearchOpen(true);
+    } else if (e.key === 'Enter') {
+      if (highlighted >= 0 && searchHits[highlighted]) { e.preventDefault(); pickSearchHit(searchHits[highlighted]); }
+    } else if (e.key === 'Escape') {
+      closeSearch();
+      searchInputRef.current?.focus();
+    }
+  };
 
   const animate = !print;
   const score = useCountUp(view?.stats?.health.score ?? 0, animate);
@@ -205,25 +233,37 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
               onChange={(e) => { const v = pickDate(e.target.value, days[days.length - 1], view.today); if (v) setDate(v); }} />
           )}
           {!print && (
-            <div className="rep-search">
+            <div className="rep-search" onBlur={onSearchBoxBlur}>
               <input
+                ref={searchInputRef}
                 type="search"
+                role="combobox"
                 aria-label="Search reports"
+                aria-expanded={searchOpen && searchHits.length > 0}
+                aria-controls="rep-search-listbox"
+                aria-activedescendant={highlighted >= 0 ? `rep-hit-${highlighted}` : undefined}
+                aria-autocomplete="list"
                 placeholder="Search reports"
                 value={searchQ}
                 onChange={(e) => setSearchQ(e.target.value)}
                 onFocus={() => { if (searchHits.length > 0) setSearchOpen(true); }}
-                onBlur={hideSearchDropdown}
-                onKeyDown={(e) => { if (e.key === 'Escape') closeSearch(); }}
+                onKeyDown={onSearchKeyDown}
               />
               {searchOpen && searchHits.length > 0 && (
-                <ul className="rep-hits">
-                  {searchHits.map((h) => (
-                    <li key={h.date}>
-                      <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pickSearchHit(h)}>
-                        <b>{reportDateLabel(h.date, view.today)}</b>
-                        <span>{snippetParts(h.snippet).map((p, i) => (p.mark ? <mark key={i}>{p.text}</mark> : p.text))}</span>
-                      </button>
+                <ul className="rep-hits" id="rep-search-listbox" role="listbox">
+                  {searchHits.map((h, i) => (
+                    <li
+                      key={h.date}
+                      id={`rep-hit-${i}`}
+                      role="option"
+                      aria-selected={i === highlighted}
+                      className={i === highlighted ? 'on' : undefined}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setHighlighted(i)}
+                      onClick={() => pickSearchHit(h)}
+                    >
+                      <b>{reportDateLabel(h.date, view.today)}</b>
+                      <span>{snippetParts(h.snippet).map((p, j) => (p.mark ? <mark key={j}>{p.text}</mark> : p.text))}</span>
                     </li>
                   ))}
                 </ul>
