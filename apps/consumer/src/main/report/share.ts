@@ -10,7 +10,12 @@ export function mailtoUrl(date: string, r: ReportJson | null): string {
   const sentences = (r?.story.match(/[^.!?]+[.!?]+/g) ?? []).slice(0, 3).map((s) => s.trim()).join(' ');
   let body = r ? `${r.headline}\n\n${sentences}\n\n(The full report is attached as a PDF.)` : `Daylens report for ${date} (PDF attached).`;
   const make = (b: string): string => `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(b)}`;
-  while (make(body).length > MAILTO_MAX && body.length > 40) body = `${body.slice(0, Math.floor(body.length * 0.9)).trimEnd()}…`;
+  // Array.from splits on code points, not UTF-16 code units: a plain slice() could cut a surrogate pair (an
+  // emoji) in half and leave a lone surrogate, which encodeURIComponent throws on.
+  while (make(body).length > MAILTO_MAX && body.length > 40) {
+    const codePoints = Array.from(body);
+    body = `${codePoints.slice(0, Math.floor(codePoints.length * 0.9)).join('').trimEnd()}…`;
+  }
   return make(body);
 }
 

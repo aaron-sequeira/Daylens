@@ -16,6 +16,13 @@ describe('share', () => {
     expect(mailtoUrl('2026-09-26', { ...rep, story: 'x'.repeat(5000) }).length).toBeLessThanOrEqual(1800);
     expect(decodeURIComponent(mailtoUrl('2026-09-26', null).split('&body=')[1])).toMatch(/Daylens report/);
   });
+  it('truncates by code point so a surrogate pair (emoji) landing on the cut never throws', () => {
+    // One long "sentence" of emoji (each a surrogate pair): a plain UTF-16 slice() has a good chance of
+    // landing mid-pair on at least one of the repeated 10%-off-the-end truncation passes this needs.
+    const story = `x${'🎉'.repeat(2000)}.`;
+    expect(() => mailtoUrl('2026-09-26', { ...rep, story })).not.toThrow();
+    expect(mailtoUrl('2026-09-26', { ...rep, story }).length).toBeLessThanOrEqual(1800);
+  });
   it('auto-saves atomically (tmp then rename), reports off, and reports failures without throwing', async () => {
     const written: string[] = [];
     const renamed: Array<[string, string]> = [];
