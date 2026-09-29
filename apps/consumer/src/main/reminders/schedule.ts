@@ -4,7 +4,7 @@ import { atLeast, isActiveSample, restPeriods } from '../day/time';
 import { localDayOf, type Reminder, type ReminderState } from '../../shared/reminders';
 
 export const CLOCK_WINDOW_MS = 60 * 60_000;
-const PRESENT_BEFORE_MS = 5 * 60_000, PRESENT_AFTER_MS = 60_000, AWAY_RESET_MS = 10 * 60_000;
+const PRESENT_BEFORE_MS = 5 * 60_000, PRESENT_AFTER_MS = 60_000, SETTLE_MS = 60_000, AWAY_RESET_MS = 10 * 60_000;
 export interface DueReminder { reminder: Reminder; slot: string; }
 
 const localTime = (now: number, hhmm: string): number => {
@@ -34,7 +34,9 @@ export function planReminders(i: {
       const t = localTime(i.now, r.schedule.time);
       if (i.now < t || i.now >= t + CLOCK_WINDOW_MS) continue;
       const present = i.samples.some((x) => isActiveSample(x) && x.bucketEnd >= t - PRESENT_BEFORE_MS && x.bucketStart <= t + PRESENT_AFTER_MS);
-      if (!present) { skipped.push({ id: r.id, date: today }); continue; }
+      // The bucket covering the minute after `t` is only written about a minute later: decide "away" (a skip that lasts
+      // the day) once that data can exist; before then an absent user just isn't due yet.
+      if (!present) { if (i.now >= t + PRESENT_AFTER_MS + SETTLE_MS) skipped.push({ id: r.id, date: today }); continue; }
       clockDue.push({ r, t });
     } else {
       const minutes = r.builtin === 'water' && i.waterIntervalMin ? i.waterIntervalMin : r.schedule.minutes;

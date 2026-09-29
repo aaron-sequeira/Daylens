@@ -26,6 +26,14 @@ describe('clock-time reminders', () => {
     expect(r.due).toBeNull();
     expect(r.skipped).toEqual([{ id: lunch.id, date: '2026-09-30' }]);
   });
+  it('never decides "away" before the minute after the time has been recorded', () => {
+    const idleSince1250 = active(at(12, 30), at(12, 50));
+    const early = plan([lunch], at(13, 0) + 20_000, idleSince1250); // 13:00:20 — grace minute not written yet
+    expect(early).toEqual({ due: null, skipped: [] });
+    const later = plan([lunch], at(13, 1) + 20_000, [...idleSince1250, ...active(at(13, 0), at(13, 1))]); // they came back at 13:00
+    expect(later.due?.reminder.id).toBe(lunch.id);
+    expect(plan([lunch], at(13, 2), idleSince1250).skipped).toEqual([{ id: lunch.id, date: '2026-09-30' }]); // really away
+  });
   it('a disabled reminder is never due', () => {
     expect(plan([{ ...lunch, enabled: false }], at(13, 1), active(at(12, 30), at(13, 1))).due).toBeNull();
   });
