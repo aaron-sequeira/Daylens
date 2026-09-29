@@ -78,6 +78,15 @@ export function nextIndex(i: number, len: number, key: string): number {
   return i;
 }
 
+/** The Email button's state: `pending` disables the button (a second click can't fire a second IPC request
+ * while the first is still in flight), and `status` is the note shown underneath. */
+export interface EmailState { pending: boolean; status: string | null; }
+export const EMAIL_IDLE: EmailState = { pending: false, status: null };
+/** Starting a request: busy, and clears any note left over from the previous one. */
+export const emailStart = (): EmailState => ({ pending: true, status: null });
+/** The request settling, ok or not: no longer busy, showing a reason only on failure. */
+export const emailFinished = (reason: string | null): EmailState => ({ pending: false, status: reason });
+
 const reduced = (): boolean => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Animated count from 0 to `target` over ~900 ms; returns the target straight away when motion is reduced or disabled. */
 export function useCountUp(target: number, enabled: boolean): number {

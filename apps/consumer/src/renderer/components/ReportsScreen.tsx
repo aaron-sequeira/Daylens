@@ -5,7 +5,7 @@ import type { SearchHit } from '../../main/report/search';
 import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
 import { appColor, appInitials, formatHm } from '../lib/format';
-import { activePercent, detailPanels, goalPercent, nextIndex, pickDate, reportCardKind, reportDateLabel, snippetParts, useCountUp, waitingText, words } from '../lib/report';
+import { activePercent, detailPanels, EMAIL_IDLE, emailFinished, emailStart, goalPercent, nextIndex, pickDate, reportCardKind, reportDateLabel, snippetParts, useCountUp, waitingText, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
 import { Timeline } from './Timeline';
@@ -22,7 +22,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   const [showCloud, setShowCloud] = useState(false);
   const [planError, setPlanError] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
-  const [emailStatus, setEmailStatus] = useState<string | null>(null);
+  const [emailState, setEmailState] = useState(EMAIL_IDLE);
 
   // Guards stale IPC results: only apply a resolved ReportView if it's still for the date on screen.
   const dateRef = useRef<string | null>(date);
@@ -141,10 +141,10 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
       .catch((e) => { console.error('[renderer] reports.exportPdf failed:', e); setExportStatus('Could not export the PDF.'); });
   };
   const email = (): void => {
-    setEmailStatus(null);
+    setEmailState(emailStart());
     api.reports.email(view.date)
-      .then((r) => { if (!r.ok) setEmailStatus(r.reason); })
-      .catch((e) => { console.error('[renderer] reports.email failed:', e); setEmailStatus('Could not open an email draft.'); });
+      .then((r) => setEmailState(emailFinished(r.ok ? null : r.reason)))
+      .catch((e) => { console.error('[renderer] reports.email failed:', e); setEmailState(emailFinished('Could not open an email draft.')); });
   };
   const download = (): void => {
     api.writer.download().then(setWriter).catch((e) => { console.error('[renderer] writer.download failed:', e); load(); });
@@ -246,7 +246,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
                 type="search"
                 role="combobox"
                 aria-label="Search reports"
-                aria-expanded={searchOpen && searchHits.length > 0}
+                aria-expanded={searchOpen}
                 aria-controls="rep-search-listbox"
                 aria-activedescendant={highlighted >= 0 ? `rep-hit-${highlighted}` : undefined}
                 aria-autocomplete="list"
@@ -256,9 +256,9 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
                 onFocus={() => { if (searchHits.length > 0) setSearchOpen(true); }}
                 onKeyDown={onSearchKeyDown}
               />
-              {searchOpen && searchHits.length > 0 && (
+              {searchOpen && (
                 <ul className="rep-hits" id="rep-search-listbox" role="listbox">
-                  {searchHits.map((h, i) => (
+                  {searchHits.length > 0 ? searchHits.map((h, i) => (
                     <li
                       key={h.date}
                       id={`rep-hit-${i}`}
@@ -272,7 +272,11 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
                       <b>{reportDateLabel(h.date, view.today)}</b>
                       <span>{snippetParts(h.snippet).map((p, j) => (p.mark ? <mark key={j}>{p.text}</mark> : p.text))}</span>
                     </li>
-                  ))}
+                  )) : (
+                    // Not an option: role="presentation" keeps it out of the listbox's selectable items (and
+                    // out of arrow-key navigation, which already no-ops when searchHits is empty).
+                    <li role="presentation" className="rep-hits-empty">No reports match</li>
+                  )}
                 </ul>
               )}
             </div>
@@ -288,9 +292,9 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
           {!print && (
             <div className="rep-actions">
               <button className="export" onClick={exportPdf}>Export PDF</button>
-              <button className="export" onClick={email}>Email</button>
+              <button className="export" onClick={email} disabled={emailState.pending}>Email</button>
               {exportStatus && <span className="report-note">{exportStatus}</span>}
-              {emailStatus && <span className="report-note">{emailStatus}</span>}
+              {emailState.status && <span className="report-note">{emailState.status}</span>}
             </div>
           )}
         </div>

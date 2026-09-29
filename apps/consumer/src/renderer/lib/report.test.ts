@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { activePercent, detailPanels, goalPercent, nextIndex, pickDate, reportCardKind, reportDateLabel, snippetParts, waitingText, words } from './report';
+import { activePercent, detailPanels, EMAIL_IDLE, emailFinished, emailStart, goalPercent, nextIndex, pickDate, reportCardKind, reportDateLabel, snippetParts, waitingText, words } from './report';
 
 describe('report UI helpers', () => {
   it('labels dates relative to today', () => {
@@ -82,5 +82,12 @@ describe('report UI helpers', () => {
     expect(pickDate('2025-12-31', '2026-01-05', '2026-09-28')).toBeNull(); // before the oldest day
     expect(pickDate('0026-09-20', undefined, '2026-09-28')).toBeNull(); // a half-typed year
     expect(pickDate('2026-09-20', undefined, '2026-09-28')).toBe('2026-09-20');
+  });
+  it('tracks the Email button as busy from start to finish, so a second click while it is in flight is a no-op', () => {
+    expect(EMAIL_IDLE).toEqual({ pending: false, status: null });
+    const started = emailStart();
+    expect(started).toEqual({ pending: true, status: null }); // busy, and any old note is cleared
+    expect(emailFinished(null)).toEqual({ pending: false, status: null }); // ok: no longer busy, nothing to show
+    expect(emailFinished('Could not open an email draft.')).toEqual({ pending: false, status: 'Could not open an email draft.' });
   });
 });
