@@ -8,6 +8,8 @@ import { COACH_SCHEMA, createCoachStore } from '../coach/store';
 import { REPORT_SQL, createReportStore } from '../report/store';
 import { REPORT_FTS_SQL, createReportSearch } from '../report/search';
 import { WEEKLY_SQL, createWeeklyStore } from '../report/week';
+import { REMINDERS_SQL, createReminderStore } from '../reminders/store';
+import { TZ_SQL, createTzStore } from '../time/tzStore';
 
 let db: Database.Database;
 beforeEach(() => { db = new Database(':memory:'); db.exec(SCHEMA_SQL); db.exec(SCREEN_SCHEMA); });
@@ -119,6 +121,19 @@ describe('deleteActivity', () => {
     weekly.setReady('2026-09-28', { headline: 'H', summary: 'S', focusForNextWeek: 'F' }, 'model', 1);
     deleteActivity(db);
     expect(db.prepare('SELECT count(*) AS n FROM weekly_reports').get()).toEqual({ n: 0 });
+  });
+
+  it('clears reminder_state and tz_changes when they exist, keeping the reminders themselves', () => {
+    db.exec(REMINDERS_SQL);
+    db.exec(TZ_SQL);
+    const reminders = createReminderStore(db);
+    reminders.seed([1, 2, 3, 4, 5]);
+    reminders.markFired(reminders.list()[0].id, '2026-09-24');
+    createTzStore(db).record({ at: 1000, fromName: 'India Standard Time', toName: 'Pacific Standard Time', fromOffset: 330, toOffset: -480 });
+    deleteActivity(db);
+    expect(db.prepare('SELECT count(*) AS n FROM reminder_state').get()).toEqual({ n: 0 });
+    expect(db.prepare('SELECT count(*) AS n FROM tz_changes').get()).toEqual({ n: 0 });
+    expect(reminders.list()).toHaveLength(4);
   });
 });
 

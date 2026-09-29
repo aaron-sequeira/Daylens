@@ -66,6 +66,8 @@ export function deleteActivity(db: Database.Database): void {
     if (hasTable(db, 'daily_reports')) db.exec('DELETE FROM daily_reports; DELETE FROM plan_items;');
     if (hasTable(db, 'report_fts')) db.exec('DELETE FROM report_fts;');
     if (hasTable(db, 'weekly_reports')) db.exec('DELETE FROM weekly_reports;');
+    if (hasTable(db, 'reminder_state')) db.exec('DELETE FROM reminder_state;'); // timers restart; the reminders themselves stay
+    if (hasTable(db, 'tz_changes')) db.exec('DELETE FROM tz_changes;');         // where you travelled is activity history too
   })();
 }
 
