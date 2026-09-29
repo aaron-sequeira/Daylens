@@ -210,6 +210,26 @@ describe('report scheduler', () => {
     await s.tick();
     expect(ran).toEqual(['2026-09-21', '2026-09-22']);
   });
+  it('re-checks otherJobRunning after the lowBattery await: a job that started in that gap holds the run', async () => {
+    let resolveBattery!: (v: boolean) => void;
+    let first = true;
+    let busy = false;
+    // The first call hangs so the test can open a gap; later calls (the next tick, once released) resolve at once.
+    const { s, ran, setNow } = mk({
+      lowBattery: () => (first ? new Promise<boolean>((r) => { resolveBattery = r; first = false; }) : Promise.resolve(false)),
+      otherJobRunning: () => busy, hasActivity: (d) => d === '2026-09-26'
+    });
+    setNow(at(26, 23, 0));
+    const t = s.tick(); // synchronously reaches the lowBattery await, with otherJobRunning still false
+    busy = true; // tip-writing (or labelling) starts in that gap
+    resolveBattery(false);
+    await t;
+    expect(ran).toEqual([]); // must not have started: the gate is stale once lowBattery resolves
+    expect(s.waiting()).toBe('2026-09-26');
+    busy = false;
+    await s.tick();
+    expect(ran).toEqual(['2026-09-26']);
+  });
   it('prevents re-entrancy: two tick calls while lowBattery is slow generates only once', async () => {
     let slowResolve!: () => void;
     const { s, ran, setNow } = mk({ lowBattery: () => new Promise((r) => { slowResolve = () => r(false); }), hasActivity: (d) => d === '2026-09-26' });

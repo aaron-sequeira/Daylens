@@ -67,6 +67,8 @@ export function createReportScheduler(d: ReportSchedulerDeps): ReportScheduler {
         // Cheap checks first: the battery query spawns a process, so only ask once the gate is open.
         if (!(isManual ? d.manualGateOk() : d.gateOk()) || d.otherJobRunning()) { wait(date); return; }
         if (!isManual && await d.lowBattery()) { wait(null); return; }
+        // lowBattery's await is a gap: tip-writing or labelling can start in it, so the gate checked above is stale.
+        if (d.otherJobRunning()) { wait(date); return; }
         if (isManual) manual.shift();
         running = date; wait(null); change();
         void (async () => {
