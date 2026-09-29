@@ -71,6 +71,20 @@ describe('checkFolder', () => {
 
 describe('createFolderChecker', () => {
   const dir = { isDirectory: () => true };
+  it('a check still running for the old folder never overwrites the answer for the new folder', async () => {
+    const pending: Record<string, ((v: { isDirectory(): boolean }) => void)[]> = { A: [], B: [] };
+    const stat = (d: string) => new Promise<{ isDirectory(): boolean }>((res) => { pending[d].push(res); });
+    const check = createFolderChecker(stat, () => 0);
+    const a = check('A');
+    const b = check('B');                      // folder changed while A's stat is still running
+    pending.A[0]({ isDirectory: () => false }); // A resolves "missing"
+    expect(await a).toBe('missing');
+    const b2 = check('B');                     // must join B's own in-flight check, not reuse A's answer
+    expect(pending.B).toHaveLength(1);
+    pending.B[0](dir);
+    expect(await b).toBe('ok');
+    expect(await b2).toBe('ok');
+  });
   it('shares one in-flight stat across concurrent calls for the same folder', async () => {
     let calls = 0; let now = 0;
     let resolveStat!: () => void;

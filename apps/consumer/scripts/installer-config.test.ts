@@ -37,6 +37,6 @@ describe('installer.nsh', () => {
     expect(nsh).toContain('RMDir /r "$APPDATA\\Daylens"');
   });
   it('silences the prompt under a silent uninstall (/S) by defaulting to No', () => {
-    expect(nsh).toContain('/SD IDNO');
+    expect(nsh).toMatch(/" \/SD IDNO IDNO daylens_keep/); // NSIS: MessageBox flags text [/SD IDx] [IDx label]
   });
 });

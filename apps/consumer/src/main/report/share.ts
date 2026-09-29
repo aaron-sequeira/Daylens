@@ -72,10 +72,12 @@ export function createFolderChecker(
     if (dir !== folder) { folder = dir; result = null; inFlight = null; }
     if (result !== null && now() - resultAt < ttlMs) return Promise.resolve(result);
     if (inFlight) return inFlight;
-    inFlight = checkFolder(dir, stat).then((r) => {
-      result = r; resultAt = now(); inFlight = null;
+    const p: Promise<'ok' | 'missing' | 'unknown'> = checkFolder(dir, stat).then((r) => {
+      // The folder changed while this check ran: its answer is about the old folder, so don't cache it.
+      if (folder === dir && inFlight === p) { result = r; resultAt = now(); inFlight = null; }
       return r;
     });
-    return inFlight;
+    inFlight = p;
+    return p;
   };
 }
