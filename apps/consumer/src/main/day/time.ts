@@ -47,9 +47,20 @@ export function clip(iv: Interval, lo: number, hi: number): Interval | null {
   return end > start ? { start, end } : null;
 }
 
+let dayShift: ((ms: number) => number) | null = null;
+/** After travel, a stored date's rows were written in the zone of that day, not the current one. The provider maps a
+ * moment to how far the clock has moved since (Σ later zone changes, ms); null = no shifting (pure local bounds). */
+export function setDayShift(fn: ((dayStartMs: number) => number) | null): void { dayShift = fn; }
+
 export function dayBounds(date: ISODate): Interval {
   const [y, m, d] = date.split('-').map(Number);
-  return { start: new Date(y, m - 1, d).getTime(), end: new Date(y, m - 1, d + 1).getTime() };
+  const start = new Date(y, m - 1, d).getTime(), end = new Date(y, m - 1, d + 1).getTime();
+  if (!dayShift) return { start, end };
+  // Same shift at both edges (every change came after the day): the old zone's day, exactly. A change during the day
+  // gives different shifts: span both zones' versions of it so neither side is clipped (rows are picked by date, so
+  // a wider span never pulls in another day's rows).
+  const a = dayShift(start), b = dayShift(end);
+  return { start: start + Math.min(a, b), end: end + Math.max(a, b) };
 }
 
 export function shiftDate(date: ISODate, days: number): ISODate {

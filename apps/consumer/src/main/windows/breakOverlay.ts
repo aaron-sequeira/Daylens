@@ -25,6 +25,13 @@ export const breakMessage = z.discriminatedUnion('type', [
 ]);
 export type BreakMessage = z.infer<typeof breakMessage>;
 
+/** What a finished break means. A done-label button ("I had some") ends the break as completed so the reminder is
+ * done, but tapped in the first half it wasn't really a break: it doesn't count towards completed breaks. */
+export function breakOutcome(spec: BreakSpec, seconds: number, completed: boolean): { markDone: boolean; countAsBreak: boolean } {
+  const early = spec.doneLabel !== undefined && seconds < spec.seconds / 2;
+  return { markDone: completed && spec.reminderId !== undefined, countAsBreak: completed && !early };
+}
+
 const WATCHDOG_SLACK_MS = 15_000;
 const EXTEND_MS = 60_000;
 const MAX_ALLOWANCE_S = 3600;

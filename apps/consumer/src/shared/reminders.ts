@@ -49,7 +49,14 @@ const TITLES: Record<Builtin, string> = {
   water: 'Time for some water 💧', lunch: 'Lunch time 🍱', tea: 'Tea break ☕', dinner: 'Dinner time 🍽️',
   travel_daylight: 'Get some daylight ☀️', travel_coffee: 'Last coffee for today ☕'
 };
-export const reminderTitle = (r: Reminder): string => (r.builtin ? TITLES[r.builtin] : `${r.name.trim()} ${ANIMATION_LOOK[r.animation].emoji}`);
+/** Default names of the user-editable built-ins (travel ones can't be renamed). */
+const DEFAULT_NAMES = new Map<Builtin | null, string>(builtinDefaults([]).map((d) => [d.builtin, d.name]));
+/** The friendly built-in title only while the user hasn't renamed it; otherwise their name + the animation's emoji. */
+export const reminderTitle = (r: Reminder): string => {
+  const name = r.name.trim();
+  const keepsBuiltinTitle = r.builtin !== null && (DEFAULT_NAMES.get(r.builtin) ?? name) === name;
+  return r.builtin && keepsBuiltinTitle ? TITLES[r.builtin] : `${name} ${ANIMATION_LOOK[r.animation].emoji}`;
+};
 
 const DAY = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export function clock12(hhmm: string): string {

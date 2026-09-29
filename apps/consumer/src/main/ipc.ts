@@ -155,7 +155,9 @@ export function registerIpc(d: IpcDeps): void {
   });
   ipcMain.handle(CH.profileGet, () => readProfile(d.settings.get()));
   ipcMain.handle(CH.profileSave, (_e, raw) => {
+    const prevDays = readProfile(d.settings.get()).days;
     const next = d.settings.set(toSettingsPatch(profileInput.parse(raw)));
+    d.reminders.store.syncWorkdays(prevDays, readProfile(next).days); // lunch/tea follow the workdays unless customised
     d.onSettingsChanged();
     return next;
   });
@@ -257,6 +259,6 @@ export function registerIpc(d: IpcDeps): void {
     catch (e) { return remindersView(e instanceof z.ZodError ? 'Something in that reminder isn’t valid.' : (e as Error).message); }
   });
   ipcMain.handle(CH.remindersDelete, (_e, raw) => { d.reminders.store.remove(z.number().int().parse(raw)); return remindersView(); });
-  ipcMain.handle(CH.remindersReset, (_e, raw) => { d.reminders.store.reset(z.enum(['water', 'lunch', 'tea', 'dinner']).parse(raw), d.reminders.workdays()); return remindersView(); });
-  ipcMain.handle(CH.remindersSetEnabled, (_e, raw) => { const v = z.object({ id: z.number().int(), on: z.boolean() }).strict().parse(raw); d.reminders.store.setEnabled(v.id, v.on); return remindersView(); });
+  ipcMain.handle(CH.remindersReset, (_e, raw) => { d.reminders.store.reset(z.enum(['water', 'lunch', 'tea', 'dinner']).parse(raw), d.reminders.workdays(), d.now()); return remindersView(); });
+  ipcMain.handle(CH.remindersSetEnabled, (_e, raw) => { const v = z.object({ id: z.number().int(), on: z.boolean() }).strict().parse(raw); d.reminders.store.setEnabled(v.id, v.on, d.now()); return remindersView(); });
 }

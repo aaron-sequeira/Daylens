@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import type { ActivitySampleRow, FocusSessionRow } from '@worksight/core/types';
-import { restPeriods, MAX_SAMPLE_MS, atLeast, subtract, clip, dayBounds, shiftDate, sessionInterval, isLateNight, nextEarlyMorning } from './time';
+import { restPeriods, MAX_SAMPLE_MS, atLeast, subtract, clip, dayBounds, setDayShift, shiftDate, sessionInterval, isLateNight, nextEarlyMorning } from './time';
 
 const MIN = 60_000;
 const T = (h: number, m = 0): number => new Date(2026, 8, 23, h, m).getTime();
@@ -56,6 +56,34 @@ describe('dates', () => {
     expect(dayBounds('2026-09-23')).toEqual({ start: T(0), end: new Date(2026, 8, 24).getTime() });
     expect(shiftDate('2026-09-01', -1)).toBe('2026-08-31');
     expect(shiftDate('2026-12-31', 1)).toBe('2027-01-01');
+  });
+});
+
+describe('dayBounds after a zone change (setDayShift)', () => {
+  const H = 3_600_000;
+  const plain = dayBounds('2026-09-23');
+  afterEach(() => setDayShift(null));
+  it('is the plain local day with no provider, or when nothing changed after the day', () => {
+    setDayShift(() => 0);
+    expect(dayBounds('2026-09-23')).toEqual(plain);
+    setDayShift(null);
+    expect(dayBounds('2026-09-23')).toEqual(plain);
+  });
+  it('shifts a past day by the zone changes recorded after it (flew east 9 h since)', () => {
+    setDayShift(() => 9 * H);
+    expect(dayBounds('2026-09-23')).toEqual({ start: plain.start + 9 * H, end: plain.end + 9 * H });
+    // A session from that evening, recorded in the old zone, sits 9 h later on today's clock: inside, not clipped.
+    const evening = plain.start + 20 * H + 9 * H; // 20:00 old-zone time
+    const b = dayBounds('2026-09-23');
+    expect(evening > b.start && evening < b.end).toBe(true);
+    expect(evening > plain.end).toBe(true); // the unshifted bounds would have clipped it
+  });
+  it('the day a change happened spans both zones’ days (never clips either side)', () => {
+    const change = plain.start + 10 * H; // flew west 9 h at 10:00 that day
+    setDayShift((t) => (change > t ? -9 * H : 0));
+    expect(dayBounds('2026-09-23')).toEqual({ start: plain.start - 9 * H, end: plain.end });
+    setDayShift((t) => (change > t ? 9 * H : 0)); // flew east instead
+    expect(dayBounds('2026-09-23')).toEqual({ start: plain.start, end: plain.end + 9 * H });
   });
 });
 

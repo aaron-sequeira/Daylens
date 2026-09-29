@@ -27,11 +27,11 @@ import { ruleWeight } from './coach/weights';
 import { holdReason, type Rect } from './coach/gate';
 import { createHoldCache } from './coach/holdCache';
 import { REMINDERS_SQL, createReminderStore } from './reminders/store';
-import { planReminders } from './reminders/schedule';
+import { createLockLog, planReminders } from './reminders/schedule';
 import { reminderTitle, type Reminder } from '../shared/reminders';
 import { applyZone, createZoneWatcher, currentOffsetMin, readIanaZone, readWindowsZone } from './time/zone';
-import { createTzStore, TZ_SQL } from './time/tzStore';
-import { homeOffset, travelReminders, travelState, HOME_WINDOW_MS, TRAVEL_WATER_MIN, type TravelView } from './time/travel';
+import { createTzStore, mayRecordTz, TZ_SQL } from './time/tzStore';
+import { homeOffset, travelReminders, travelState, zoneShiftMs, HOME_WINDOW_MS, TRAVEL_WATER_MIN, type TravelView } from './time/travel';
 import { queryNotificationState } from './coach/notifState';
 import { parseFewer, parseKinds, parseLimits } from './coach/settings';
 import { repeatedSearches, searchTitlesFrom, switchesBetween } from './coach/activity';
@@ -40,10 +40,10 @@ import { parseTip, tipAllowedMinutes, tipInput, tipPrompt, tipRewriteAllowed, TI
 import { parseExclusions } from './screen/exclusions';
 import { createPillManager, pillMessage, PILL_W, PILL_MARGIN } from './windows/pill';
 import { electronPillWindow } from './windows/pillElectron';
-import { createBreakOverlay, breakMessage, PRESETS } from './windows/breakOverlay';
+import { breakOutcome, createBreakOverlay, breakMessage, PRESETS } from './windows/breakOverlay';
 import { electronBreakWindow } from './windows/breakOverlayElectron';
 import { loadTodayView, type TimelineSegment } from './day/today';
-import { dayBounds, shiftDate } from './day/time';
+import { dayBounds, setDayShift, shiftDate } from './day/time';
 import { createSecretStore } from './writer/secrets';
 import { resolveTier, tierFor, writerManifest, writerNeedBytes, WRITER_ATTRIBUTION, WRITER_MODELS, type WriterTier } from './writer/config';
 import { countsAsFailure, localUnavailable, writerUsable, type Unavailable } from './writer/availability';
@@ -134,12 +134,20 @@ if (!app.requestSingleInstanceLock()) {
     db.exec(REMINDERS_SQL);
     const reminderStore = createReminderStore(db);
     reminderStore.seed(readProfile(settings.get()).days);
+    // Screen-lock stretches: a clock reminder whose time fell while locked is skipped for the day (idle but unlocked
+    // — a passive call or video — still counts as present). The events are wired at the end of startup.
+    const lockLog = createLockLog();
     db.exec(TZ_SQL);
     const tzStore = createTzStore(db);
+    // A past day's rows were written in that day's zone: shift its bounds by the zone changes since (indexed query;
+    // changes are rare). "Delete my activity" clears tz_changes, so the shifts go with the history.
+    setDayShift((start) => zoneShiftMs(tzStore.since(start), start));
     const zoneWatcher = createZoneWatcher({
       read: () => readWindowsZone(), offset: currentOffsetMin, now: () => Date.now(),
       // process.env.TZ is inherited by later child processes (the brain/writer utility processes, the OCR
-      // helper), which is intended: they should all use the same local time as the main process.
+      // helper), which is intended: they should all use the same local time as the main process. It also reaches
+      // anything launched through the shell (shell.openPath / openExternal), which is harmless: it names the zone
+      // Windows is already in.
       apply: async () => { const z = await readIanaZone(); if (z) applyZone(z); return z !== null; },
       stored: () => ({ name: settings.get().zoneName, offset: settings.get().zoneOffset }),
       save: (z) => settings.set({ zoneName: z.name, zoneOffset: z.offset })
@@ -147,7 +155,7 @@ if (!app.requestSingleInstanceLock()) {
     const checkZone = (): void => {
       zoneWatcher.check().then((c) => {
         if (!c) return;
-        tzStore.record(c);
+        if (mayRecordTz(settings.get())) tzStore.record(c); // the zone is applied and saved regardless
         win?.webContents.send(CH.eventsUpdate); // views re-read times in the new local zone
       }).catch((e) => console.error('[zone] check failed:', e));
     };
@@ -243,8 +251,9 @@ if (!app.requestSingleInstanceLock()) {
       }),
       onDone: (r) => {
         const now = Date.now();
-        coachStore.recordBreak({ at: now, date: localDate(now), kind: r.spec.label, seconds: r.seconds, completed: r.completed });
-        if (r.completed && r.spec.reminderId !== undefined) reminderStore.markDone(r.spec.reminderId, now);
+        const out = breakOutcome(r.spec, r.seconds, r.completed);
+        coachStore.recordBreak({ at: now, date: localDate(now), kind: r.spec.label, seconds: r.seconds, completed: out.countAsBreak });
+        if (out.markDone && r.spec.reminderId !== undefined) reminderStore.markDone(r.spec.reminderId, now);
         win?.webContents.send(CH.eventsUpdate);
       }
     });
@@ -304,7 +313,8 @@ if (!app.requestSingleInstanceLock()) {
       const planned = planReminders({
         reminders: [...reminderStore.list(), ...(travel ? travelReminders(travel) : [])],
         states: reminderStore.states(), now, samples,
-        waterIntervalMin: travel ? TRAVEL_WATER_MIN : undefined
+        waterIntervalMin: travel ? TRAVEL_WATER_MIN : undefined,
+        awayIntervals: lockLog.intervals(now)
       });
       for (const sk of planned.skipped) reminderStore.markFired(sk.id, sk.date); // away at its time: skip today
       return {
@@ -1148,7 +1158,9 @@ if (!app.requestSingleInstanceLock()) {
       if (cur.consentGranted && !cur.trackingPaused) tracker.start();
       checkZone();
     });
-    powerMonitor.on('unlock-screen', checkZone);
+    powerMonitor.on('lock-screen', () => lockLog.lock(Date.now()));
+    if (powerMonitor.getSystemIdleState(60) === 'locked') lockLog.lock(Date.now()); // started behind the lock screen
+    powerMonitor.on('unlock-screen', () => { lockLog.unlock(Date.now()); checkZone(); });
   });
 }
 

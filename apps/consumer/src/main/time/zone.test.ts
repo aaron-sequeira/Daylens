@@ -30,6 +30,9 @@ describe('readIanaZone', () => {
     expect(await readIanaZone(async () => 'Something went wrong')).toBeNull();
     expect(await readIanaZone(async () => { throw new Error('x'); })).toBeNull();
   });
+  it('rejects a well-formed name the JS runtime does not know (applying it would break local time)', async () => {
+    expect(await readIanaZone(async () => 'Mars/Olympus_Mons')).toBeNull();
+  });
 });
 
 describe('createZoneWatcher', () => {

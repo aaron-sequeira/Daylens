@@ -26,11 +26,16 @@ export async function readWindowsZone(exec: () => Promise<string> = regQuery): P
 }
 
 const IANA = /^(UTC|[A-Za-z_]+(\/[A-Za-z0-9_+\-]+)+)$/;
-/** The standard zone name Windows uses right now (e.g. "Asia/Kolkata"), via WinRT; null if unavailable. */
+/** V8 silently treats an unknown TZ as UTC, so only a name it can resolve may be applied. */
+const knownZone = (z: string): boolean => {
+  try { new Intl.DateTimeFormat('en', { timeZone: z }); return true; } catch { return false; }
+};
+/** The standard zone name Windows uses right now (e.g. "Asia/Kolkata"), via WinRT; null if unavailable or unknown to
+ * the JS runtime (the watcher then retries on its next check instead of recording a change). */
 export async function readIanaZone(exec: () => Promise<string> = winrtZone): Promise<string | null> {
   try {
     const z = (await exec()).trim();
-    return IANA.test(z) ? z : null;
+    return IANA.test(z) && knownZone(z) ? z : null;
   } catch { return null; }
 }
 

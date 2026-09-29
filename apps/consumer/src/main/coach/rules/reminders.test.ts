@@ -15,6 +15,9 @@ describe('reminderRule', () => {
     });
     expect(reminderRule(snap({ reminderDue: { reminder: lunch, slot: '2026-09-30' } }))).toMatchObject({ stat: '1:00 pm', secondary: { label: 'Done' } });
   });
+  it('an interval reminder shows the minutes actually used (travel mode water: 45 min)', () => {
+    expect(reminderRule(snap({ reminderDue: { reminder: water, slot: '1', effectiveMinutes: 45 } }))?.stat).toBe('45 min');
+  });
   it('a no-break reminder has a single Done button', () => {
     const c = reminderRule(snap({ reminderDue: { reminder: { ...lunch, breakSec: 0 }, slot: 's' } }));
     expect(c).toMatchObject({ primary: { label: 'Done', action: 'reminder_done' } });

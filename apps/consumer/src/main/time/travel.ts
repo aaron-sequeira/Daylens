@@ -20,6 +20,10 @@ export function homeOffset(changes: TzChange[], currentOffset: number, now: numb
   return [...time.entries()].sort((a, b) => b[1] - a[1])[0][0];
 }
 
+/** How far the local clock has moved since `dayStart`: Σ offset changes recorded after it, in ms (a round trip → 0). */
+export const zoneShiftMs = (changes: TzChange[], dayStart: number): number =>
+  changes.reduce((sum, c) => (c.at > dayStart ? sum + (c.toOffset - c.fromOffset) * 60_000 : sum), 0);
+
 const TIPS = {
   east: ['Get daylight between 8 and 10 am.', 'Last coffee by 2 pm.', 'Aim for an early night.'],
   west: ['Get daylight in the late afternoon.', 'Stay up until your usual local bedtime.', 'Last coffee by 3 pm.'],

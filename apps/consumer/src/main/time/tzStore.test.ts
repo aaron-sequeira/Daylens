@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import Database from 'better-sqlite3';
-import { TZ_SQL, createTzStore } from './tzStore';
+import { TZ_SQL, createTzStore, mayRecordTz } from './tzStore';
+
+describe('mayRecordTz', () => {
+  it('records where you travelled only with consent and while tracking runs', () => {
+    expect(mayRecordTz({ consentGranted: true, trackingPaused: false })).toBe(true);
+    expect(mayRecordTz({ consentGranted: false, trackingPaused: false })).toBe(false);
+    expect(mayRecordTz({ consentGranted: true, trackingPaused: true })).toBe(false);
+  });
+});
 
 describe('tz store', () => {
   it('records changes and returns them newest-last / latest', () => {

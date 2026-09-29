@@ -75,6 +75,7 @@ export interface ExportData {
   exportedAt: number; settings: DaylensSettings; profile: Profile;
   focusSessions: unknown[]; appEvents: unknown[]; activitySamples: unknown[]; screenReads: unknown[];
   nudges: unknown[]; breaks: unknown[]; dailyReports: unknown[]; planItems: unknown[]; weeklyReports: unknown[];
+  reminders: unknown[]; reminderState: unknown[]; tzChanges: unknown[];
 }
 
 export function exportAll(db: Database.Database, settings: DaylensSettings, profile: Profile, now: number): ExportData {
@@ -86,6 +87,9 @@ export function exportAll(db: Database.Database, settings: DaylensSettings, prof
     nudges: hasTable(db, 'nudges') ? all('nudges') : [], breaks: hasTable(db, 'breaks') ? all('breaks') : [],
     dailyReports: hasTable(db, 'daily_reports') ? db.prepare('SELECT * FROM daily_reports ORDER BY date').all() : [],
     planItems: hasTable(db, 'plan_items') ? all('plan_items') : [],
-    weeklyReports: hasTable(db, 'weekly_reports') ? db.prepare('SELECT * FROM weekly_reports ORDER BY week_start').all() : []
+    weeklyReports: hasTable(db, 'weekly_reports') ? db.prepare('SELECT * FROM weekly_reports ORDER BY week_start').all() : [],
+    reminders: hasTable(db, 'reminders') ? all('reminders') : [],
+    reminderState: hasTable(db, 'reminder_state') ? db.prepare('SELECT * FROM reminder_state ORDER BY reminder_id').all() : [],
+    tzChanges: hasTable(db, 'tz_changes') ? all('tz_changes') : []
   };
 }

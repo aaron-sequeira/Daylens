@@ -5,7 +5,7 @@ export const reminderRule: Rule = (s) => {
   const due = s.reminderDue;
   if (!due) return null;
   const r = due.reminder;
-  const stat = r.schedule.type === 'time' ? clock12(r.schedule.time) : `${r.schedule.minutes} min`;
+  const stat = r.schedule.type === 'time' ? clock12(r.schedule.time) : `${due.effectiveMinutes ?? r.schedule.minutes} min`;
   const body = r.message.trim() || 'Time for a short break.';
   return {
     ruleId: 'reminder', kind: 'reminder', key: `reminder:${r.id}:${due.slot}`, mini: `${ANIMATION_LOOK[r.animation].emoji} ${r.name.trim()}`, stat,

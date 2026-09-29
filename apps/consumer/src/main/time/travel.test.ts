@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { homeOffset, travelReminders, travelState } from './travel';
+import { describe, it, expect, afterEach } from 'vitest';
+import { homeOffset, travelReminders, travelState, zoneShiftMs } from './travel';
+import { dayBounds, setDayShift } from '../day/time';
 
 const H = 3_600_000, D = 24 * H;
 const chg = (at: number, fromOffset: number, toOffset: number) => ({ at, fromName: 'A', toName: 'B', fromOffset, toOffset });
@@ -38,6 +39,32 @@ describe('travelState', () => {
     const first = chg(now - 3 * D, 60, 960);   // diff 900 -> days 5, endsAt = now + 2D
     const second = chg(now, 60, 420);          // diff 360 -> days 2, endsAt = now + 2D (same as `first`'s)
     expect(travelState(second, 60, now, first.at)).not.toBeNull();
+  });
+});
+
+describe('zoneShiftMs', () => {
+  const dayStart = 100 * D;
+  it('sums the offset changes recorded after the day started', () => {
+    expect(zoneShiftMs([chg(dayStart + 2 * D, 0, 540)], dayStart)).toBe(9 * H);        // London → Tokyo since
+    expect(zoneShiftMs([], dayStart)).toBe(0);                                          // no later changes
+    expect(zoneShiftMs([chg(dayStart - D, 0, 540)], dayStart)).toBe(0);                 // before the day: already in the clock
+    expect(zoneShiftMs([chg(dayStart + D, 0, 540), chg(dayStart + 3 * D, 540, 0)], dayStart)).toBe(0); // a round trip
+  });
+});
+
+describe('a past London evening after flying to Tokyo (real zones)', () => {
+  const host = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  afterEach(() => { setDayShift(null); process.env.TZ = host; });
+  it('stays inside its day once dayBounds is shifted by the later change', () => {
+    const evening = Date.UTC(2026, 8, 23, 19, 0);                                        // 20:00 BST on 23 Sep, stored as 2026-09-23
+    const changes = [{ at: Date.UTC(2026, 8, 25, 12), fromName: 'GMT Standard Time', toName: 'Tokyo Standard Time', fromOffset: 60, toOffset: 540 }];
+    process.env.TZ = 'Asia/Tokyo';
+    const plain = dayBounds('2026-09-23');
+    expect(evening >= plain.end).toBe(true);                                             // clipped without the shift
+    setDayShift((start) => zoneShiftMs(changes.filter((c) => c.at >= start), start));
+    const b = dayBounds('2026-09-23');
+    expect(b).toEqual({ start: Date.UTC(2026, 8, 22, 23), end: Date.UTC(2026, 8, 23, 23) }); // London's 23 Sep (BST)
+    expect(evening > b.start && evening < b.end).toBe(true);
   });
 });
 

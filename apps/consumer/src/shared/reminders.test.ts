@@ -34,6 +34,12 @@ describe('titles and summaries', () => {
     expect(reminderTitle(lunch)).toBe('Lunch time 🍱');
     expect(reminderTitle({ ...base, id: 9, builtin: null, enabled: true })).toBe('Vitamins 💊');
   });
+  it('a renamed built-in uses its new name (+ emoji), not the built-in title', () => {
+    const tea = builtinDefaults([1, 2, 3, 4, 5]).map((r, i) => ({ ...r, id: i + 1 }))[2];
+    expect(reminderTitle(tea)).toBe('Tea break ☕');
+    expect(reminderTitle({ ...tea, name: 'Coffee' })).toBe('Coffee ☕');
+    expect(reminderTitle({ ...tea, name: ' Tea break ' })).toBe('Tea break ☕'); // still the default name
+  });
   it('summaries read naturally', () => {
     expect(reminderSummary(water)).toBe('Every 60 min of screen time');
     expect(reminderSummary(lunch)).toBe('1:00 pm · Mon–Fri');

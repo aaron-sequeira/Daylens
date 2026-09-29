@@ -8,7 +8,10 @@ CREATE TABLE IF NOT EXISTS tz_changes (
 );
 CREATE INDEX IF NOT EXISTS idx_tz_at ON tz_changes(at);
 `;
-const COLS = 'at, from_name AS fromName, to_name AS toName, from_offset AS fromOffset, to_offset AS toOffset';
+/** A zone change is activity history (where you travelled): kept only with consent and while tracking isn't paused.
+ * The zone itself is always followed. */
+export const mayRecordTz = (s: { consentGranted: boolean; trackingPaused: boolean }): boolean => s.consentGranted && !s.trackingPaused;
+const COLS ='at, from_name AS fromName, to_name AS toName, from_offset AS fromOffset, to_offset AS toOffset';
 
 export function createTzStore(db: Database.Database) {
   const ins = db.prepare('INSERT INTO tz_changes (at, from_name, to_name, from_offset, to_offset) VALUES (@at, @fromName, @toName, @fromOffset, @toOffset)');

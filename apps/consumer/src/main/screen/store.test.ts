@@ -141,7 +141,7 @@ describe('exportAll', () => {
   it('exports every table plus settings and profile, with empty optional tables when they do not exist', () => {
     createScreenStore(db).insert(read(1000, 'x'));
     const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
-    expect(Object.keys(out).sort()).toEqual(['activitySamples', 'appEvents', 'breaks', 'dailyReports', 'exportedAt', 'focusSessions', 'nudges', 'planItems', 'profile', 'screenReads', 'settings', 'weeklyReports']);
+    expect(Object.keys(out).sort()).toEqual(['activitySamples', 'appEvents', 'breaks', 'dailyReports', 'exportedAt', 'focusSessions', 'nudges', 'planItems', 'profile', 'reminderState', 'reminders', 'screenReads', 'settings', 'tzChanges', 'weeklyReports']);
     expect(out.exportedAt).toBe(42);
     expect(out.screenReads).toHaveLength(1);
     expect(out.nudges).toEqual([]);
@@ -149,6 +149,21 @@ describe('exportAll', () => {
     expect(out.dailyReports).toEqual([]);
     expect(out.planItems).toEqual([]);
     expect(out.weeklyReports).toEqual([]);
+    expect(out.reminders).toEqual([]);
+    expect(out.reminderState).toEqual([]);
+    expect(out.tzChanges).toEqual([]);
+  });
+
+  it('includes reminders, their state and time-zone changes when those tables exist', () => {
+    db.exec(REMINDERS_SQL); db.exec(TZ_SQL);
+    const reminders = createReminderStore(db);
+    reminders.seed([1, 2, 3, 4, 5]);
+    reminders.markFired(reminders.list()[1].id, '2026-09-24');
+    createTzStore(db).record({ at: 1000, fromName: 'A', toName: 'B', fromOffset: 0, toOffset: 540 });
+    const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
+    expect(out.reminders).toHaveLength(4);
+    expect(out.reminderState).toHaveLength(1);
+    expect(out.tzChanges).toHaveLength(1);
   });
 
   it('includes nudges and breaks when the coach tables exist', () => {

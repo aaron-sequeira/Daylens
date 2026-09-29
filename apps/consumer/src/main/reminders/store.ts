@@ -56,6 +56,16 @@ export function createReminderStore(db: Database.Database) {
   // Only the columns each statement uses (better-sqlite3 rejects unknown named parameters).
   const fields = (r: Pick<Reminder, 'name' | 'message' | 'animation' | 'schedule' | 'breakSec'>) => ({ name: r.name.trim(), message: r.message.trim(), animation: r.animation, ...cols(r.schedule), break_sec: r.breakSec });
   const row = (r: Omit<Reminder, 'id'>, now: number) => ({ builtin: r.builtin, ...fields(r), enabled: r.enabled ? 1 : 0, created_at: now });
+  const firedDate = db.prepare('SELECT last_fired_date AS d FROM reminder_state WHERE reminder_id = ?');
+  /** A new schedule for today: a time already past starts next time (no instant pop-up); a time still ahead clears
+   * today's fired/skipped mark, so a reminder moved later today still fires. Other days' marks are left alone. */
+  const retimed = (id: number, s: Schedule, now: number): void => {
+    if (s.type !== 'time') return;
+    ensure(id);
+    const today = localDate(now);
+    if (pastToday(s, now)) setFiredDate.run(today, id);
+    else if ((firedDate.get(id) as { d: string | null } | undefined)?.d === today) setFiredDate.run(null, id);
+  };
 
   const store = {
     seed(workdays: number[]): void { for (const d of builtinDefaults(workdays)) seedIns.run(row(d, Date.now())); },
@@ -78,7 +88,7 @@ export function createReminderStore(db: Database.Database) {
       }
       ensure(id);
       // Only a new or re-timed reminder skips a time already past today; renaming one mustn't swallow today's pop-up.
-      if (scheduleChanged && pastToday(input.schedule, now)) setFiredDate.run(localDate(now), id);
+      if (scheduleChanged) retimed(id, input.schedule, now);
       return store.get(id) as Reminder;
     },
     remove(id: number): boolean {
@@ -88,14 +98,34 @@ export function createReminderStore(db: Database.Database) {
       db.prepare('DELETE FROM reminder_state WHERE reminder_id = ?').run(id);
       return true;
     },
-    reset(builtin: Builtin, workdays: number[]): void {
+    reset(builtin: Builtin, workdays: number[], now: number): void {
       const d = builtinDefaults(workdays).find((x) => x.builtin === builtin);
       const cur = store.list().find((r) => r.builtin === builtin);
       if (!d || !cur) return;
       upd.run({ ...fields(d), id: cur.id });
       db.prepare('UPDATE reminders SET enabled = ? WHERE id = ?').run(d.enabled ? 1 : 0, cur.id);
+      if (!d.enabled) return;
+      ensure(cur.id);
+      if (!cur.enabled) { if (pastToday(d.schedule, now)) setFiredDate.run(localDate(now), cur.id); } // switched on by the reset
+      else if (JSON.stringify(cols(cur.schedule)) !== JSON.stringify(cols(d.schedule))) retimed(cur.id, d.schedule, now);
     },
-    setEnabled(id: number, on: boolean): void { db.prepare('UPDATE reminders SET enabled = ? WHERE id = ?').run(on ? 1 : 0, id); },
+    /** The profile's workdays changed: built-in lunch/tea follow, unless the user already picked their own days. */
+    syncWorkdays(prev: number[], next: number[]): void {
+      if (!next.length) return;
+      const same = (a: number[], b: number[]): boolean => [...new Set(a)].sort().join() === [...new Set(b)].sort().join();
+      for (const r of store.list()) {
+        if ((r.builtin === 'lunch' || r.builtin === 'tea') && r.schedule.type === 'time' && same(r.schedule.days, prev) && !same(prev, next)) {
+          db.prepare('UPDATE reminders SET days = ? WHERE id = ?').run(cols({ ...r.schedule, days: next }).days, r.id);
+        }
+      }
+    },
+    /** Switching a clock reminder on after its time today starts it next time (no instant pop-up). */
+    setEnabled(id: number, on: boolean, now: number): void {
+      const cur = store.get(id);
+      if (!cur) return;
+      db.prepare('UPDATE reminders SET enabled = ? WHERE id = ?').run(on ? 1 : 0, id);
+      if (on && !cur.enabled && pastToday(cur.schedule, now)) { ensure(id); setFiredDate.run(localDate(now), id); }
+    },
     states(): Map<number, ReminderState> {
       return new Map((allState.all() as (ReminderState & { id: number })[]).map(({ id, ...s }) => [id, s]));
     },

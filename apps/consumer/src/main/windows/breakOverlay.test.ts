@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createBreakOverlay, PRESETS, type BreakWindowLike } from './breakOverlay';
+import { breakOutcome, createBreakOverlay, PRESETS, type BreakWindowLike } from './breakOverlay';
 
 class FakeWin implements BreakWindowLike {
   sent: [string, unknown][] = []; closed = false; focused = false;
@@ -157,5 +157,21 @@ describe('break overlay', () => {
       expect(o.start(PRESETS.eye)).toBe(false);
       expect(o.active()).toBe(false);
     });
+  });
+});
+
+describe('breakOutcome', () => {
+  const water = { label: 'reminder:1', animation: 'water' as const, seconds: 30, title: 't', text: 'x', doneLabel: 'I had some', reminderId: 1 };
+  it('"I had some" early marks the reminder done but does not count as a completed break', () => {
+    expect(breakOutcome(water, 3, true)).toEqual({ markDone: true, countAsBreak: false });
+  });
+  it('a water break that ran (at least half) counts as a break too', () => {
+    expect(breakOutcome(water, 30, true)).toEqual({ markDone: true, countAsBreak: true });
+    expect(breakOutcome(water, 15, true)).toEqual({ markDone: true, countAsBreak: true });
+  });
+  it('without a done label the renderer’s answer stands; a skipped break is neither', () => {
+    expect(breakOutcome(PRESETS.eye, 20, true)).toEqual({ markDone: false, countAsBreak: true });
+    expect(breakOutcome({ ...PRESETS.stretch, reminderId: 2 }, 120, true)).toEqual({ markDone: true, countAsBreak: true });
+    expect(breakOutcome({ ...water }, 2, false)).toEqual({ markDone: false, countAsBreak: false });
   });
 });
