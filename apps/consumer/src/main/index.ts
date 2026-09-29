@@ -21,7 +21,7 @@ import { createDownloader, type ModelStatus } from './models/downloader';
 import { LAYA_MANIFEST } from './models/manifest';
 import { batchAllowed, LAYA_NEED_BYTES } from './brain/resources';
 import { COACH_SCHEMA, createCoachStore } from './coach/store';
-import { createCoach } from './coach/engine';
+import { createCoach, type CoachDeps } from './coach/engine';
 import { planOverrides } from './coach/plan';
 import { ruleWeight } from './coach/weights';
 import { holdReason, type Rect } from './coach/gate';
@@ -29,6 +29,7 @@ import { queryNotificationState } from './coach/notifState';
 import { parseFewer, parseKinds, parseLimits } from './coach/settings';
 import { repeatedSearches, searchTitlesFrom, switchesBetween } from './coach/activity';
 import { limitUsage } from './coach/rules/behaviour';
+import { parseTip, tipInput, tipPrompt, TIP_JSON_SCHEMA } from './coach/tip';
 import { parseExclusions } from './screen/exclusions';
 import { createPillManager, pillMessage, PILL_W, PILL_MARGIN } from './windows/pill';
 import { electronPillWindow } from './windows/pillElectron';
@@ -42,6 +43,7 @@ import { countsAsFailure, localUnavailable, type Unavailable } from './writer/av
 import { createWriter } from './writer/writer';
 import { runLocal, type WriterChild } from './writer/run';
 import { createReportStore, REPORT_SQL } from './report/store';
+import { groundText } from './report/schema';
 import { createReportSearch, reportBody, REPORT_FTS_SQL } from './report/search';
 import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
@@ -249,7 +251,10 @@ if (!app.requestSingleInstanceLock()) {
         view, searchTitles, limits: [...parseLimits(s.appLimits), ...o.limits], lastBreakAt: coachStore.lastCompletedBreakAt(), focusBlocks: o.focus
       };
     };
-    const coach = createCoach({
+    // `rewrite` (the AI-written tip dep) is filled in below, once the writer/report-scheduler/label-scheduler
+    // pieces it needs all exist; coachDeps is the same object createCoach closes over, so assigning the field
+    // later still takes effect (no forward-declare needed for those pieces).
+    const coachDeps: CoachDeps = {
       now: () => Date.now(),
       snapshot: buildSnapshot,
       history: (now) => coachStore.since(now - 7 * 86_400_000),
@@ -272,7 +277,8 @@ if (!app.requestSingleInstanceLock()) {
         if (st !== 'shown') primaryActions.delete(id); // only a 'shown' row still needs its primary-action metadata
       },
       show: (n) => pill.show(n)
-    });
+    };
+    const coach = createCoach(coachDeps);
     let coaching = false;
     let lastSnoozed = settings.get().snoozeUntil > Date.now();
     setInterval(() => {
@@ -370,6 +376,27 @@ if (!app.requestSingleInstanceLock()) {
       },
       cloudModel: () => settings.get().aiModel
     });
+    // The live AI-tip rewrite (Phase 6b task 6): personalises a stuck_tip/repeat_search pop-up when the writer is
+    // usable and idle, with a hard 20 s cap; any failure (unusable, busy, timeout, bad answer) keeps the template.
+    // Titles pass the user's exclusion patterns (tipInput); the cloud never sees screen text. Never logs tip text.
+    const TIP_REWRITE_TIMEOUT_MS = 20_000;
+    coachDeps.rewrite = async (c, snap) => {
+      const s = settings.get();
+      const usable = s.writerMode === 'cloud' ? secrets.has(s.aiProvider) : writerDl.status().state === 'ready';
+      if (!usable || reportScheduler.running() !== null || scheduler.status().state === 'running') return c;
+      if (s.writerMode === 'local' && freemem() < writerNeedBytes(writerTier())) return c;
+      try {
+        const input = tipInput(c, snap, parseExclusions(s.exclusions));
+        const { system, user } = tipPrompt(input);
+        const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIP_REWRITE_TIMEOUT_MS));
+        const res = await Promise.race([writer.write({ kind: 'tip', system, user, schema: TIP_JSON_SCHEMA, maxTokens: 160, parse: parseTip }), timeout]);
+        if (!res || !res.ok) return c;
+        const body = groundText(res.value.body, [input.episode.minutes]);
+        return body ? { ...c, title: res.value.title, body } : c;
+      } catch {
+        return c;
+      }
+    };
     // Window titles + read labels only (never screen text), the final category as Today uses it.
     const detailFor = (date: string, now: number): DayDetail => buildDayDetail({
       sessions: repo.getFocusSessions(date), now, exclusions: parseExclusions(settings.get().exclusions),

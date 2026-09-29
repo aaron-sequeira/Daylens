@@ -81,4 +81,51 @@ describe('coach engine', () => {
     await createCoach(d).tick();
     expect(shown.map((n) => n.kind)).toEqual(['health']);
   });
+
+  describe('AI tip rewrite', () => {
+    const tip = (o: Partial<Candidate> = {}): Candidate => c({ kind: 'tip', ruleId: 'stuck_tip', key: 'stuck_tip:a', ...o });
+
+    it('shows a stuck_tip candidate with the rewritten title/body when rewrite resolves', async () => {
+      const { d, shown } = deps({
+        rules: [() => tip()],
+        rewrite: async (cand) => ({ ...cand, title: 'Rewritten title', body: 'Rewritten body' })
+      });
+      expect(await createCoach(d).tick()).toBe('shown');
+      expect(shown[0]).toMatchObject({ title: 'Rewritten title', body: 'Rewritten body' });
+    });
+
+    it('never passes a goal_80 candidate to rewrite', async () => {
+      let called = false;
+      const { d, shown } = deps({ rewrite: async (cand) => { called = true; return cand; } }); // default rule is goal_80
+      await createCoach(d).tick();
+      expect(called).toBe(false);
+      expect(shown[0].title).toBe('t');
+    });
+
+    it('leaves the template shown when rewrite rejects', async () => {
+      const { d, shown } = deps({ rules: [() => tip()], rewrite: async () => { throw new Error('down'); } });
+      await createCoach(d).tick();
+      expect(shown[0]).toMatchObject({ title: 't', body: 'b' });
+    });
+
+    it('never rewrites a held candidate: rewrite runs only after the gate says show and there is no hold', async () => {
+      let called = false;
+      const { d, rows } = deps({
+        holdReason: async () => 'call', rules: [() => tip()],
+        rewrite: async (cand) => { called = true; return cand; }
+      });
+      expect(await createCoach(d).tick()).toBe('held');
+      expect(called).toBe(false);
+      expect(rows[0].status).toBe('held');
+    });
+
+    it('keeps the original ruleId/key on the recorded nudge even if rewrite tries to change them', async () => {
+      const { d, rows } = deps({
+        rules: [() => tip()],
+        rewrite: async (cand) => ({ ...cand, ruleId: 'hacked', key: 'hacked-key', title: 'R', body: 'B' })
+      });
+      await createCoach(d).tick();
+      expect(rows[0]).toMatchObject({ ruleId: 'stuck_tip', key: 'stuck_tip:a' });
+    });
+  });
 });

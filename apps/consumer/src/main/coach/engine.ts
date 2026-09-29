@@ -3,6 +3,7 @@ import type { Candidate, Kind, NudgeRow, NudgeStatus, PillNudge } from './types'
 import { decide } from './gate';
 import { inFocus } from './plan';
 import { RULES } from './rules';
+import { REWRITE_RULES } from './tip';
 
 export interface CoachDeps {
   now(): number; snapshot(now: number): Snapshot; history(now: number): NudgeRow[];
@@ -10,6 +11,9 @@ export interface CoachDeps {
   weight(c: Candidate, now: number): number; holdReason(): Promise<string | null>;
   record(c: Candidate, status: NudgeStatus, now: number): number; setStatus(id: number, s: NudgeStatus): void;
   show(n: PillNudge): boolean; rules?: Rule[];
+  /** Replaces a stuck_tip/repeat_search template with a personal writer-written suggestion, memory allowing.
+   * Any failure (reject, timeout, unusable writer) must resolve to the original candidate, not reject. */
+  rewrite?(c: Candidate, snap: Snapshot): Promise<Candidate>;
 }
 
 export function createCoach(d: CoachDeps) {
@@ -41,6 +45,11 @@ export function createCoach(d: CoachDeps) {
           history.push({ id, at: now, date: snap.date, kind: c.kind, ruleId: c.ruleId, key: c.key, title: c.title, body: c.body, status: 'held' });
           outcome = 'held';
           continue;
+        }
+        if (d.rewrite && REWRITE_RULES.has(c.ruleId)) {
+          const original = c;
+          const rewritten = await d.rewrite(original, snap).catch(() => original);
+          c = { ...rewritten, ruleId: original.ruleId, key: original.key, kind: original.kind, primary: original.primary };
         }
         const id = d.record(c, 'shown', now);
         const ok = d.show({ id, kind: c.kind, mini: c.mini, stat: c.stat, title: c.title, body: c.body, primaryLabel: c.primary.label, offerFewer: dec.offerFewer });
