@@ -52,13 +52,16 @@ export function createCoach(d: CoachDeps) {
         if (d.rewrite && REWRITE_RULES.has(c.ruleId)) {
           const original = c;
           const rewritten = await d.rewrite(original, snap).catch(() => original);
-          c = { ...rewritten, ruleId: original.ruleId, key: original.key, kind: original.kind, primary: original.primary };
-          // A rewrite can take up to 20s: the hold/snooze picture may have changed while waiting, so re-check
-          // both before showing rather than trusting the decision made before the wait.
-          const holdAfter = await d.holdReason();
-          if (holdAfter || now < d.snoozeUntil()) {
-            recordHeld(c);
-            continue;
+          // Every fallback returns the original object: that's an instant no-op, so no re-check (or PowerShell spawn) needed.
+          if (rewritten !== original) {
+            c = { ...rewritten, ruleId: original.ruleId, key: original.key, kind: original.kind, primary: original.primary };
+            // A rewrite can take up to 20s: the hold/snooze picture may have changed while waiting, so re-check
+            // both before showing rather than trusting the decision made before the wait.
+            const holdAfter = await d.holdReason();
+            if (holdAfter || now < d.snoozeUntil()) {
+              recordHeld(c);
+              continue;
+            }
           }
         }
         const id = d.record(c, 'shown', now);

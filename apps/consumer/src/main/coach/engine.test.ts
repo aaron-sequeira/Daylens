@@ -151,5 +151,13 @@ describe('coach engine', () => {
       expect(shown).toHaveLength(0);
       expect(rows[0].status).toBe('held');
     });
+
+    it('skips the post-rewrite hold check when rewrite returned the original (no second PowerShell spawn)', async () => {
+      let asked = 0;
+      const { d, shown } = deps({ holdReason: async () => { asked++; return null; }, rules: [() => tip()], rewrite: async (cand) => cand });
+      expect(await createCoach(d).tick()).toBe('shown');
+      expect(asked).toBe(1);
+      expect(shown[0].title).toBe('t');
+    });
   });
 });
