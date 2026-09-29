@@ -4,7 +4,7 @@
 
 **Goal:** Water, meal, tea and custom reminders that lead to animated, hand-drawn break screens, and automatic time-zone following with a short jet-lag travel mode.
 
-**Architecture:** Reminders live in SQLite (`reminders`, `reminder_state`), a pure planner decides which one is due, and a new coach kind `reminder` feeds the existing engine → gate → pill → break overlay (reminders are exempt from coach cooldowns and are never recorded as "held", so a call only delays them). The break overlay takes a per-start spec (animation, length, copy) and renders one of ten SVG scenes. A zone watcher re-detects the Windows time zone, records changes, and a pure travel module derives home zone, travel mode, tips and travel reminders.
+**Architecture:** Reminders live in SQLite (`reminders`, `reminder_state`), a pure planner decides which one is due, and a new coach kind `reminder` feeds the existing engine → gate → pill → break overlay (reminders are exempt from coach cooldowns and are never recorded as "held", so a call only delays them). The break overlay takes a per-start spec (animation, length, copy) and renders one of ten SVG scenes. A zone watcher notices Windows time-zone changes (registry), points the JS clock at the new standard zone name read from Windows (WinRT), records changes, and a pure travel module derives home zone, travel mode, tips and travel reminders.
 
 **Tech Stack:** Electron 33.4.11, React 19, TypeScript, better-sqlite3, zod, vitest. No new dependencies.
 
@@ -43,24 +43,25 @@
 - Modify: `apps/consumer/src/main/settings.ts` (`zoneName`, `zoneOffset`, `travelOffUntil` defaults)
 
 **Interfaces:**
-- Produces: `resetClockZone(): void`; `currentOffsetMin(): number` (minutes east of UTC); `readWindowsZone(exec?): Promise<string | null>`; `createZoneWatcher(deps): { check(): Promise<TzChange | null> }`; `interface TzChange { at: number; fromName: string; toName: string; fromOffset: number; toOffset: number }`; `TZ_SQL`, `createTzStore(db): { record(c: TzChange): void; since(ms: number): TzChange[]; latest(): TzChange | null; clear(): void }`.
+- Produces: `applyZone(iana: string): void`; `currentOffsetMin(): number` (minutes east of UTC); `readWindowsZone(exec?): Promise<string | null>` (registry key name, cheap change detector); `readIanaZone(exec?): Promise<string | null>` (the standard name, from Windows); `createZoneWatcher(deps): { check(): Promise<TzChange | null> }`; `interface TzChange { at: number; fromName: string; toName: string; fromOffset: number; toOffset: number }`; `TZ_SQL`, `createTzStore(db): { record(c: TzChange): void; since(ms: number): TzChange[]; latest(): TzChange | null; clear(): void }`.
 
-- [ ] **Step 1: Spike — prove the zone reset works in Electron's Node (failing test first)**
+> **Ruling (spike, 2026-09-29):** V8 follows an explicitly *named* `process.env.TZ` instantly, but set/delete never falls back to the host zone once TZ is touched. So on a change Daylens asks Windows for the standard (IANA) zone name — `Windows.Globalization.Calendar.GetTimeZone()` via PowerShell/WinRT (verified on this machine: returns `Europe/London`, same as Node's `Intl` zone) — and assigns it to `process.env.TZ`. No Windows→IANA table to maintain.
+
+- [ ] **Step 1: Failing tests**
 
 `zone.test.ts`:
 ```ts
 import { describe, it, expect, afterEach } from 'vitest';
-import { createZoneWatcher, currentOffsetMin, readWindowsZone, resetClockZone } from './zone';
+import { applyZone, createZoneWatcher, currentOffsetMin, readIanaZone, readWindowsZone } from './zone';
 
-describe('resetClockZone (spike: V8 re-detects the zone when TZ changes)', () => {
-  const saved = process.env.TZ;
-  afterEach(() => { if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved; });
-  it('follows a TZ change and returns to the host zone after reset', () => {
-    const host = currentOffsetMin();
-    process.env.TZ = 'Asia/Tokyo';
+describe('applyZone (V8 follows a named TZ immediately)', () => {
+  const host = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  afterEach(() => { process.env.TZ = host; });
+  it('switches between named zones', () => {
+    applyZone('Asia/Tokyo');
     expect(currentOffsetMin()).toBe(540);
-    resetClockZone();
-    expect(currentOffsetMin()).toBe(host);
+    applyZone('Asia/Kolkata');
+    expect(currentOffsetMin()).toBe(330);
   });
 });
 
@@ -74,30 +75,40 @@ describe('readWindowsZone', () => {
   });
 });
 
+describe('readIanaZone', () => {
+  it('accepts a standard zone name and rejects junk or failures', async () => {
+    expect(await readIanaZone(async () => 'Asia/Kolkata\r\n')).toBe('Asia/Kolkata');
+    expect(await readIanaZone(async () => 'America/Argentina/Buenos_Aires\n')).toBe('America/Argentina/Buenos_Aires');
+    expect(await readIanaZone(async () => 'UTC')).toBe('UTC');
+    expect(await readIanaZone(async () => 'Something went wrong')).toBeNull();
+    expect(await readIanaZone(async () => { throw new Error('x'); })).toBeNull();
+  });
+});
+
 describe('createZoneWatcher', () => {
-  const mk = (names: (string | null)[], offsets: number[], stored = { name: '', offset: 0 }) => {
-    let i = 0, reset = 0;
+  const mk = (names: (string | null)[], offsets: number[], stored = { name: '', offset: 0 }, applyOk = true) => {
+    let i = 0, applied = 0;
     const saved: { name: string; offset: number }[] = [];
     const w = createZoneWatcher({
       read: async () => names[Math.min(i, names.length - 1)],
       offset: () => offsets[Math.min(i, offsets.length - 1)],
-      reset: () => { reset++; },
+      apply: async () => { applied++; return applyOk; },
       stored: () => stored, save: (z) => { stored = z; saved.push(z); },
       now: () => 1000
     });
-    return { w, next: () => { i++; }, resets: () => reset, saved };
+    return { w, next: () => { i++; }, applied: () => applied, saved };
   };
   it('first run stores the zone without reporting a change', async () => {
     const t = mk(['GMT Standard Time'], [60]);
     expect(await t.w.check()).toBeNull();
     expect(t.saved).toEqual([{ name: 'GMT Standard Time', offset: 60 }]);
   });
-  it('reports a change (after resetting the clock) and stores the new zone', async () => {
+  it('reports a change (after applying the new zone) and stores it', async () => {
     const t = mk(['GMT Standard Time', 'Tokyo Standard Time'], [60, 540], { name: 'GMT Standard Time', offset: 60 });
     expect(await t.w.check()).toBeNull();
     t.next();
     expect(await t.w.check()).toEqual({ at: 1000, fromName: 'GMT Standard Time', toName: 'Tokyo Standard Time', fromOffset: 60, toOffset: 540 });
-    expect(t.resets()).toBe(1);
+    expect(t.applied()).toBe(1);
   });
   it('detects a change that happened while the app was closed', async () => {
     const t = mk(['Tokyo Standard Time'], [540], { name: 'GMT Standard Time', offset: 60 });
@@ -106,7 +117,12 @@ describe('createZoneWatcher', () => {
   it('does nothing when the zone cannot be read', async () => {
     const t = mk([null], [60], { name: 'GMT Standard Time', offset: 60 });
     expect(await t.w.check()).toBeNull();
-    expect(t.resets()).toBe(0);
+    expect(t.applied()).toBe(0);
+  });
+  it('if the new zone cannot be applied, records nothing and retries next check', async () => {
+    const t = mk(['Tokyo Standard Time'], [540], { name: 'GMT Standard Time', offset: 60 }, false);
+    expect(await t.w.check()).toBeNull();
+    expect(t.saved).toEqual([]);
   });
 });
 ```
@@ -123,38 +139,46 @@ export interface TzChange { at: number; fromName: string; toName: string; fromOf
 /** Minutes east of UTC right now (e.g. India +330, New York −300/−240). */
 export const currentOffsetMin = (): number => -new Date().getTimezoneOffset();
 
-/** V8 caches the host zone. Node re-detects it whenever process.env.TZ is set or deleted, so set-then-delete forces
- * a fresh read of the Windows zone. Leaves a user-set TZ alone (then Daylens keeps that fixed zone, by choice). */
-export function resetClockZone(): void {
-  if (process.env.TZ !== undefined && process.env.TZ !== 'UTC') return;
-  process.env.TZ = 'UTC';
-  delete process.env.TZ;
-}
+/** Points this process's clock at a named zone. V8 re-reads a named process.env.TZ immediately (a delete never falls
+ * back to the host zone, so we always assign the real name). */
+export function applyZone(iana: string): void { process.env.TZ = iana; }
 
+const pexec = promisify(execFile);
 const KEY = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\TimeZoneInformation';
-const run = async (): Promise<string> =>
-  (await promisify(execFile)('reg', ['query', KEY, '/v', 'TimeZoneKeyName'], { windowsHide: true, timeout: 3000 })).stdout;
+const regQuery = async (): Promise<string> => (await pexec('reg', ['query', KEY, '/v', 'TimeZoneKeyName'], { windowsHide: true, timeout: 3000 })).stdout;
+const WINRT = '$null = [Windows.Globalization.Calendar, Windows.Globalization, ContentType = WindowsRuntime]; (New-Object Windows.Globalization.Calendar).GetTimeZone()';
+const winrtZone = async (): Promise<string> =>
+  (await pexec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', WINRT], { windowsHide: true, timeout: 8000 })).stdout;
 
-/** The Windows time-zone key name (e.g. "India Standard Time"), or null if it can't be read. */
-export async function readWindowsZone(exec: () => Promise<string> = run): Promise<string | null> {
+/** The Windows time-zone key name (e.g. "India Standard Time"): a cheap read, used only to notice a change. */
+export async function readWindowsZone(exec: () => Promise<string> = regQuery): Promise<string | null> {
   try {
     const m = /TimeZoneKeyName\s+REG_SZ\s+(.+?)\s*$/m.exec(await exec());
     return m ? m[1].trim() : null;
   } catch { return null; }
 }
 
+const IANA = /^(UTC|[A-Za-z_]+(\/[A-Za-z0-9_+\-]+)+)$/;
+/** The standard zone name Windows uses right now (e.g. "Asia/Kolkata"), via WinRT; null if unavailable. */
+export async function readIanaZone(exec: () => Promise<string> = winrtZone): Promise<string | null> {
+  try {
+    const z = (await exec()).trim();
+    return IANA.test(z) ? z : null;
+  } catch { return null; }
+}
+
 export function createZoneWatcher(d: {
-  read(): Promise<string | null>; offset(): number; reset(): void;
+  read(): Promise<string | null>; offset(): number; apply(): Promise<boolean>;
   stored(): { name: string; offset: number }; save(z: { name: string; offset: number }): void; now(): number;
 }) {
   return {
-    /** Reads the Windows zone; on a change resets the JS clock, stores and returns the change. */
+    /** Reads the Windows zone; on a change points the JS clock at it, stores and returns the change. */
     async check(): Promise<TzChange | null> {
       const name = await d.read();
       if (!name) return null;
       const prev = d.stored();
       if (prev.name === name) return null;
-      if (prev.name !== '') d.reset();
+      if (prev.name !== '' && !(await d.apply())) return null; // couldn't get the standard name: try again next check
       const offset = d.offset();
       d.save({ name, offset });
       return prev.name === '' ? null : { at: d.now(), fromName: prev.name, toName: name, fromOffset: prev.offset, toOffset: offset };
@@ -162,7 +186,7 @@ export function createZoneWatcher(d: {
   };
 }
 ```
-Run the tests — expect PASS. **If the spike test fails** (the offset does not follow `TZ`), stop and report `BLOCKED` with the output: the fallback (IANA mapping) is a controller decision.
+Run the tests — expect PASS. Then, read-only: from a throwaway script run with `ELECTRON_RUN_AS_NODE=1`, call the real `readIanaZone()` once and confirm it prints the same name as `Intl.DateTimeFormat().resolvedOptions().timeZone`; report both; delete the script.
 
 - [ ] **Step 3: `tzStore.ts` with a failing test first**
 
@@ -1210,7 +1234,7 @@ git commit -m "feat(consumer): reminder pop-ups in the coach — own kind, no co
 - Modify: `apps/consumer/src/main/index.ts` (zone watcher timer + hooks, travel view, travel reminders, water override), `apps/consumer/src/main/channels.ts`, `apps/consumer/src/main/ipc.ts`, `apps/consumer/src/preload/index.ts`
 
 **Interfaces:**
-- Consumes: `TzChange`, `createZoneWatcher`, `readWindowsZone`, `resetClockZone`, `currentOffsetMin`, `TZ_SQL`, `createTzStore` (Task 1); `Reminder` (Task 2); `planReminders` (Task 3).
+- Consumes: `TzChange`, `createZoneWatcher`, `readWindowsZone`, `readIanaZone`, `applyZone`, `currentOffsetMin`, `TZ_SQL`, `createTzStore` (Task 1); `Reminder` (Task 2); `planReminders` (Task 3).
 - Produces: `homeOffset(changes: TzChange[], currentOffset: number, now: number): number`; `interface TravelView { direction: 'east' | 'west'; fromHomeMin: number; back: boolean; day: number; days: number; endsAt: number; tips: string[] }`; `travelState(latest: TzChange | null, home: number, now: number, offUntil: number): TravelView | null`; `travelReminders(v: TravelView): Reminder[]` (ids −1, −2); `TRAVEL_WATER_MIN = 45`; channels `travel:get`, `travel:off`; preload `api.travel.get(): Promise<TravelView | null>`, `api.travel.off(): Promise<null>`.
 
 - [ ] **Step 1: Failing tests**
@@ -1328,7 +1352,8 @@ Run — PASS.
 1. After the reminder store: `db.exec(TZ_SQL); const tzStore = createTzStore(db);`
 ```ts
     const zoneWatcher = createZoneWatcher({
-      read: () => readWindowsZone(), offset: currentOffsetMin, reset: resetClockZone, now: () => Date.now(),
+      read: () => readWindowsZone(), offset: currentOffsetMin, now: () => Date.now(),
+      apply: async () => { const z = await readIanaZone(); if (z) applyZone(z); return z !== null; },
       stored: () => ({ name: settings.get().zoneName, offset: settings.get().zoneOffset }),
       save: (z) => settings.set({ zoneName: z.name, zoneOffset: z.offset })
     });
