@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityProcess, globalShortcut, screen, safeStorage } from 'electron';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { rename, stat, statfs, writeFile } from 'node:fs/promises';
 import { freemem, totalmem } from 'node:os';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
@@ -507,15 +507,6 @@ if (!app.requestSingleInstanceLock()) {
       }));
       return { numbers, input };
     };
-    // Once at startup, index every ready report so search works immediately (e.g. after an upgrade). Per-date
-    // try/catch: one bad row must not stop the rest from being indexed; the log names only the date, never
-    // the error (which could otherwise echo report text into the log).
-    for (const d of reportStore.dates()) {
-      try {
-        const row = reportStore.get(d);
-        if (row?.status === 'ready' && row.report) reportSearch.upsert(d, reportBody(row.report, topAppsFor(d)));
-      } catch { console.error('[search] backfill failed for', d); }
-    }
     // Bumped by "Delete my activity": a report written across it must not be stored.
     let reportEpoch = 0;
     // Set by the fire-and-forget PDF auto-save after each ready report; read by reports.shareGet for the Settings warning.
@@ -529,12 +520,21 @@ if (!app.requestSingleInstanceLock()) {
     // date scheduled still gets saved (e.g. yesterday's and today's reports both going ready while a
     // render is in flight), one at a time, in order; only a repeat schedule() for a date already
     // queued is coalesced. The folder is read fresh on each run.
-    const pdfQueue = createPdfQueue((date) => autoSavePdf(date, settings.get().reportPdfFolder, {
-      render: (d) => renderReportPdf(d, pdfRenderDeps()),
-      write: writeFile,
-      exists: (d) => stat(d).then((s) => s.isDirectory(), () => false),
-      rename: (from, to) => rename(from, to)
-    }).then((r) => { pdfFolderError = r === 'ok' || r === 'off' ? null : r; }));
+    // reportEpoch as it was when the save was scheduled (scheduleAutoSave below); "Delete my activity" can bump
+    // the epoch while a save still sits in the queue, and that report's data is gone by the time it would run.
+    const pdfEpochAtSchedule = new Map<string, number>();
+    const pdfQueue = createPdfQueue((date) => {
+      const epoch = pdfEpochAtSchedule.get(date);
+      pdfEpochAtSchedule.delete(date);
+      if (epoch !== undefined && epoch !== reportEpoch) return Promise.resolve(); // deleted since this was scheduled: skip
+      return autoSavePdf(date, settings.get().reportPdfFolder, {
+        render: (d) => renderReportPdf(d, pdfRenderDeps()),
+        write: writeFile,
+        exists: (d) => stat(d).then((s) => s.isDirectory(), () => false),
+        rename: (from, to) => rename(from, to)
+      }).then((r) => { pdfFolderError = r === 'ok' || r === 'off' ? null : r; });
+    });
+    const scheduleAutoSave = (date: string): void => { pdfEpochAtSchedule.set(date, reportEpoch); pdfQueue.schedule(date); };
     // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.
     let suspendedDuringWrite = false;
     const pastActivity = new Map<string, boolean>(); // date → ≥30 min screen time, for finished days only (cleared by Delete my activity)
@@ -599,7 +599,7 @@ if (!app.requestSingleInstanceLock()) {
             if (fresh?.status === 'ready' && fresh.report) reportSearch.upsert(date, reportBody(fresh.report, topAppsFor(date)));
           } catch (e) { console.error('[search] upsert failed:', e); }
           // Fire-and-forget: never delay the scheduler on the PDF write; failures only surface as a Settings warning.
-          pdfQueue.schedule(date);
+          scheduleAutoSave(date);
         }
         return outcome;
       },
@@ -806,7 +806,18 @@ if (!app.requestSingleInstanceLock()) {
           return { folder: r.filePaths[0] };
         },
         clearPdfFolder: () => { settings.set({ reportPdfFolder: '' }); pdfFolderError = null; return { folder: '' }; },
-        shareGet: () => ({ folder: settings.get().reportPdfFolder, lastError: pdfFolderError }),
+        shareGet: () => {
+          // A save-time failure (pdfFolderError) always wins: it's more specific than a plain "gone" check.
+          // Otherwise, catch a folder deleted/unmounted behind Settings' back even before the next auto-save
+          // attempt would notice. Friendly copy only: never the raw fs error.
+          const folder = settings.get().reportPdfFolder;
+          if (!pdfFolderError && folder) {
+            try {
+              if (!existsSync(folder) || !statSync(folder).isDirectory()) return { folder, lastError: "The auto-save folder can't be found." };
+            } catch { /* a transient stat failure isn't worth surfacing; a real problem recurs on the next check */ }
+          }
+          return { folder, lastError: pdfFolderError };
+        },
         email: async (date) => {
           const folder = settings.get().reportPdfFolder;
           const saved = folder ? autoSavePath(folder, date) : null;
@@ -867,8 +878,8 @@ if (!app.requestSingleInstanceLock()) {
         // stopImpl() sets status to 'missing', which countsAsFailure() never treats as a failure.
         cancelDownload: () => { writerDl.stop(); return writerView(); },
         remove: async () => {
-          // Never delete the local model out from under a report that's actively being written with it.
-          if (settings.get().writerMode === 'local' && reportScheduler.running() !== null) return writerView();
+          // Never delete the local model out from under a report or a tip rewrite actively being written with it.
+          if (settings.get().writerMode === 'local' && (reportScheduler.running() !== null || tipWriting)) return writerView();
           writerDl.stop();
           await writerDl.remove();
           refreshFreeDisk(true); // the model's space was just freed
@@ -1006,6 +1017,21 @@ if (!app.requestSingleInstanceLock()) {
       }
     });
     createWindow();
+
+    // Index every ready report search doesn't already have (e.g. after an upgrade, or one written before search
+    // existed). Deferred with setImmediate until after createWindow(), and per-date try/catch: rebuilding a day
+    // view for every ready report must not delay the window opening, and one bad row must not stop the rest from
+    // being indexed; the log names only the date, never the error (which could otherwise echo report text into it).
+    setImmediate(() => {
+      const already = reportSearch.indexedDates();
+      for (const d of reportStore.dates()) {
+        if (already.has(d)) continue;
+        try {
+          const row = reportStore.get(d);
+          if (row?.status === 'ready' && row.report) reportSearch.upsert(d, reportBody(row.report, topAppsFor(d)));
+        } catch { console.error('[search] backfill failed for', d); }
+      }
+    });
 
     app.on('will-quit', () => globalShortcut.unregisterAll());
 

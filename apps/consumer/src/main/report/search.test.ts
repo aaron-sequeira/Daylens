@@ -29,6 +29,15 @@ describe('report search', () => {
     s.upsert('2026-09-25', reportBody(rep({ story: 'Nothing relevant.', headline: 'H', wins: [], habits: [], doBetter: [], plan: [], advice: 'a' }), []));
     expect(s.search('figma').map((h) => h.date)).toEqual(['2026-09-20']);
   });
+  it('reports which dates are already indexed, for a startup backfill to skip', () => {
+    const s = mk();
+    expect(s.indexedDates()).toEqual(new Set());
+    s.upsert('2026-09-20', reportBody(rep(), []));
+    s.upsert('2026-09-22', reportBody(rep(), []));
+    expect(s.indexedDates()).toEqual(new Set(['2026-09-20', '2026-09-22']));
+    s.remove('2026-09-20');
+    expect(s.indexedDates()).toEqual(new Set(['2026-09-22']));
+  });
   it('never throws on FTS syntax, caps at 50, and clears', () => {
     const s = mk();
     for (let i = 1; i <= 60; i++) s.upsert(`2026-07-${String((i % 28) + 1).padStart(2, '0')}-${i}`, 'figma');
