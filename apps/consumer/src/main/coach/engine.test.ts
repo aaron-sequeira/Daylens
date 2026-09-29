@@ -152,6 +152,19 @@ describe('coach engine', () => {
       expect(rows[0].status).toBe('held');
     });
 
+    it('a hold found after a rewrite also holds later candidates in the same tick', async () => {
+      let calls = 0;
+      const later = (): Candidate => ({ ...tip(), ruleId: 'deep_work', key: 'deep_work:a' });
+      const { d, shown, rows } = deps({
+        holdReason: async () => { calls++; return calls === 1 ? null : 'call'; },
+        rules: [() => tip(), later],
+        rewrite: async (cand) => ({ ...cand, title: 'R', body: 'B' })
+      });
+      expect(await createCoach(d).tick()).toBe('held');
+      expect(shown).toHaveLength(0);
+      expect(rows.map((r) => r.status)).toEqual(['held', 'held']);
+    });
+
     it('skips the post-rewrite hold check when rewrite returned the original (no second PowerShell spawn)', async () => {
       let asked = 0;
       const { d, shown } = deps({ holdReason: async () => { asked++; return null; }, rules: [() => tip()], rewrite: async (cand) => cand });

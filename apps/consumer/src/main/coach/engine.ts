@@ -52,12 +52,14 @@ export function createCoach(d: CoachDeps) {
         if (d.rewrite && REWRITE_RULES.has(c.ruleId)) {
           const original = c;
           const rewritten = await d.rewrite(original, snap).catch(() => original);
-          // Every fallback returns the original object: that's an instant no-op, so no re-check (or PowerShell spawn) needed.
+          // Fallbacks return the original object (the template). Only a real rewrite gets the re-check below.
+          // ponytail: a slow fallback (timeout/refused) shows the template without re-checking; add if it matters.
           if (rewritten !== original) {
             c = { ...rewritten, ruleId: original.ruleId, key: original.key, kind: original.kind, primary: original.primary };
             // A rewrite can take up to 20s: the hold/snooze picture may have changed while waiting, so re-check
             // both before showing rather than trusting the decision made before the wait.
             const holdAfter = await d.holdReason();
+            holdOnce = Promise.resolve(holdAfter); // later candidates this tick see the fresh answer
             if (holdAfter || now < d.snoozeUntil()) {
               recordHeld(c);
               continue;
