@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { localDate } from '@worksight/core/date';
 import type { DaylensSettings } from '../../main/settings';
 import type { PrivacyView } from '../../main/ipc';
-import { MAX_PATTERN, addExclusion } from '../../shared/exclusions';
+import { MAX_EXCLUSIONS, MAX_PATTERN, addExclusion } from '../../shared/exclusions';
 import { api } from '../lib/api';
 import { formatClock } from '../lib/format';
 import { restoreDefaults } from '../lib/privacy';
@@ -24,6 +24,7 @@ export function PrivacySection({ settings, onChange }: { settings: DaylensSettin
   const [view, setView] = useState<PrivacyView | null>(null);
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState<string | null>(null);
+  const [listFull, setListFull] = useState(false); // shown right under Restore defaults, not in the far-off note area
 
   const load = (): void => { api.privacy.get().then(setView).catch((e) => console.error('[renderer] privacy.get failed:', e)); };
   useEffect(() => {
@@ -96,10 +97,11 @@ export function PrivacySection({ settings, onChange }: { settings: DaylensSettin
             <button className="btn s" onClick={add}>Add</button>
             <button className="btn s" onClick={() => {
               const r = restoreDefaults(view.exclusions);
-              if (r.full) setNote('Your list is full — remove some patterns to restore the defaults.');
+              setListFull(r.full);
               if (r.list.length !== view.exclusions.length) void saveExclusions(r.list);
             }}>Restore defaults</button>
           </div>
+          {listFull && view.exclusions.length >= MAX_EXCLUSIONS && <p className="srow-note" role="status">Your list is full — remove some patterns to restore the defaults.</p>}
         </div>
       </div>
 

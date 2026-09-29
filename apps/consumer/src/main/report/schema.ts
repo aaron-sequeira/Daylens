@@ -80,8 +80,7 @@ export function normalizeVoice(report: ReportJson): ReportJson {
   };
 }
 
-// Matches a duration mention the writer might invent: "60 minutes", "45 min", "3 hours", "60-minute", "2h".
-// Named units, any case: "60 minutes", "45 min", "3 hours", "60-minute", "2h".
+// Duration mentions the writer might invent. Named units, any case: "60 minutes", "45 min", "3 hours", "60-minute", "2h".
 const DURATION_RE = /\b(\d+(?:\.\d+)?)\s*-?\s*(minutes|minute|mins|min|hours|hour|hrs|hr|h)\b/gi;
 // The bare minute unit is lowercase only ("40m"), so "3M views" isn't a duration, and not followed by ²/³ ("100 m²").
 // ponytail: a standalone "100 m" (metres) still reads as minutes — rare in screen-time prose.
