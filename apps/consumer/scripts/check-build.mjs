@@ -38,6 +38,7 @@ function sizeOf(dir, perTop, top) {
 }
 
 export function checkBuild(root, { maxBytes = MAX_BYTES } = {}) {
+  if (!existsSync(root)) return { ok: false, problems: [`no build at ${root} — run \`dist\` first`], bytes: 0 };
   const problems = [];
   for (const r of REQUIRED) if (!existsSync(join(root, r.probe))) problems.push(`missing: ${r.label} (${r.probe})`);
   for (const f of FORBIDDEN) if (existsSync(join(root, f))) problems.push(`should not ship: ${f}`);

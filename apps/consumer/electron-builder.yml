@@ -13,14 +13,14 @@ files:
   - out/**/*
   - package.json
   # Writer runtime: CPU + Vulkan only (spec §2.4 — CUDA adds ~520 MB for a modest NVIDIA-only speedup).
-  - "!**/node_modules/@node-llama-cpp/win-x64-cuda{,/**}"
-  - "!**/node_modules/@node-llama-cpp/win-x64-cuda-ext{,/**}"
-  - "!**/node_modules/@node-llama-cpp/win-arm64{,/**}"
-  - "!**/node_modules/@node-llama-cpp/{linux,mac}-*{,/**}"
+  - "!**/node_modules/@node-llama-cpp/win-x64-cuda{,/**/*}"
+  - "!**/node_modules/@node-llama-cpp/win-x64-cuda-ext{,/**/*}"
+  - "!**/node_modules/@node-llama-cpp/win-arm64{,/**/*}"
+  - "!**/node_modules/@node-llama-cpp/{linux,mac}-*{,/**/*}"
   # Laya runtime: Windows x64 only.
-  - "!**/node_modules/onnxruntime-node/bin/napi-v3/{darwin,linux}{,/**}"
-  - "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/arm64{,/**}"
-  - "!**/node_modules/active-win/lib/binding/*darwin*{,/**}"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v3/{darwin,linux}{,/**/*}"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/arm64{,/**/*}"
+  - "!**/node_modules/active-win/lib/binding/*darwin*{,/**/*}"
 # asar is DISABLED on purpose (same reason as apps/agent): active-win's native .node is unpacked but its runtime
 # JS dependency (@mapbox/node-pre-gyp) would stay inside app.asar and be unreachable -> nothing tracked. It also
 # keeps node-llama-cpp's ESM + binaries and onnxruntime's .node on plain disk paths.

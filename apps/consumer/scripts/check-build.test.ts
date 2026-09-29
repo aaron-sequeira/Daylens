@@ -32,6 +32,11 @@ describe('checkBuild', () => {
     expect(r.problems.join('\n')).toMatch(/win-x64-cuda/);
     expect(r.problems.join('\n')).toMatch(/darwin/);
   });
+  it('reports a missing build folder instead of crashing', () => {
+    const r = checkBuild(join(root, 'not-built-yet'));
+    expect(r).toMatchObject({ ok: false, bytes: 0 });
+    expect(r.problems[0]).toMatch(/run `dist` first/);
+  });
   it('fails over the size limit and names the biggest directories', () => {
     good();
     touch('resources/app/node_modules/huge/blob.bin', 2000);
