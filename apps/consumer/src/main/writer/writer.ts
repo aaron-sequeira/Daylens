@@ -48,7 +48,9 @@ export function createWriter(deps: {
         user: job.user, maxTokens: job.maxTokens, contextSize: CONTEXT_SIZE }, LOCAL_TIMEOUT_MS[job.kind]);
       let r = await run(gpuOff ? 'off' : 'auto');
       // A GPU that crashes or won't load the model: retry once on the CPU; only the CPU's failure is the outcome.
-      if (!r.ok && !gpuOff && (r.reason === 'crash' || r.reason === 'load')) {
+      // A tip never retries: it forks at most one process, so a tip write can't overlap a report/labelling job
+      // for longer than the single attempt takes (see coach/tip.ts's tipRewriteAllowed / index.ts's tipWriting).
+      if (!r.ok && !gpuOff && job.kind !== 'tip' && (r.reason === 'crash' || r.reason === 'load')) {
         r = await run('off');
         if (r.ok) gpuOff = true;
       }

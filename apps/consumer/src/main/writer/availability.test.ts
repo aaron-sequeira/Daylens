@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { countsAsFailure, localUnavailable, type AvailabilityInput } from './availability';
+import { countsAsFailure, localUnavailable, writerUsable, type AvailabilityInput } from './availability';
 import { WRITER_MODELS } from './config';
 import type { ModelStatus } from '../models/downloader';
 
@@ -64,5 +64,17 @@ describe('countsAsFailure', () => {
   it('does not count a cancelled download (a transition to missing)', () => {
     expect(countsAsFailure(downloading(false), missing, null)).toBe(false);
     expect(countsAsFailure(retry(100), missing, 100)).toBe(false);
+  });
+});
+
+describe('writerUsable', () => {
+  it('cloud mode needs a key; the model install state is irrelevant', () => {
+    expect(writerUsable({ mode: 'cloud', hasKey: true, installed: false, unavailable: 'low_ram' })).toBe(true);
+    expect(writerUsable({ mode: 'cloud', hasKey: false, installed: true, unavailable: null })).toBe(false);
+  });
+  it('local mode needs the model installed and no localUnavailable reason', () => {
+    expect(writerUsable({ mode: 'local', hasKey: false, installed: true, unavailable: null })).toBe(true);
+    expect(writerUsable({ mode: 'local', hasKey: true, installed: false, unavailable: null })).toBe(false);
+    expect(writerUsable({ mode: 'local', hasKey: true, installed: true, unavailable: 'crashes' })).toBe(false);
   });
 });

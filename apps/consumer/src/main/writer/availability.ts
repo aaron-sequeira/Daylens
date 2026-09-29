@@ -37,6 +37,14 @@ export function countsAsFailure(prev: ModelStatus, next: ModelStatus, lastRetryR
   return !wasRetrying || lastRetryReceived === null || next.received <= lastRetryReceived;
 }
 
+/** Whether the writer itself can be used right now, independent of any other job that might be running:
+ * cloud mode needs a key, local mode needs the model installed and no `localUnavailable` reason. Shared by the
+ * report scheduler's canWrite and the live-tip rewrite gate (coach/tip.ts's tipRewriteAllowed), so the two
+ * can never disagree about what "usable" means. */
+export function writerUsable(i: { mode: 'local' | 'cloud'; installed: boolean; hasKey: boolean; unavailable: Unavailable | null }): boolean {
+  return i.mode === 'cloud' ? i.hasKey : i.installed && i.unavailable === null;
+}
+
 export const UNAVAILABLE_TEXT: Record<Unavailable, string> = {
   low_ram: 'This PC has less than 8 GB of memory, too little to run the writer.',
   low_disk: 'Not enough free disk space for the writer model.',

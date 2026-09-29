@@ -127,5 +127,29 @@ describe('coach engine', () => {
       await createCoach(d).tick();
       expect(rows[0]).toMatchObject({ ruleId: 'stuck_tip', key: 'stuck_tip:a' });
     });
+
+    it('re-checks the hold after a rewrite: holds instead of showing if a hold now applies', async () => {
+      let calls = 0;
+      const { d, shown, rows } = deps({
+        holdReason: async () => { calls++; return calls === 1 ? null : 'call'; }, // clear when the gate ran, busy by the time rewrite finished
+        rules: [() => tip()],
+        rewrite: async (cand) => ({ ...cand, title: 'R', body: 'B' })
+      });
+      expect(await createCoach(d).tick()).toBe('held');
+      expect(shown).toHaveLength(0);
+      expect(rows[0].status).toBe('held');
+    });
+
+    it('re-checks the snooze after a rewrite: holds instead of showing if a snooze now applies', async () => {
+      let calls = 0;
+      const { d, shown, rows } = deps({
+        snoozeUntil: () => (calls++ === 0 ? 0 : T(12) + 60_000), // not snoozed when the gate ran, snoozed by the time rewrite finished
+        rules: [() => tip()],
+        rewrite: async (cand) => ({ ...cand, title: 'R', body: 'B' })
+      });
+      expect(await createCoach(d).tick()).toBe('held');
+      expect(shown).toHaveLength(0);
+      expect(rows[0].status).toBe('held');
+    });
   });
 });

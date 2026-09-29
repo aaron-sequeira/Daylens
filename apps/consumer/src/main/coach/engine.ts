@@ -40,16 +40,26 @@ export function createCoach(d: CoachDeps) {
           if (hold) dec = { status: 'held', reason: hold };
         }
         if (dec.status === 'drop') continue;
-        if (dec.status === 'held') {
-          const id = d.record(c, 'held', now);
-          history.push({ id, at: now, date: snap.date, kind: c.kind, ruleId: c.ruleId, key: c.key, title: c.title, body: c.body, status: 'held' });
+        const recordHeld = (cand: Candidate): void => {
+          const id = d.record(cand, 'held', now);
+          history.push({ id, at: now, date: snap.date, kind: cand.kind, ruleId: cand.ruleId, key: cand.key, title: cand.title, body: cand.body, status: 'held' });
           outcome = 'held';
+        };
+        if (dec.status === 'held') {
+          recordHeld(c);
           continue;
         }
         if (d.rewrite && REWRITE_RULES.has(c.ruleId)) {
           const original = c;
           const rewritten = await d.rewrite(original, snap).catch(() => original);
           c = { ...rewritten, ruleId: original.ruleId, key: original.key, kind: original.kind, primary: original.primary };
+          // A rewrite can take up to 20s: the hold/snooze picture may have changed while waiting, so re-check
+          // both before showing rather than trusting the decision made before the wait.
+          const holdAfter = await d.holdReason();
+          if (holdAfter || now < d.snoozeUntil()) {
+            recordHeld(c);
+            continue;
+          }
         }
         const id = d.record(c, 'shown', now);
         const ok = d.show({ id, kind: c.kind, mini: c.mini, stat: c.stat, title: c.title, body: c.body, primaryLabel: c.primary.label, offerFewer: dec.offerFewer });

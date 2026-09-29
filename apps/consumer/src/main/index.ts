@@ -29,7 +29,7 @@ import { queryNotificationState } from './coach/notifState';
 import { parseFewer, parseKinds, parseLimits } from './coach/settings';
 import { repeatedSearches, searchTitlesFrom, switchesBetween } from './coach/activity';
 import { limitUsage } from './coach/rules/behaviour';
-import { parseTip, tipInput, tipPrompt, TIP_JSON_SCHEMA } from './coach/tip';
+import { parseTip, tipAllowedMinutes, tipInput, tipPrompt, tipRewriteAllowed, TIP_JSON_SCHEMA } from './coach/tip';
 import { parseExclusions } from './screen/exclusions';
 import { createPillManager, pillMessage, PILL_W, PILL_MARGIN } from './windows/pill';
 import { electronPillWindow } from './windows/pillElectron';
@@ -39,7 +39,7 @@ import { loadTodayView, type TimelineSegment } from './day/today';
 import { dayBounds, shiftDate } from './day/time';
 import { createSecretStore } from './writer/secrets';
 import { resolveTier, tierFor, writerManifest, writerNeedBytes, WRITER_ATTRIBUTION, WRITER_MODELS, type WriterTier } from './writer/config';
-import { countsAsFailure, localUnavailable, type Unavailable } from './writer/availability';
+import { countsAsFailure, localUnavailable, writerUsable, type Unavailable } from './writer/availability';
 import { createWriter } from './writer/writer';
 import { runLocal, type WriterChild } from './writer/run';
 import { createReportStore, REPORT_SQL } from './report/store';
@@ -153,14 +153,18 @@ if (!app.requestSingleInstanceLock()) {
     // Assigned once the report scheduler exists (after the coach wiring, below); the label scheduler's
     // canStart is defined before that, so it forward-references this holder rather than the scheduler itself.
     let reportScheduler!: ReportScheduler;
+    // True for the lifetime of a live-tip writer.write call (set right before it, cleared when it itself
+    // settles — not when the tip rewrite's own 20s race ends): two-way mutual exclusion with labelling/reports,
+    // since a local write already in flight keeps its forked process alive past the 20s cap.
+    let tipWriting = false;
     const scheduler = createLabelScheduler({
       store: labelStore, fork: forkBrain, modelReady: () => downloader.status().state === 'ready',
       modelDir, now: () => Date.now(), onChange: () => win?.webContents.send(CH.eventsUpdate),
-      // Labelling and report writing must never run at the same time (both can be memory/CPU heavy).
+      // Labelling, report writing and a live-tip rewrite must never run at the same time (all can be memory/CPU heavy).
       canStart: () => batchAllowed({
         freeBytes: freemem(), idleSec: powerMonitor.getSystemIdleTime(),
         locked: powerMonitor.getSystemIdleState(60) === 'locked', needBytes: LAYA_NEED_BYTES
-      }) && reportScheduler.running() === null
+      }) && reportScheduler.running() === null && !tipWriting
     });
     // Gate syncModel until the startup init() (which hashes the model on disk) has settled, so a settings
     // change landing mid-hash can't race it into starting/stopping a run init hasn't finished evaluating.
@@ -382,19 +386,33 @@ if (!app.requestSingleInstanceLock()) {
     const TIP_REWRITE_TIMEOUT_MS = 20_000;
     coachDeps.rewrite = async (c, snap) => {
       const s = settings.get();
-      const usable = s.writerMode === 'cloud' ? secrets.has(s.aiProvider) : writerDl.status().state === 'ready';
-      if (!usable || reportScheduler.running() !== null || scheduler.status().state === 'running') return c;
-      if (s.writerMode === 'local' && freemem() < writerNeedBytes(writerTier())) return c;
+      const allowed = tipRewriteAllowed({
+        mode: s.writerMode, installed: writerDl.status().state === 'ready', hasKey: secrets.has(s.aiProvider),
+        unavailable: unavailable(), reportRunning: reportScheduler.running() !== null,
+        labelling: scheduler.status().state === 'running', tipWriting,
+        freeBytes: freemem(), needBytes: writerNeedBytes(writerTier())
+      });
+      if (!allowed) return c;
+      const input = tipInput(c, snap, parseExclusions(s.exclusions));
+      const { system, user } = tipPrompt(input);
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        const input = tipInput(c, snap, parseExclusions(s.exclusions));
-        const { system, user } = tipPrompt(input);
-        const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), TIP_REWRITE_TIMEOUT_MS));
-        const res = await Promise.race([writer.write({ kind: 'tip', system, user, schema: TIP_JSON_SCHEMA, maxTokens: 160, parse: parseTip }), timeout]);
+        tipWriting = true;
+        // Cleared when the write itself settles, not when the race below ends: a local write already forked
+        // may keep running past the 20s cap, and labelling/reports must stay blocked until it actually finishes.
+        const write = writer.write({ kind: 'tip', system, user, schema: TIP_JSON_SCHEMA, maxTokens: 160, parse: parseTip })
+          .finally(() => { tipWriting = false; });
+        const timeout = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), TIP_REWRITE_TIMEOUT_MS); });
+        const res = await Promise.race([write, timeout]);
         if (!res || !res.ok) return c;
-        const body = groundText(res.value.body, [input.episode.minutes]);
-        return body ? { ...c, title: res.value.title, body } : c;
+        const allowedMinutes = tipAllowedMinutes(input);
+        const title = groundText(res.value.title, allowedMinutes);
+        const body = groundText(res.value.body, allowedMinutes);
+        return title && body ? { ...c, title, body } : c;
       } catch {
         return c;
+      } finally {
+        clearTimeout(timer);
       }
     };
     // Window titles + read labels only (never screen text), the final category as Today uses it.
@@ -544,14 +562,14 @@ if (!app.requestSingleInstanceLock()) {
           sundayReady: (ws) => reportStore.get(weekDates(ws)[6])?.status === 'ready'
         });
       },
-      canWrite: () => (settings.get().writerMode === 'cloud' ? secrets.has(settings.get().aiProvider) : writerDl.status().state === 'ready' && unavailable() === null),
+      canWrite: () => writerUsable({ mode: settings.get().writerMode, installed: writerDl.status().state === 'ready', hasKey: secrets.has(settings.get().aiProvider), unavailable: unavailable() }),
       gateOk: () => settings.get().writerMode === 'cloud' || batchAllowed({
         freeBytes: freemem(), idleSec: powerMonitor.getSystemIdleTime(),
         locked: powerMonitor.getSystemIdleState(60) === 'locked', needBytes: writerNeedBytes(writerTier())
       }),
       // A click runs as soon as there's enough free memory; it doesn't wait for idle.
       manualGateOk: () => settings.get().writerMode === 'cloud' || freemem() >= writerNeedBytes(writerTier()),
-      otherJobRunning: () => scheduler.status().state === 'running',
+      otherJobRunning: () => scheduler.status().state === 'running' || tipWriting,
       lowBattery: async () => powerMonitor.isOnBatteryPower() && ((await batteryPercent()) ?? 100) < 20,
       // `key` is a date (daily report) or `W:<weekStart>` (weekly summary): one writer job at a time either way.
       generate: async (key) => {

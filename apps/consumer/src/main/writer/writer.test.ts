@@ -53,6 +53,13 @@ describe('writer', () => {
     const both = createWriter(deps({ runLocal: async () => ({ ok: false, reason: 'load', message: 'load: bad' }) }));
     expect(await both.write(job)).toMatchObject({ ok: false, local: 'load' });
   });
+  it('never retries a tip job on the CPU: a tip forks at most one process', async () => {
+    const gpus: string[] = [];
+    const tipJob = { ...job, kind: 'tip' as const };
+    const w = createWriter(deps({ runLocal: async (r) => { gpus.push(r.gpu); return { ok: false, reason: 'crash', message: 'exit 1' }; } }));
+    expect(await w.write(tipJob)).toMatchObject({ ok: false, local: 'crash' });
+    expect(gpus).toEqual(['auto']);
+  });
   it('does not fall back to the CPU after a timeout or an error', async () => {
     for (const reason of ['timeout', 'error'] as const) {
       const gpus: string[] = [];

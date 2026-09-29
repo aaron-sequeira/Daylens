@@ -25,7 +25,8 @@ const MORE_PAGES = /\s+and \d+ more pages?\s*$/i;
 const COUNTER = /^\(\d+\+?\)\s*/;
 const BLANK = /^(new tab|new private tab|start page|blank page|untitled)$/i;
 const PRIVATE = /InPrivate|Incognito|Private Browsing|\(Private\)/i;
-const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+// Exported for coach/tip.ts, which drops the same titles from the tip-rewrite input.
+export const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 // The site is the last " - " / " | " / " — " / " – " / " · " segment (GitHub uses " · ").
 const SPLIT = /^(.*)\s[-|—–·]\s(.+)$/;
 const TAIL = /\s[-—–]\s([^-—–]+)$/;
