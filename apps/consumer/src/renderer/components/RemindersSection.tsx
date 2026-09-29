@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { RemindersView } from '../../main/ipc';
-import { ANIMATION_LOOK, reminderSummary, type Reminder, type ReminderInput } from '../../shared/reminders';
+import { ANIMATION_LOOK, LIMITS, reminderSummary, type Reminder, type ReminderInput } from '../../shared/reminders';
 import { api } from '../lib/api';
 import { emptyForm, formFrom } from '../lib/reminderForm';
 import { ReminderEditor } from './ReminderEditor';
@@ -19,7 +19,7 @@ export function RemindersSection() {
         <div className="srow" key={r.id}>
           <p>{ANIMATION_LOOK[r.animation].emoji} {r.name}<small>{reminderSummary(r)}</small></p>
           <div className="srow-actions">
-            <button className="btn s" onClick={() => setEditing(formFrom(r))}>Edit</button>
+            <button className="btn s" onClick={() => { setEditing(formFrom(r)); setView({ ...view, error: null }); }}>Edit</button>
             {r.builtin
               ? <button className="btn s" onClick={() => apply(api.reminders.reset(r.builtin as 'water' | 'lunch' | 'tea' | 'dinner'))}>Reset</button>
               : <button className="btn s" onClick={() => apply(api.reminders.delete(r.id))}>Delete</button>}
@@ -29,7 +29,7 @@ export function RemindersSection() {
       ))}
       {editing
         ? <ReminderEditor value={editing} error={view.error} onChange={setEditing} onCancel={() => { setEditing(null); setView({ ...view, error: null }); }} onSave={() => apply(api.reminders.save(editing))} />
-        : <div className="srow"><p>Add your own<small>{custom} of 20 used</small></p><button className="btn" disabled={custom >= 20} onClick={() => setEditing(emptyForm())}>Add reminder</button></div>}
+        : <div className="srow"><p>Add your own<small>{custom} of {LIMITS.custom} used</small></p><button className="btn" disabled={custom >= LIMITS.custom} onClick={() => { setEditing(emptyForm()); setView({ ...view, error: null }); }}>Add reminder</button></div>}
     </div>
   );
 }

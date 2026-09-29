@@ -433,6 +433,13 @@ body:has(.print-root), #root:has(.print-root) { height: auto; overflow: visible;
 /* ---------- Settings → Reminders ---------- */
 .srow-actions { display: flex; align-items: center; gap: 8px; }
 .rem-editor { display: grid; gap: 12px; padding: 14px 0; }
+.rem-editor h5 { font-size: 14px; font-weight: 600; margin: 0; }
+.rem-editor input[type=text], .rem-editor input[type=time], .rem-editor input[type=number], .rem-editor select { font: inherit; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; background: var(--win); }
+.rem-editor input[type=number] { width: 110px; }
+.rem-editor select { justify-self: start; }
+.rem-editor .rem-when label { display: flex; align-items: center; gap: 8px; }
+.rem-when input[type=radio] { accent-color: var(--ink); }
+.rem-editor .btn-row { display: flex; gap: 8px; justify-content: flex-end; }
 .rem-editor label { display: grid; gap: 6px; font-size: 13px; }
 .rem-editor fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
 .rem-editor legend { font-size: 13px; font-weight: 600; margin-bottom: 4px; }

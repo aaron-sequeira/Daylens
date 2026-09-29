@@ -13,6 +13,7 @@ export function ReminderEditor({ value, error, onChange, onSave, onCancel }: {
   const set = (p: Partial<ReminderInput>): void => onChange({ ...value, ...p });
   return (
     <div className="rem-editor" role="group" aria-label={value.id ? 'Edit reminder' : 'New reminder'}>
+      <h5>{value.id ? 'Edit reminder' : 'New reminder'}</h5>
       <label>Name<input type="text" maxLength={LIMITS.name} value={value.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Take vitamins" /></label>
       <label>Message<input type="text" maxLength={LIMITS.message} value={value.message} onChange={(e) => set({ message: e.target.value })} placeholder="Optional" /></label>
       <fieldset className="rem-when"><legend>When</legend>
@@ -43,7 +44,8 @@ export function ReminderEditor({ value, error, onChange, onSave, onCancel }: {
           </button>
         ))}</div>
       </fieldset>
-      {(error || localError) && <p className="srow-note" role="alert">{error ?? localError}</p>}
+      {/* Don't open with a complaint: local hints appear once there's a name to judge (Save stays disabled meanwhile). */}
+      {(error || (localError && value.name.trim())) && <p className="srow-note" role="alert">{error ?? localError}</p>}
       <div className="btn-row"><button className="btn s" onClick={onCancel}>Cancel</button><button className="btn" disabled={localError !== null} onClick={onSave}>Save</button></div>
     </div>
   );
