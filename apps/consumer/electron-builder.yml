@@ -1,5 +1,10 @@
 appId: ai.worksight.daylens
 productName: Daylens
+# The pnpm package name is @worksight/consumer; electron-builder sanitizes that to "@worksightconsumer" for the
+# one-click per-user install folder unless overridden here. app.setName('Daylens') (index.ts) already sets the
+# runtime name, so this only affects the install path — userData stays %APPDATA%\Daylens either way.
+extraMetadata:
+  name: daylens
 # pnpm hoists `electron` to the root node_modules, so electron-builder can't auto-detect the version from
 # apps/consumer. Pin it to the installed version (keep in sync with the lockfile when upgrading).
 electronVersion: 33.4.11

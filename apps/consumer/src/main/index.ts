@@ -47,7 +47,7 @@ import { groundText } from './report/schema';
 import { createReportSearch, reportBody, REPORT_FTS_SQL } from './report/search';
 import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
-import { autoSavePath, autoSavePdf, checkFolder, mailtoUrl } from './report/share';
+import { autoSavePath, autoSavePdf, createFolderChecker, mailtoUrl } from './report/share';
 import { createPdfQueue } from './report/pdfQueue';
 import { createReportScheduler, MIN_AUTO_SCREEN_SEC, weekDueKey, type ReportScheduler } from './report/scheduler';
 import { friendlyReason, generateReport, generateWeek } from './report/generate';
@@ -75,6 +75,13 @@ function createWindow(): void {
   win = new BrowserWindow({
     width: 1280, height: 860, minWidth: 1100, minHeight: 720, show: false, backgroundColor: '#FBF8F4',
     titleBarStyle: 'hidden', titleBarOverlay: { color: '#FBF8F4', symbolColor: '#171717', height: 40 },
+    // Electron paints a show:false window even before it's shown by default (paintWhenInitiallyHidden defaults
+    // true), which makes document.visibilityState report 'visible' on its very first load. With --hidden that
+    // marks the rail logo's "app open" draw-in as played while nobody can see it. Setting this false for the
+    // hidden-start path defers the first paint (and visibilitychange) until win.show() actually runs — but that
+    // also means 'ready-to-show' never fires then, so showWindow()/the tray click must call win.show() directly
+    // rather than relying on it (they already do).
+    paintWhenInitiallyHidden: !startHidden,
     webPreferences: { preload: join(__dirname, '../preload/index.js'), contextIsolation: true, nodeIntegration: false }
   });
   win.on('ready-to-show', () => { if (!startHidden) win?.show(); });
@@ -181,7 +188,6 @@ if (!app.requestSingleInstanceLock()) {
       try { scheduler.tick(); } catch (e) { console.error('[brain] tick failed:', e); }
     };
     setInterval(tickScheduler, 60_000);
-    // ponytail: dev path; Phase 7 packaging must ship resources/ocr-helper.ps1 via extraResources.
     const helperPath = app.isPackaged ? join(process.resourcesPath, 'ocr-helper.ps1') : join(__dirname, '../../resources/ocr-helper.ps1');
     const ocr = createOcrClient({
       // stderr is ignored, not piped: an undrained stderr pipe can fill up and block the helper.
@@ -513,6 +519,10 @@ if (!app.requestSingleInstanceLock()) {
     let reportEpoch = 0;
     // Set by the fire-and-forget PDF auto-save after each ready report; read by reports.shareGet for the Settings warning.
     let pdfFolderError: string | null = null;
+    // reports.shareGet is polled on every eventsUpdate push; an unreachable share would otherwise start a fresh
+    // stat (up to the 1.5s timeout) on each one, and those linger past the timeout and pile up in libuv's pool.
+    // Cached per folder for 30s; a folder change (choose/clear) always bypasses the cache.
+    const folderChecker = createFolderChecker(stat, () => Date.now());
     const pdfRenderDeps = () => ({
       preload: join(__dirname, '../preload/index.js'),
       devUrl: process.env['ELECTRON_RENDERER_URL'],
@@ -816,7 +826,7 @@ if (!app.requestSingleInstanceLock()) {
         shareGet: async () => {
           // A save-time failure (pdfFolderError) always wins: it's more specific than a plain "gone" check.
           const folder = settings.get().reportPdfFolder;
-          if (!pdfFolderError && folder && (await checkFolder(folder, stat)) === 'missing') return { folder, lastError: "The auto-save folder can't be found." };
+          if (!pdfFolderError && folder && (await folderChecker(folder)) === 'missing') return { folder, lastError: "The auto-save folder can't be found." };
           return { folder, lastError: pdfFolderError };
         },
         email: async (date) => {

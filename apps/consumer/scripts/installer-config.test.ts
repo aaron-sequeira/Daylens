@@ -15,6 +15,10 @@ describe('electron-builder.yml', () => {
     expect(yml).toMatch(/include: resources\/installer\.nsh/);
     expect(yml).toMatch(/icon: resources\/icon\.ico/);
   });
+  it('overrides the sanitized package name so the install folder is "daylens", not "@worksightconsumer"', () => {
+    expect(yml).toMatch(/extraMetadata:/);
+    expect(yml).toMatch(/^\s*name: daylens$/m);
+  });
   it('excludes CUDA, ARM, Mac and Linux binaries', () => {
     for (const p of ['@node-llama-cpp/win-x64-cuda', '@node-llama-cpp/win-x64-cuda-ext', '@node-llama-cpp/win-arm64',
       '@node-llama-cpp/{linux,mac}-*', 'onnxruntime-node/bin/napi-v3/{darwin,linux}', 'onnxruntime-node/bin/napi-v3/win32/arm64',
@@ -31,5 +35,8 @@ describe('installer.nsh', () => {
     expect(nsh).toContain('${ifNot} ${isUpdated}');
     expect(nsh).toContain('MB_DEFBUTTON2');
     expect(nsh).toContain('RMDir /r "$APPDATA\\Daylens"');
+  });
+  it('silences the prompt under a silent uninstall (/S) by defaulting to No', () => {
+    expect(nsh).toContain('/SD IDNO');
   });
 });

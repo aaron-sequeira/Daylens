@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { autoSavePath, autoSavePdf, checkFolder, mailtoUrl } from './share';
+import { autoSavePath, autoSavePdf, checkFolder, createFolderChecker, mailtoUrl } from './share';
 import type { ReportJson } from './schema';
 
 const rep: ReportJson = { headline: 'A focused morning', story: 'One. Two! Three? Four.', wins: [], habits: [], doBetter: [], plan: [], advice: 'a' };
@@ -66,5 +66,42 @@ describe('checkFolder', () => {
   it('unknown (no warning) for other errors or an unreachable share that never answers', async () => {
     expect(await checkFolder('x', async () => { throw err('EACCES'); })).toBe('unknown');
     expect(await checkFolder('\\\\gone\\share', () => new Promise(() => {}), 20)).toBe('unknown');
+  });
+});
+
+describe('createFolderChecker', () => {
+  const dir = { isDirectory: () => true };
+  it('shares one in-flight stat across concurrent calls for the same folder', async () => {
+    let calls = 0; let now = 0;
+    let resolveStat!: () => void;
+    const stat = () => { calls++; return new Promise<typeof dir>((res) => { resolveStat = () => res(dir); }); };
+    const check = createFolderChecker(stat, () => now);
+    const p1 = check('C:\\Share');
+    const p2 = check('C:\\Share');
+    expect(calls).toBe(1); // second call joined the first's in-flight stat, no new one started
+    resolveStat();
+    expect(await p1).toBe('ok');
+    expect(await p2).toBe('ok');
+  });
+  it('reuses a result within the ttl and re-checks once it expires', async () => {
+    let calls = 0; let now = 0;
+    const stat = async () => { calls++; return dir; };
+    const check = createFolderChecker(stat, () => now, 30_000);
+    expect(await check('C:\\Share')).toBe('ok');
+    expect(calls).toBe(1);
+    now += 10_000;
+    expect(await check('C:\\Share')).toBe('ok');
+    expect(calls).toBe(1); // still within the 30s ttl: cached, no new stat
+    now += 30_000;
+    expect(await check('C:\\Share')).toBe('ok');
+    expect(calls).toBe(2); // ttl expired: a fresh stat runs
+  });
+  it('a different folder bypasses the cache and triggers its own stat', async () => {
+    let calls = 0; let now = 0;
+    const stat = async () => { calls++; return dir; };
+    const check = createFolderChecker(stat, () => now);
+    expect(await check('C:\\A')).toBe('ok');
+    expect(await check('C:\\B')).toBe('ok');
+    expect(calls).toBe(2);
   });
 });

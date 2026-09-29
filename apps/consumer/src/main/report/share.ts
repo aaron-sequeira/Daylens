@@ -56,3 +56,26 @@ export async function checkFolder(dir: string, stat: (d: string) => Promise<{ is
     (e: NodeJS.ErrnoException): 'missing' | 'unknown' => (e?.code === 'ENOENT' || e?.code === 'ENOTDIR' ? 'missing' : 'unknown'));
   try { return await Promise.race([check, timeout]); } finally { clearTimeout(timer); }
 }
+
+/** Wraps checkFolder with a per-folder cache: an unreachable share otherwise gets a fresh 1.5s-timeout stat on
+ * every eventsUpdate push (many per minute), and those stats outlive the timeout and pile up in libuv's thread
+ * pool. At most one stat is ever in flight per folder (concurrent callers join it) and a settled result is
+ * reused for `ttlMs`; asking about a different folder always starts its own check. */
+export function createFolderChecker(
+  stat: (d: string) => Promise<{ isDirectory(): boolean }>, now: () => number, ttlMs = 30_000
+): (dir: string) => Promise<'ok' | 'missing' | 'unknown'> {
+  let folder: string | null = null;
+  let result: 'ok' | 'missing' | 'unknown' | null = null;
+  let resultAt = 0;
+  let inFlight: Promise<'ok' | 'missing' | 'unknown'> | null = null;
+  return (dir: string) => {
+    if (dir !== folder) { folder = dir; result = null; inFlight = null; }
+    if (result !== null && now() - resultAt < ttlMs) return Promise.resolve(result);
+    if (inFlight) return inFlight;
+    inFlight = checkFolder(dir, stat).then((r) => {
+      result = r; resultAt = now(); inFlight = null;
+      return r;
+    });
+    return inFlight;
+  };
+}
