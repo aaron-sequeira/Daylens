@@ -993,6 +993,7 @@ if (!app.requestSingleInstanceLock()) {
           if (v) { settings.set({ travelOffFor: tzStore.latest()?.at ?? 0 }); win?.webContents.send(CH.eventsUpdate); }
         }
       },
+      reminders: { store: reminderStore, workdays: () => readProfile(settings.get()).days },
       models: {
         view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
         redownload: async () => {

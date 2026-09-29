@@ -19,9 +19,16 @@ import type { ReportView, WriterState, WriterView } from './report/view';
 import type { SearchHit } from './report/search';
 import type { InsightsNumbers, WeeklyRow } from './report/week';
 import type { TravelView } from './time/travel';
+import { ANIMATIONS, type Reminder } from '../shared/reminders';
+import type { ReminderStore } from './reminders/store';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const scheduleInput = z.union([
+  z.object({ type: z.literal('time'), time: z.string(), days: z.array(z.number().int()).max(7) }).strict(),
+  z.object({ type: z.literal('interval'), minutes: z.number().int() }).strict()
+]);
+const reminderInput = z.object({ id: z.number().int().optional(), name: z.string().max(200), message: z.string().max(500), animation: z.enum(ANIMATIONS), schedule: scheduleInput, breakSec: z.number().int() }).strict();
 
 export interface PrivacyView {
   screenReading: boolean;
@@ -107,6 +114,9 @@ export interface WriterDeps {
 export interface AboutView { version: string; credits: string[]; }
 export interface TravelDeps { view(): TravelView | null; off(): void; }
 
+export interface RemindersView { reminders: Reminder[]; error: string | null }
+export interface RemindersDeps { store: ReminderStore; workdays(): number[]; }
+
 export interface IpcDeps {
   repo: Repositories;
   settings: KvStore<DaylensSettings>;
@@ -125,6 +135,7 @@ export interface IpcDeps {
   plan: PlanDeps;
   about(): AboutView;
   travel: TravelDeps;
+  reminders: RemindersDeps;
 }
 
 export function registerIpc(d: IpcDeps): void {
@@ -238,4 +249,14 @@ export function registerIpc(d: IpcDeps): void {
 
   ipcMain.handle(CH.travelGet, () => d.travel.view());
   ipcMain.handle(CH.travelOff, () => { d.travel.off(); return null; });
+
+  const remindersView = (error: string | null = null): RemindersView => ({ reminders: d.reminders.store.list(), error });
+  ipcMain.handle(CH.remindersList, () => remindersView());
+  ipcMain.handle(CH.remindersSave, (_e, raw) => {
+    try { d.reminders.store.save(reminderInput.parse(raw), d.now()); d.coach.onChanged(); return remindersView(); }
+    catch (e) { return remindersView(e instanceof z.ZodError ? 'Something in that reminder isn’t valid.' : (e as Error).message); }
+  });
+  ipcMain.handle(CH.remindersDelete, (_e, raw) => { d.reminders.store.remove(z.number().int().parse(raw)); return remindersView(); });
+  ipcMain.handle(CH.remindersReset, (_e, raw) => { d.reminders.store.reset(z.enum(['water', 'lunch', 'tea', 'dinner']).parse(raw), d.reminders.workdays()); return remindersView(); });
+  ipcMain.handle(CH.remindersSetEnabled, (_e, raw) => { const v = z.object({ id: z.number().int(), on: z.boolean() }).strict().parse(raw); d.reminders.store.setEnabled(v.id, v.on); return remindersView(); });
 }

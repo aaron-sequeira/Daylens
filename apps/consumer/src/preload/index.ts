@@ -5,11 +5,12 @@ import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
-import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult, ShareGetView, EmailResult, InsightsView, AboutView } from '../main/ipc';
+import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult, ShareGetView, EmailResult, InsightsView, AboutView, RemindersView } from '../main/ipc';
 import type { Kind } from '../main/coach/types';
 import type { SearchHit } from '../main/report/search';
 import type { ReportView, WriterView } from '../main/report/view';
 import type { TravelView } from '../main/time/travel';
+import type { ReminderInput } from '../shared/reminders';
 
 const api = {
   today: (date: string): Promise<TodayView> => ipcRenderer.invoke(CH.todayGet, { date }),
@@ -93,6 +94,13 @@ const api = {
   travel: {
     get: (): Promise<TravelView | null> => ipcRenderer.invoke(CH.travelGet),
     off: (): Promise<null> => ipcRenderer.invoke(CH.travelOff)
+  },
+  reminders: {
+    list: (): Promise<RemindersView> => ipcRenderer.invoke(CH.remindersList),
+    save: (r: ReminderInput): Promise<RemindersView> => ipcRenderer.invoke(CH.remindersSave, r),
+    delete: (id: number): Promise<RemindersView> => ipcRenderer.invoke(CH.remindersDelete, id),
+    reset: (b: 'water' | 'lunch' | 'tea' | 'dinner'): Promise<RemindersView> => ipcRenderer.invoke(CH.remindersReset, b),
+    setEnabled: (id: number, on: boolean): Promise<RemindersView> => ipcRenderer.invoke(CH.remindersSetEnabled, { id, on })
   }
 };
 

@@ -429,3 +429,19 @@ body:has(.print-root), #root:has(.print-root) { height: auto; overflow: visible;
   .dl-logo .dl-sun { transform: none !important; animation: none !important; }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---------- Settings → Reminders ---------- */
+.srow-actions { display: flex; align-items: center; gap: 8px; }
+.rem-editor { display: grid; gap: 12px; padding: 14px 0; }
+.rem-editor label { display: grid; gap: 6px; font-size: 13px; }
+.rem-editor fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.rem-editor legend { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.rem-time { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rem-days { display: flex; gap: 6px; }
+.chip { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); background: var(--white); cursor: pointer; font-weight: 600; }
+.chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.gal { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.gal-tile { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; border: 1px solid var(--line); background: var(--white); cursor: pointer; font-size: 12px; }
+.gal-tile.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.gal-scene { width: 56px; height: 56px; }
+.gal-tile:not(.on):not(:hover):not(:focus-visible) .dl-scene-svg * { animation-play-state: paused; }

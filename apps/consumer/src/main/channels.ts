@@ -50,5 +50,10 @@ export const CH = {
   writerRetryLocal: 'writer:retryLocal',
   aboutGet: 'app:about',
   travelGet: 'travel:get',
-  travelOff: 'travel:off'
+  travelOff: 'travel:off',
+  remindersList: 'reminders:list',
+  remindersSave: 'reminders:save',
+  remindersDelete: 'reminders:delete',
+  remindersReset: 'reminders:reset',
+  remindersSetEnabled: 'reminders:setEnabled'
 } as const;
