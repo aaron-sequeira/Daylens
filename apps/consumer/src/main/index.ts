@@ -63,6 +63,7 @@ import type { ReportCandidate } from './report/candidates';
 import { writerState, navDates, needGb, freeGb, settledDay, type ReportView, type WriterView } from './report/view';
 
 app.setName('Daylens');
+app.setAppUserModelId('ai.worksight.daylens'); // matches the installer's shortcut, so the taskbar groups them
 const startHidden = process.argv.includes('--hidden');
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;

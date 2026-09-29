@@ -1,0 +1,46 @@
+appId: ai.worksight.daylens
+productName: Daylens
+# pnpm hoists `electron` to the root node_modules, so electron-builder can't auto-detect the version from
+# apps/consumer. Pin it to the installed version (keep in sync with the lockfile when upgrading).
+electronVersion: 33.4.11
+directories:
+  output: release
+  buildResources: resources
+artifactName: Daylens-Setup-${version}.${ext}
+# Native deps live in the hoisted root node_modules; `dist` runs rebuild-native first and passes
+# --config.npmRebuild=false, so the prebuilt Electron-ABI binaries are bundled as-is.
+files:
+  - out/**/*
+  - package.json
+  # Writer runtime: CPU + Vulkan only (spec §2.4 — CUDA adds ~520 MB for a modest NVIDIA-only speedup).
+  - "!**/node_modules/@node-llama-cpp/win-x64-cuda{,/**}"
+  - "!**/node_modules/@node-llama-cpp/win-x64-cuda-ext{,/**}"
+  - "!**/node_modules/@node-llama-cpp/win-arm64{,/**}"
+  - "!**/node_modules/@node-llama-cpp/{linux,mac}-*{,/**}"
+  # Laya runtime: Windows x64 only.
+  - "!**/node_modules/onnxruntime-node/bin/napi-v3/{darwin,linux}{,/**}"
+  - "!**/node_modules/onnxruntime-node/bin/napi-v3/win32/arm64{,/**}"
+  - "!**/node_modules/active-win/lib/binding/*darwin*{,/**}"
+# asar is DISABLED on purpose (same reason as apps/agent): active-win's native .node is unpacked but its runtime
+# JS dependency (@mapbox/node-pre-gyp) would stay inside app.asar and be unreachable -> nothing tracked. It also
+# keeps node-llama-cpp's ESM + binaries and onnxruntime's .node on plain disk paths.
+asar: false
+# Runtime files loaded from process.resourcesPath when packaged (index.ts). buildResources is build-time only.
+extraResources:
+  - from: resources/ocr-helper.ps1
+    to: ocr-helper.ps1
+  - from: resources/tray.png
+    to: tray.png
+  - from: resources/tray@2x.png
+    to: tray@2x.png
+win:
+  target: nsis
+  icon: resources/icon.ico
+nsis:
+  oneClick: true
+  perMachine: false
+  runAfterFinish: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Daylens
+  include: resources/installer.nsh
