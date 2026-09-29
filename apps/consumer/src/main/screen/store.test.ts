@@ -7,6 +7,7 @@ import { SCREEN_SCHEMA, createScreenStore, checkpoint, deleteActivity, exportAll
 import { COACH_SCHEMA, createCoachStore } from '../coach/store';
 import { REPORT_SQL, createReportStore } from '../report/store';
 import { REPORT_FTS_SQL, createReportSearch } from '../report/search';
+import { WEEKLY_SQL, createWeeklyStore } from '../report/week';
 
 let db: Database.Database;
 beforeEach(() => { db = new Database(':memory:'); db.exec(SCHEMA_SQL); db.exec(SCREEN_SCHEMA); });
@@ -111,19 +112,28 @@ describe('deleteActivity', () => {
     deleteActivity(db);
     expect(search.count()).toBe(0);
   });
+
+  it('empties weekly_reports when it exists', () => {
+    db.exec(WEEKLY_SQL);
+    const weekly = createWeeklyStore(db);
+    weekly.setReady('2026-09-28', { headline: 'H', summary: 'S', focusForNextWeek: 'F' }, 'model', 1);
+    deleteActivity(db);
+    expect(db.prepare('SELECT count(*) AS n FROM weekly_reports').get()).toEqual({ n: 0 });
+  });
 });
 
 describe('exportAll', () => {
   it('exports every table plus settings and profile, with empty optional tables when they do not exist', () => {
     createScreenStore(db).insert(read(1000, 'x'));
     const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
-    expect(Object.keys(out).sort()).toEqual(['activitySamples', 'appEvents', 'breaks', 'dailyReports', 'exportedAt', 'focusSessions', 'nudges', 'planItems', 'profile', 'screenReads', 'settings']);
+    expect(Object.keys(out).sort()).toEqual(['activitySamples', 'appEvents', 'breaks', 'dailyReports', 'exportedAt', 'focusSessions', 'nudges', 'planItems', 'profile', 'screenReads', 'settings', 'weeklyReports']);
     expect(out.exportedAt).toBe(42);
     expect(out.screenReads).toHaveLength(1);
     expect(out.nudges).toEqual([]);
     expect(out.breaks).toEqual([]);
     expect(out.dailyReports).toEqual([]);
     expect(out.planItems).toEqual([]);
+    expect(out.weeklyReports).toEqual([]);
   });
 
   it('includes nudges and breaks when the coach tables exist', () => {
@@ -145,5 +155,13 @@ describe('exportAll', () => {
     const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
     expect(out.dailyReports).toHaveLength(1);
     expect(out.planItems).toHaveLength(1);
+  });
+
+  it('includes weekly_reports when the weekly table exists', () => {
+    db.exec(WEEKLY_SQL);
+    const weekly = createWeeklyStore(db);
+    weekly.setReady('2026-09-28', { headline: 'H', summary: 'S', focusForNextWeek: 'F' }, 'model', 1);
+    const out = exportAll(db, DEFAULT_SETTINGS, DEFAULT_PROFILE, 42);
+    expect(out.weeklyReports).toHaveLength(1);
   });
 });

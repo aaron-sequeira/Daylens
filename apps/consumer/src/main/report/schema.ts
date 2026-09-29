@@ -63,16 +63,20 @@ function fixVoice(text: string): string {
   return out;
 }
 
+/** Rewrites stray first-person pronouns to second person in a single free-text field. Exported so other writer
+ * contracts (e.g. the weekly report) can reuse the same rewrite without going through the full ReportJson shape. */
+export const normalizeVoiceText = fixVoice;
+
 /** Rewrites stray first-person pronouns to second person in the free-text fields (never headline or plan, which
  * are short labels rather than prose). A safety net: the SYSTEM prompt already asks for "you" voice. */
 export function normalizeVoice(report: ReportJson): ReportJson {
   return {
     ...report,
-    story: fixVoice(report.story),
-    wins: report.wins.map(fixVoice),
-    habits: report.habits.map(fixVoice),
-    advice: fixVoice(report.advice),
-    doBetter: report.doBetter.map((d) => ({ ...d, what: fixVoice(d.what), better: fixVoice(d.better) }))
+    story: normalizeVoiceText(report.story),
+    wins: report.wins.map(normalizeVoiceText),
+    habits: report.habits.map(normalizeVoiceText),
+    advice: normalizeVoiceText(report.advice),
+    doBetter: report.doBetter.map((d) => ({ ...d, what: normalizeVoiceText(d.what), better: normalizeVoiceText(d.better) }))
   };
 }
 
@@ -97,14 +101,22 @@ function dropUngroundedSentences(text: string, isGrounded: (mins: number) => boo
   return sentences.filter((s) => !hasUngroundedDuration(s, isGrounded)).join(' ').trim();
 }
 
+/** Removes any sentence in a single free-text field that mentions a duration/count not in `allowed` (±1 tolerance,
+ * hour mentions compared as their minute equivalent). Exported so other writer contracts (e.g. the weekly report)
+ * can reuse the same grounding rule without going through the full ReportJson shape. */
+export function groundText(s: string, allowed: number[]): string {
+  const isGrounded = (mins: number): boolean => allowed.some((a) => Math.abs(a - mins) <= 1);
+  return dropUngroundedSentences(s, isGrounded);
+}
+
 /** Drops any invented duration/count the writer put in wins, habits, doBetter or advice (whole item dropped), and
  * removes just the offending sentence from story/headline (never invalidating the whole report over one bad line).
  * `allowed` are real minute values (facts, episode minutes, candidate text numbers); ±1 tolerance absorbs rounding,
  * and hour mentions ("1 hour", "2h") are compared as their minute equivalent. */
 export function groundNumbers(report: ReportJson, allowed: number[]): ReportJson {
   const isGrounded = (mins: number): boolean => allowed.some((a) => Math.abs(a - mins) <= 1);
-  const headline = dropUngroundedSentences(report.headline, isGrounded) || 'Your day';
-  const story = dropUngroundedSentences(report.story, isGrounded);
+  const headline = groundText(report.headline, allowed) || 'Your day';
+  const story = groundText(report.story, allowed);
   const wins = report.wins.filter((w) => !hasUngroundedDuration(w, isGrounded));
   const habits = report.habits.filter((h) => !hasUngroundedDuration(h, isGrounded));
   const doBetter = report.doBetter.filter((d) => !hasUngroundedDuration(d.what, isGrounded) && !hasUngroundedDuration(d.better, isGrounded));

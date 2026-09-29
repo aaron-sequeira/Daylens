@@ -65,13 +65,14 @@ export function deleteActivity(db: Database.Database): void {
     if (hasTable(db, 'nudges')) db.exec('DELETE FROM nudges; DELETE FROM breaks;');
     if (hasTable(db, 'daily_reports')) db.exec('DELETE FROM daily_reports; DELETE FROM plan_items;');
     if (hasTable(db, 'report_fts')) db.exec('DELETE FROM report_fts;');
+    if (hasTable(db, 'weekly_reports')) db.exec('DELETE FROM weekly_reports;');
   })();
 }
 
 export interface ExportData {
   exportedAt: number; settings: DaylensSettings; profile: Profile;
   focusSessions: unknown[]; appEvents: unknown[]; activitySamples: unknown[]; screenReads: unknown[];
-  nudges: unknown[]; breaks: unknown[]; dailyReports: unknown[]; planItems: unknown[];
+  nudges: unknown[]; breaks: unknown[]; dailyReports: unknown[]; planItems: unknown[]; weeklyReports: unknown[];
 }
 
 export function exportAll(db: Database.Database, settings: DaylensSettings, profile: Profile, now: number): ExportData {
@@ -82,6 +83,7 @@ export function exportAll(db: Database.Database, settings: DaylensSettings, prof
     activitySamples: all('activity_samples'), screenReads: all('screen_reads'),
     nudges: hasTable(db, 'nudges') ? all('nudges') : [], breaks: hasTable(db, 'breaks') ? all('breaks') : [],
     dailyReports: hasTable(db, 'daily_reports') ? db.prepare('SELECT * FROM daily_reports ORDER BY date').all() : [],
-    planItems: hasTable(db, 'plan_items') ? all('plan_items') : []
+    planItems: hasTable(db, 'plan_items') ? all('plan_items') : [],
+    weeklyReports: hasTable(db, 'weekly_reports') ? db.prepare('SELECT * FROM weekly_reports ORDER BY week_start').all() : []
   };
 }
