@@ -14,11 +14,22 @@ export function mailtoUrl(date: string, r: ReportJson | null): string {
   return make(body);
 }
 
-export async function autoSavePdf(date: string, folder: string, deps: { render(date: string): Promise<Buffer>; write(p: string, b: Buffer): Promise<void>; exists(dir: string): Promise<boolean> }): Promise<'ok' | 'off' | string> {
+export interface AutoSaveDeps {
+  render(date: string): Promise<Buffer>;
+  write(p: string, b: Buffer): Promise<void>;
+  exists(dir: string): Promise<boolean>;
+  /** Renames the `.tmp` file over the final path, so a crash or a race with a concurrent read never leaves a truncated PDF. */
+  rename(from: string, to: string): Promise<void>;
+}
+
+export async function autoSavePdf(date: string, folder: string, deps: AutoSaveDeps): Promise<'ok' | 'off' | string> {
   if (!folder) return 'off';
   try {
     if (!(await deps.exists(folder))) return "The auto-save folder can't be found.";
-    await deps.write(autoSavePath(folder, date), await deps.render(date));
+    const final = autoSavePath(folder, date);
+    const tmp = `${final}.tmp`;
+    await deps.write(tmp, await deps.render(date));
+    await deps.rename(tmp, final);
     return 'ok';
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);

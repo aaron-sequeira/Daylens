@@ -16,13 +16,22 @@ describe('share', () => {
     expect(mailtoUrl('2026-09-26', { ...rep, story: 'x'.repeat(5000) }).length).toBeLessThanOrEqual(1800);
     expect(decodeURIComponent(mailtoUrl('2026-09-26', null).split('&body=')[1])).toMatch(/Daylens report/);
   });
-  it('auto-saves, reports off, and reports failures without throwing', async () => {
+  it('auto-saves atomically (tmp then rename), reports off, and reports failures without throwing', async () => {
     const written: string[] = [];
-    const deps = { render: async () => Buffer.from('%PDF'), write: async (p: string) => { written.push(p); }, exists: async () => true };
+    const renamed: Array<[string, string]> = [];
+    const deps = {
+      render: async () => Buffer.from('%PDF'),
+      write: async (p: string) => { written.push(p); },
+      exists: async () => true,
+      rename: async (from: string, to: string) => { renamed.push([from, to]); }
+    };
     expect(await autoSavePdf('2026-09-26', '', deps)).toBe('off');
     expect(await autoSavePdf('2026-09-26', 'C:\\R', deps)).toBe('ok');
-    expect(written[0]).toMatch(/Daylens-2026-09-26\.pdf$/);
+    expect(written[0]).toMatch(/Daylens-2026-09-26\.pdf\.tmp$/);
+    expect(renamed[0][0]).toBe(written[0]);
+    expect(renamed[0][1]).toMatch(/Daylens-2026-09-26\.pdf$/);
     expect(await autoSavePdf('2026-09-26', 'C:\\Gone', { ...deps, exists: async () => false })).toMatch(/folder/i);
     expect(await autoSavePdf('2026-09-26', 'C:\\R', { ...deps, write: async () => { throw new Error('EACCES: permission denied'); } })).toMatch(/permission/i);
+    expect(await autoSavePdf('2026-09-26', 'C:\\R', { ...deps, rename: async () => { throw new Error('boom'); } })).toMatch(/couldn't be saved/i);
   });
 });

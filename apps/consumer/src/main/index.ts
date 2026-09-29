@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityPro
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { stat, statfs, writeFile } from 'node:fs/promises';
+import { rename, stat, statfs, writeFile } from 'node:fs/promises';
 import { freemem, totalmem } from 'node:os';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
 import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
@@ -46,6 +46,7 @@ import { createReportSearch, reportBody, REPORT_FTS_SQL } from './report/search'
 import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
 import { autoSavePath, autoSavePdf, mailtoUrl } from './report/share';
+import { createPdfQueue } from './report/pdfQueue';
 import { createReportScheduler, MIN_AUTO_SCREEN_SEC, type ReportScheduler } from './report/scheduler';
 import { friendlyReason, generateReport } from './report/generate';
 import { batteryPercent } from './report/battery';
@@ -438,6 +439,15 @@ if (!app.requestSingleInstanceLock()) {
       devUrl: process.env['ELECTRON_RENDERER_URL'],
       indexFile: join(__dirname, '../renderer/index.html')
     });
+    // Serialises auto-saves so at most one hidden render window is ever open for them; a burst of
+    // schedule() calls (e.g. a report regenerated right after it first went ready) coalesces to the
+    // latest date rather than opening one window per call. The folder is read fresh on each run.
+    const pdfQueue = createPdfQueue((date) => autoSavePdf(date, settings.get().reportPdfFolder, {
+      render: (d) => renderReportPdf(d, pdfRenderDeps()),
+      write: writeFile,
+      exists: (d) => stat(d).then((s) => s.isDirectory(), () => false),
+      rename: (from, to) => rename(from, to)
+    }).then((r) => { pdfFolderError = r === 'ok' || r === 'off' ? null : r; }));
     // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.
     let suspendedDuringWrite = false;
     const pastActivity = new Map<string, boolean>(); // date → ≥30 min screen time, for finished days only (cleared by Delete my activity)
@@ -484,12 +494,7 @@ if (!app.requestSingleInstanceLock()) {
             if (fresh?.status === 'ready' && fresh.report) reportSearch.upsert(date, reportBody(fresh.report, topAppsFor(date)));
           } catch (e) { console.error('[search] upsert failed:', e); }
           // Fire-and-forget: never delay the scheduler on the PDF write; failures only surface as a Settings warning.
-          void autoSavePdf(date, settings.get().reportPdfFolder, {
-            render: (d) => renderReportPdf(d, pdfRenderDeps()),
-            write: writeFile,
-            exists: (d) => stat(d).then((s) => s.isDirectory(), () => false)
-          }).then((r) => { pdfFolderError = r === 'ok' || r === 'off' ? null : r; })
-            .catch((e) => console.error('[report] auto-save PDF failed:', e));
+          pdfQueue.schedule(date);
         }
         return outcome;
       },
@@ -664,25 +669,34 @@ if (!app.requestSingleInstanceLock()) {
           const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory', 'createDirectory'] });
           if (r.canceled || !r.filePaths[0]) return { folder: settings.get().reportPdfFolder };
           settings.set({ reportPdfFolder: r.filePaths[0] });
+          pdfFolderError = null; // a fresh folder choice clears any warning from the old one
           return { folder: r.filePaths[0] };
         },
-        clearPdfFolder: () => { settings.set({ reportPdfFolder: '' }); return { folder: '' }; },
+        clearPdfFolder: () => { settings.set({ reportPdfFolder: '' }); pdfFolderError = null; return { folder: '' }; },
         shareGet: () => ({ folder: settings.get().reportPdfFolder, lastError: pdfFolderError }),
         email: async (date) => {
+          const folder = settings.get().reportPdfFolder;
+          const saved = folder ? autoSavePath(folder, date) : null;
+          let pdf: string;
           try {
-            const folder = settings.get().reportPdfFolder;
-            const saved = folder ? autoSavePath(folder, date) : null;
             const savedExists = saved !== null && await stat(saved).then((s) => s.isFile(), () => false);
-            const pdf = savedExists && saved ? saved : join(app.getPath('temp'), pdfFileName(date));
+            pdf = savedExists && saved ? saved : join(app.getPath('temp'), pdfFileName(date));
             if (!savedExists) {
               const r = await exportPdf(date, { render: (d) => renderReportPdf(d, pdfRenderDeps()), write: (p, b) => writeFile(p, b) }, pdf);
-              if (r !== 'ok') return { ok: false, reason: r };
+              if (r !== 'ok') throw new Error(r);
             }
+          } catch (e) {
+            // Never surface the raw error (it can include a filesystem path); log only its type.
+            console.error('[report] email PDF prep failed:', e instanceof Error ? e.name : typeof e);
+            return { ok: false, reason: "Couldn't prepare the PDF for email." };
+          }
+          try {
             await shell.openExternal(mailtoUrl(date, reportStore.get(date)?.report ?? null));
             shell.showItemInFolder(pdf);
             return { ok: true };
           } catch (e) {
-            return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+            console.error('[report] email open failed:', e instanceof Error ? e.name : typeof e);
+            return { ok: false, reason: "Couldn't open your mail app." };
           }
         }
       },
