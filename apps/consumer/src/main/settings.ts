@@ -36,7 +36,7 @@ export const DEFAULT_SETTINGS = {
   reportPdfFolder: '',
   zoneName: '',
   zoneOffset: 0,
-  travelOffUntil: 0
+  travelOffFor: 0
 };
 export type DaylensSettings = typeof DEFAULT_SETTINGS;
 

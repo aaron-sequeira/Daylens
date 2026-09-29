@@ -32,7 +32,12 @@ describe('travelState', () => {
   });
   it('turned off for this trip', () => {
     const c = chg(now - H, 60, 540);
-    expect(travelState(c, 60, now, c.at + 3 * D)).toBeNull();
+    expect(travelState(c, 60, now, c.at)).toBeNull();
+  });
+  it('a second trip whose endsAt equals a turned-off trip\'s endsAt still shows', () => {
+    const first = chg(now - 3 * D, 60, 960);   // diff 900 -> days 5, endsAt = now + 2D
+    const second = chg(now, 60, 420);          // diff 360 -> days 2, endsAt = now + 2D (same as `first`'s)
+    expect(travelState(second, 60, now, first.at)).not.toBeNull();
   });
 });
 

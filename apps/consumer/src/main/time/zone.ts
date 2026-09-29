@@ -38,17 +38,31 @@ export function createZoneWatcher(d: {
   read(): Promise<string | null>; offset(): number; apply(): Promise<boolean>;
   stored(): { name: string; offset: number }; save(z: { name: string; offset: number }): void; now(): number;
 }) {
+  let running = false; // resume + unlock-screen can fire together on wake: only one check runs at a time
   return {
-    /** Reads the Windows zone; on a change points the JS clock at it, stores and returns the change. */
+    /** Reads the Windows zone; on a change points the JS clock at it, stores and returns the change.
+     * A concurrent call while one is already in flight resolves to null immediately, without reading or applying. */
     async check(): Promise<TzChange | null> {
-      const name = await d.read();
-      if (!name) return null;
-      const prev = d.stored();
-      if (prev.name === name) return null;
-      if (prev.name !== '' && !(await d.apply())) return null; // couldn't get the standard name: try again next check
-      const offset = d.offset();
-      d.save({ name, offset });
-      return prev.name === '' ? null : { at: d.now(), fromName: prev.name, toName: name, fromOffset: prev.offset, toOffset: offset };
+      if (running) return null;
+      running = true;
+      try {
+        const name = await d.read();
+        if (!name) return null;
+        const prev = d.stored();
+        if (prev.name === name) {
+          // Same zone, different offset: a DST shift, not travel. Keep the stored offset current so the next
+          // real trip's fromOffset isn't stale by the DST amount; no change event, no apply.
+          const offset = d.offset();
+          if (offset !== prev.offset) d.save({ name, offset });
+          return null;
+        }
+        if (prev.name !== '' && !(await d.apply())) return null; // couldn't get the standard name: try again next check
+        const offset = d.offset();
+        d.save({ name, offset });
+        return prev.name === '' ? null : { at: d.now(), fromName: prev.name, toName: name, fromOffset: prev.offset, toOffset: offset };
+      } finally {
+        running = false;
+      }
     }
   };
 }

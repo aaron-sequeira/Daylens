@@ -31,7 +31,7 @@ import { planReminders } from './reminders/schedule';
 import { reminderTitle, type Reminder } from '../shared/reminders';
 import { applyZone, createZoneWatcher, currentOffsetMin, readIanaZone, readWindowsZone } from './time/zone';
 import { createTzStore, TZ_SQL } from './time/tzStore';
-import { homeOffset, travelReminders, travelState, TRAVEL_WATER_MIN, type TravelView } from './time/travel';
+import { homeOffset, travelReminders, travelState, HOME_WINDOW_MS, TRAVEL_WATER_MIN, type TravelView } from './time/travel';
 import { queryNotificationState } from './coach/notifState';
 import { parseFewer, parseKinds, parseLimits } from './coach/settings';
 import { repeatedSearches, searchTitlesFrom, switchesBetween } from './coach/activity';
@@ -155,7 +155,7 @@ if (!app.requestSingleInstanceLock()) {
     setInterval(checkZone, 5 * 60_000);
     const travelView = (): TravelView | null => {
       const now = Date.now();
-      return travelState(tzStore.latest(), homeOffset(tzStore.since(now - 14 * 86_400_000), currentOffsetMin(), now), now, settings.get().travelOffUntil);
+      return travelState(tzStore.latest(), homeOffset(tzStore.since(now - HOME_WINDOW_MS), currentOffsetMin(), now), now, settings.get().travelOffFor);
     };
     const travelReminderById = (id: number): Reminder | null => { const v = travelView(); return v ? travelReminders(v).find((r) => r.id === id) ?? null : null; };
     // Created early: buildSnapshot (below) needs it for plan overrides.
@@ -990,7 +990,7 @@ if (!app.requestSingleInstanceLock()) {
         view: travelView,
         off: () => {
           const v = travelView();
-          if (v) { settings.set({ travelOffUntil: v.endsAt }); win?.webContents.send(CH.eventsUpdate); }
+          if (v) { settings.set({ travelOffFor: tzStore.latest()?.at ?? 0 }); win?.webContents.send(CH.eventsUpdate); }
         }
       },
       models: {

@@ -71,4 +71,31 @@ describe('createZoneWatcher', () => {
     expect(await t.w.check()).toBeNull();
     expect(t.saved).toEqual([]);
   });
+  it('a DST shift (same zone name, new offset) is saved silently: no change, no apply', async () => {
+    const t = mk(['GMT Standard Time'], [60], { name: 'GMT Standard Time', offset: 0 });
+    expect(await t.w.check()).toBeNull();
+    expect(t.applied()).toBe(0);
+    expect(t.saved).toEqual([{ name: 'GMT Standard Time', offset: 60 }]);
+  });
+  it('re-entrancy: a concurrent check resolves to null while one is in flight', async () => {
+    let resolveApply!: (v: boolean) => void;
+    const applyPromise = new Promise<boolean>((res) => { resolveApply = res; });
+    let applied = 0;
+    const w = createZoneWatcher({
+      read: async () => 'Tokyo Standard Time',
+      offset: () => 540,
+      apply: async () => { applied++; return applyPromise; },
+      stored: () => ({ name: 'GMT Standard Time', offset: 60 }),
+      save: () => {},
+      now: () => 1000
+    });
+    const p1 = w.check();
+    const p2 = w.check();
+    resolveApply(true);
+    const [r1, r2] = await Promise.all([p1, p2]);
+    expect(applied).toBe(1);
+    const results = [r1, r2];
+    expect(results.filter((r) => r !== null)).toHaveLength(1);
+    expect(results.some((r) => r === null)).toBe(true);
+  });
 });

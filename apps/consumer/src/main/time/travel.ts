@@ -1,7 +1,8 @@
 import type { TzChange } from './zone';
 import type { Reminder } from '../../shared/reminders';
 
-const D = 24 * 3_600_000, WINDOW = 14 * D;
+const D = 24 * 3_600_000;
+export const HOME_WINDOW_MS = 14 * D;
 export const TRAVEL_WATER_MIN = 45;
 const ALL = [1, 2, 3, 4, 5, 6, 7];
 
@@ -9,7 +10,7 @@ export interface TravelView { direction: 'east' | 'west'; fromHomeMin: number; b
 
 /** The offset lived in longest over the last 14 days (wall-clock time — tracking rows don't store offsets). */
 export function homeOffset(changes: TzChange[], currentOffset: number, now: number): number {
-  const from = now - WINDOW;
+  const from = now - HOME_WINDOW_MS;
   const inRange = changes.filter((c) => c.at > from && c.at <= now).sort((a, b) => a.at - b.at);
   const time = new Map<number, number>();
   const add = (o: number, ms: number): void => { time.set(o, (time.get(o) ?? 0) + ms); };
@@ -25,13 +26,13 @@ const TIPS = {
   both: ['Naps: 20 minutes max, before 3 pm.', 'Drink extra water — flying dries you out.', 'Your wind-down reminder already follows local time.']
 };
 
-export function travelState(latest: TzChange | null, home: number, now: number, offUntil: number): TravelView | null {
+export function travelState(latest: TzChange | null, home: number, now: number, offFor: number): TravelView | null {
   if (!latest) return null;
   const diff = latest.toOffset - latest.fromOffset;
   if (Math.abs(diff) < 180) return null;
   const days = Math.min(5, Math.max(2, Math.round(Math.abs(diff) / 180)));
   const endsAt = latest.at + days * D;
-  if (now >= endsAt || offUntil >= endsAt || now < latest.at) return null;
+  if (now >= endsAt || offFor === latest.at || now < latest.at) return null;
   const direction = diff > 0 ? 'east' : 'west';
   const fromHomeMin = latest.toOffset - home;
   return { direction, fromHomeMin, back: fromHomeMin === 0, day: Math.floor((now - latest.at) / D) + 1, days, endsAt, tips: [...TIPS[direction], ...TIPS.both] };
