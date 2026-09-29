@@ -4,6 +4,7 @@ import { GOALS, MAX_DISTRACTIONS, MAX_TEXT, ROLES, type Profile } from '../../sh
 import { api } from '../lib/api';
 import { addDistraction, bubbleFor, cardsFor, DISTRACTION_CHOICES, GOAL_INFO, ROLE_INFO, STEP_COUNT, summaryFor, toggleDistraction } from '../lib/onboardingContent';
 import { OnboardingArt } from './OnboardingArt';
+import { Logo } from './Logo';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -106,6 +107,7 @@ export function Onboarding({ mode, initial, initialScreen, onDone, onCancel }: {
     switch (step) {
       case 0:
         return (<>
+          <div className="ob-logo"><Logo variant="full" size={96} animate="mount" /></div>
           <p className="ob-kicker"><i style={{ background: 'var(--mint)' }}>☀</i>Welcome</p>
           <h1 tabIndex={-1}>See your day<br /><b>clearly.</b></h1>
           <p className="lead">Daylens quietly notices how you use your PC and nudges you toward healthier habits. First, a few quick questions so it can get to know you.</p>

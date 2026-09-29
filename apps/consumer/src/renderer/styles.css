@@ -26,11 +26,11 @@ button { font: inherit; color: inherit; }
 
 /* rail */
 .rail { background: var(--panel); border-radius: 22px; display: flex; flex-direction: column; align-items: center; padding: 22px 0; gap: 14px; }
-.logo { width: 40px; height: 40px; border-radius: 12px; background: var(--ink); color: #fff; display: grid; place-items: center; margin-bottom: 26px; }
+.logo { display: grid; place-items: center; margin-bottom: 26px; }
 .nav { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--white); display: grid; place-items: center; cursor: pointer; transition: transform .25s var(--spring), background .2s; }
 .nav:hover { transform: scale(1.08); }
 .nav.on { background: var(--ink); color: #fff; }
-.nav svg, .logo svg { width: 20px; height: 20px; }
+.nav svg { width: 20px; height: 20px; }
 .spacer { flex: 1; }
 
 /* today — main column */
@@ -143,6 +143,7 @@ button { font: inherit; color: inherit; }
 .ob-step > *:nth-child(5) { animation-delay: .28s; }
 .ob-step > *:nth-child(6) { animation-delay: .35s; }
 .ob-step > *:nth-child(7) { animation-delay: .42s; }
+.ob-logo { margin-bottom: 14px; }
 .ob-kicker { font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
 .ob-kicker i { font-style: normal; width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; }
 .ob-step h1 { font-weight: 400; font-size: 46px; letter-spacing: -.025em; line-height: 1.06; margin-bottom: 12px; outline: none; }
@@ -409,4 +410,21 @@ body:has(.print-root), #root:has(.print-root) { height: auto; overflow: visible;
 @media print {
   body { background: #FBF8F4; }
   .report details, .report .rep-actions, .report .date-pick, .report .rep-search { display: none; }
+}
+
+/* ---------- Sunrise logo draw-in (Logo.tsx) ---------- */
+/* pathLength=1 on every pen stroke. Dash 1 + gap 2 with offset 1.01 hides a stroke completely (no round-cap dot at
+   its start) until the pen reaches it; offset 0 shows it whole. */
+.dl-logo .dl-c, .dl-logo .dl-r, .dl-logo .dl-h { stroke-dasharray: 1 2; stroke-dashoffset: 0; }
+.dl-pre .dl-c, .dl-pre .dl-r, .dl-pre .dl-h, .dl-play .dl-c, .dl-play .dl-r, .dl-play .dl-h { stroke-dashoffset: 1.01; }
+.dl-pre .dl-sun, .dl-play .dl-sun { transform: translateY(10px); }
+.dl-play .dl-h { animation: dl-pen .5s cubic-bezier(.65, 0, .35, 1) .2s forwards; }
+.dl-play .dl-c { animation: dl-pen .7s cubic-bezier(.65, 0, .35, 1) .55s forwards; }
+.dl-play .dl-r { animation: dl-pen .8s cubic-bezier(.65, 0, .35, 1) 1.1s forwards; }
+.dl-play .dl-sun { animation: dl-rise .9s var(--ease) .5s forwards; }
+@keyframes dl-pen { to { stroke-dashoffset: 0; } }
+@keyframes dl-rise { to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .dl-logo .dl-c, .dl-logo .dl-r, .dl-logo .dl-h { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; animation: none !important; }
+  .dl-logo .dl-sun { transform: none !important; animation: none !important; }
 }
