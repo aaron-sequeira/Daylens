@@ -310,6 +310,9 @@ if (!app.requestSingleInstanceLock()) {
       const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
       const o = planOverrides(reportStore.plan(date), date);
       const travel = travelView();
+      // The coach only ticks while the user is active, so a lock stretch still open here missed its unlock event:
+      // close it, or every clock reminder would be skipped until the app restarts.
+      if (powerMonitor.getSystemIdleState(120) !== 'locked') lockLog.unlock(now);
       const planned = planReminders({
         reminders: [...reminderStore.list(), ...(travel ? travelReminders(travel) : [])],
         states: reminderStore.states(), now, samples,
