@@ -11,6 +11,7 @@ import { HealthPanel } from './HealthPanel';
 import { ScreenPrompt } from './ScreenPrompt';
 import { HeldCard } from './HeldCard';
 import { PlanCard } from './PlanCard';
+import { TravelCard } from './TravelCard';
 
 export function TodayScreen({ settings, onChange }: { settings: DaylensSettings; onChange: (s: DaylensSettings) => void }) {
   const [view, setView] = useState<TodayView | null>(null);
@@ -34,6 +35,7 @@ export function TodayScreen({ settings, onChange }: { settings: DaylensSettings;
     <>
       <main className="today">
         <ScreenPrompt settings={settings} onChange={onChange} />
+        <TravelCard />
         <HeldCard />
         <PlanCard />
         <p className="date">

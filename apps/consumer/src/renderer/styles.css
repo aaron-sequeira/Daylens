@@ -452,3 +452,6 @@ body:has(.print-root), #root:has(.print-root) { height: auto; overflow: visible;
 .gal-tile.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
 .gal-scene { width: 56px; height: 56px; }
 .gal-tile:not(.on):not(:hover):not(:focus-visible) .dl-scene-svg * { animation-play-state: paused; }
+.travel { background: var(--sky); border-radius: 18px; padding: 16px 18px; display: grid; gap: 8px; margin-bottom: 14px; }
+.travel ul { margin: 0; padding-left: 18px; font-size: 13px; color: #3c3834; }
+.travel .btn { justify-self: start; }
