@@ -25,7 +25,7 @@ export interface CoachStore {
   expireHeld(id: number): boolean;
   since(ms: number): NudgeRow[];
   heldForDay(date: string): NudgeRow[];
-  recordBreak(b: { at: number; date: string; kind: 'eye' | 'stretch'; seconds: number; completed: boolean }): void;
+  recordBreak(b: { at: number; date: string; kind: string; seconds: number; completed: boolean }): void;
   lastCompletedBreakAt(): number | null;
   completedBreaksForDay(date: string): number[];
   clear(): void;

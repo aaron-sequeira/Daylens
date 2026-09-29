@@ -33,7 +33,7 @@ import { parseTip, tipAllowedMinutes, tipInput, tipPrompt, tipRewriteAllowed, TI
 import { parseExclusions } from './screen/exclusions';
 import { createPillManager, pillMessage, PILL_W, PILL_MARGIN } from './windows/pill';
 import { electronPillWindow } from './windows/pillElectron';
-import { createBreakOverlay, breakMessage } from './windows/breakOverlay';
+import { createBreakOverlay, breakMessage, PRESETS } from './windows/breakOverlay';
 import { electronBreakWindow } from './windows/breakOverlayElectron';
 import { loadTodayView, type TimelineSegment } from './day/today';
 import { dayBounds, shiftDate } from './day/time';
@@ -208,7 +208,7 @@ if (!app.requestSingleInstanceLock()) {
       }),
       onDone: (r) => {
         const now = Date.now();
-        coachStore.recordBreak({ at: now, date: localDate(now), kind: r.kind, seconds: r.seconds, completed: r.completed });
+        coachStore.recordBreak({ at: now, date: localDate(now), kind: r.spec.label, seconds: r.seconds, completed: r.completed });
         win?.webContents.send(CH.eventsUpdate);
       }
     });
@@ -242,8 +242,8 @@ if (!app.requestSingleInstanceLock()) {
           const k = meta.kind as keyof typeof fewer;
           settings.set({ nudgeFewer: JSON.stringify({ ...fewer, [k]: Math.min(64, (fewer[k] ?? 1) * 2) }) });
         }
-        if (action === 'primary' && meta?.action === 'break_eye') overlay.start('eye');
-        if (action === 'primary' && meta?.action === 'break_stretch') overlay.start('stretch');
+        if (action === 'primary' && meta?.action === 'break_eye') overlay.start(PRESETS.eye);
+        if (action === 'primary' && meta?.action === 'break_stretch') overlay.start(PRESETS.stretch);
         refreshTray();
         win?.webContents.send(CH.eventsUpdate);
       }

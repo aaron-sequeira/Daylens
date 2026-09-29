@@ -7,12 +7,14 @@
   </head>
   <body>
     <main class="overlay">
-      <div class="breath"><div class="blob"></div>
-        <svg width="180" height="180"><circle cx="90" cy="90" r="86" stroke="rgba(0,0,0,.08)" stroke-width="4" fill="none"/><circle class="p" id="ring" cx="90" cy="90" r="86" stroke="#171717" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
-        <span class="num" id="num">20</span></div>
-      <span class="hint" id="hint">Breathe in…</span>
-      <h3 id="title">Look at something far away</h3>
-      <p id="text">At least 6 metres, like a window, a wall across the room, or the sky.</p>
+      <div class="ring">
+        <svg class="track" width="230" height="230"><circle cx="115" cy="115" r="110" stroke="rgba(0,0,0,.08)" stroke-width="4" fill="none"/><circle class="p" id="ring" cx="115" cy="115" r="110" stroke="#171717" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+        <div class="scene" id="scene"></div>
+      </div>
+      <span class="left" id="num">0:20 left</span>
+      <span class="hint" id="hint"></span>
+      <h3 id="title"></h3>
+      <p id="text"></p>
       <div class="btns"><button class="pbtn s" id="skip">Skip</button><button class="pbtn s" id="more">+1 min</button></div>
     </main>
     <script type="module" src="/src/break/main.ts"></script>

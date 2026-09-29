@@ -1,0 +1,54 @@
+/* Break-scene animations (shared by the break screen and the reminder editor gallery). Hand-drawn: ink strokes, app
+   pastels. --sc-dur (set by the break screen) paces the water fill to the break's length. */
+.dl-scene-svg { width: 100%; height: 100%; overflow: visible; }
+.dl-scene-svg * { transform-box: view-box; }
+.sc-ink { fill: none; stroke: #171717; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.sc-fill { animation: sc-rise var(--sc-dur, 12s) ease-in-out infinite; }
+@keyframes sc-rise { 0% { transform: translateY(62px); } 70%, 100% { transform: translateY(0); } }
+.sc-wave { animation: sc-wave 2.4s linear infinite; }
+@keyframes sc-wave { to { transform: translateX(-24px); } }
+.sc-bub { opacity: 0; animation: sc-bub 3s ease-in infinite; }
+.sc-bub:nth-of-type(2) { animation-delay: 1s; } .sc-bub:nth-of-type(3) { animation-delay: 2s; }
+@keyframes sc-bub { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: .9; } 100% { transform: translateY(-46px); opacity: 0; } }
+.sc-steam { stroke-dasharray: 60; opacity: 0; animation: sc-steam 3.6s ease-in-out infinite; }
+.sc-s2 { animation-delay: 1.2s; } .sc-s3 { animation-delay: 2.4s; }
+@keyframes sc-steam { 0% { stroke-dashoffset: 60; transform: translateY(6px); opacity: 0; } 30% { opacity: .85; } 60% { stroke-dashoffset: 0; } 100% { transform: translateY(-10px); opacity: 0; } }
+.sc-chop { transform-origin: 84px 26px; animation: sc-chop 2.8s ease-in-out infinite; }
+@keyframes sc-chop { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-7deg) translateY(-3px); } }
+.sc-bag { transform-origin: 62px 50px; animation: sc-sway 3s ease-in-out infinite; }
+@keyframes sc-sway { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(8deg); } }
+.sc-fork { transform-origin: 10px 92px; animation: sc-sway 3.4s ease-in-out infinite; }
+.sc-knife { transform-origin: 110px 92px; animation: sc-sway 3.4s ease-in-out infinite reverse; }
+.sc-body { transform-origin: 60px 100px; animation: sc-lean 6s ease-in-out infinite; }
+@keyframes sc-lean { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+.sc-arm-l { transform-origin: 60px 46px; animation: sc-arm-l 6s ease-in-out infinite; }
+.sc-arm-r { transform-origin: 60px 46px; animation: sc-arm-r 6s ease-in-out infinite; }
+@keyframes sc-arm-l { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(55deg); } }
+@keyframes sc-arm-r { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-55deg); } }
+.sc-ground { animation: sc-ground 2s linear infinite; }
+@keyframes sc-ground { to { transform: translateX(-40px); } }
+.sc-walker { animation: sc-bob 1s ease-in-out infinite; }
+@keyframes sc-bob { 50% { transform: translateY(-2px); } }
+.sc-leg-a, .sc-leg-b { transform-origin: 58px 66px; animation: sc-swing 1s ease-in-out infinite; }
+.sc-leg-b { animation-direction: reverse; }
+.sc-arm-a, .sc-arm-b { transform-origin: 59px 44px; animation: sc-swing 1s ease-in-out infinite reverse; }
+.sc-arm-b { animation-direction: normal; }
+@keyframes sc-swing { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(20deg); } }
+.sc-iris { animation: sc-look 6s ease-in-out infinite; }
+@keyframes sc-look { 0%, 20%, 100% { transform: translate(0, 0); } 40%, 75% { transform: translate(14px, -6px); } }
+.sc-lid { transform-origin: 50px 34px; transform: scaleY(0); animation: sc-blink 6s ease-in-out infinite; }
+@keyframes sc-blink { 0%, 86%, 100% { transform: scaleY(0); } 90% { transform: scaleY(1); } }
+.sc-pill { transform-origin: 48px 36px; animation: sc-drop 3.6s cubic-bezier(.5, 0, .75, 1) infinite; }
+@keyframes sc-drop { 0% { transform: translateY(-6px) rotate(-20deg); opacity: 0; } 15% { opacity: 1; } 60%, 85% { transform: translateY(40px) rotate(10deg); opacity: 1; } 100% { transform: translateY(40px) rotate(10deg); opacity: 0; } }
+.sc-phone { transform-origin: 58px 62px; animation: sc-ring 2.4s ease-in-out infinite; }
+@keyframes sc-ring { 0%, 40%, 100% { transform: rotate(0); } 5%, 15%, 25%, 35% { transform: rotate(-7deg); } 10%, 20%, 30% { transform: rotate(7deg); } }
+.sc-ring { opacity: 0; animation: sc-pulse 2.4s ease-out infinite; }
+.sc-r2 { animation-delay: .3s; }
+@keyframes sc-pulse { 0% { opacity: 0; } 10%, 40% { opacity: 1; } 60%, 100% { opacity: 0; } }
+.sc-breathe { transform-origin: 60px 60px; animation: sc-breathe 8s ease-in-out infinite; }
+@keyframes sc-breathe { 0%, 100% { transform: scale(.72); } 50% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .dl-scene-svg * { animation: none !important; }
+  .sc-fill, .sc-lid { transform: none; } .sc-lid { transform: scaleY(0); }
+  .sc-steam, .sc-bub, .sc-ring { opacity: .7; stroke-dashoffset: 0; }
+}
