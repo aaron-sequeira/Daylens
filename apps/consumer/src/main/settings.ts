@@ -32,7 +32,8 @@ export const DEFAULT_SETTINGS = {
   writerDeclined: false,
   aiProvider: 'anthropic',
   aiModel: 'claude-haiku-4-5',
-  aiBaseUrl: ''
+  aiBaseUrl: '',
+  reportPdfFolder: ''
 };
 export type DaylensSettings = typeof DEFAULT_SETTINGS;
 

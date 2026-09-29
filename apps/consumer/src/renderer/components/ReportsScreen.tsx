@@ -22,6 +22,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   const [showCloud, setShowCloud] = useState(false);
   const [planError, setPlanError] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<string | null>(null);
 
   // Guards stale IPC results: only apply a resolved ReportView if it's still for the date on screen.
   const dateRef = useRef<string | null>(date);
@@ -138,6 +139,12 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
         setExportStatus(r.ok ? `Saved to ${r.path}` : r.reason);
       })
       .catch((e) => { console.error('[renderer] reports.exportPdf failed:', e); setExportStatus('Could not export the PDF.'); });
+  };
+  const email = (): void => {
+    setEmailStatus(null);
+    api.reports.email(view.date)
+      .then((r) => { if (!r.ok) setEmailStatus(r.reason); })
+      .catch((e) => { console.error('[renderer] reports.email failed:', e); setEmailStatus('Could not open an email draft.'); });
   };
   const download = (): void => {
     api.writer.download().then(setWriter).catch((e) => { console.error('[renderer] writer.download failed:', e); load(); });
@@ -281,7 +288,9 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
           {!print && (
             <div className="rep-actions">
               <button className="export" onClick={exportPdf}>Export PDF</button>
+              <button className="export" onClick={email}>Email</button>
               {exportStatus && <span className="report-note">{exportStatus}</span>}
+              {emailStatus && <span className="report-note">{emailStatus}</span>}
             </div>
           )}
         </div>

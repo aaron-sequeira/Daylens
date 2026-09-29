@@ -2,7 +2,7 @@ import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityPro
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { statfs, writeFile } from 'node:fs/promises';
+import { stat, statfs, writeFile } from 'node:fs/promises';
 import { freemem, totalmem } from 'node:os';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
 import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
@@ -45,6 +45,7 @@ import { createReportStore, REPORT_SQL } from './report/store';
 import { createReportSearch, reportBody, REPORT_FTS_SQL } from './report/search';
 import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
+import { autoSavePath, autoSavePdf, mailtoUrl } from './report/share';
 import { createReportScheduler, MIN_AUTO_SCREEN_SEC, type ReportScheduler } from './report/scheduler';
 import { friendlyReason, generateReport } from './report/generate';
 import { batteryPercent } from './report/battery';
@@ -430,6 +431,13 @@ if (!app.requestSingleInstanceLock()) {
     }
     // Bumped by "Delete my activity": a report written across it must not be stored.
     let reportEpoch = 0;
+    // Set by the fire-and-forget PDF auto-save after each ready report; read by reports.shareGet for the Settings warning.
+    let pdfFolderError: string | null = null;
+    const pdfRenderDeps = () => ({
+      preload: join(__dirname, '../preload/index.js'),
+      devUrl: process.env['ELECTRON_RENDERER_URL'],
+      indexFile: join(__dirname, '../renderer/index.html')
+    });
     // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.
     let suspendedDuringWrite = false;
     const pastActivity = new Map<string, boolean>(); // date → ≥30 min screen time, for finished days only (cleared by Delete my activity)
@@ -475,6 +483,13 @@ if (!app.requestSingleInstanceLock()) {
             const fresh = reportStore.get(date);
             if (fresh?.status === 'ready' && fresh.report) reportSearch.upsert(date, reportBody(fresh.report, topAppsFor(date)));
           } catch (e) { console.error('[search] upsert failed:', e); }
+          // Fire-and-forget: never delay the scheduler on the PDF write; failures only surface as a Settings warning.
+          void autoSavePdf(date, settings.get().reportPdfFolder, {
+            render: (d) => renderReportPdf(d, pdfRenderDeps()),
+            write: writeFile,
+            exists: (d) => stat(d).then((s) => s.isDirectory(), () => false)
+          }).then((r) => { pdfFolderError = r === 'ok' || r === 'off' ? null : r; })
+            .catch((e) => console.error('[report] auto-save PDF failed:', e));
         }
         return outcome;
       },
@@ -639,16 +654,37 @@ if (!app.requestSingleInstanceLock()) {
           });
           if (canceled || !filePath) return { ok: false, cancelled: true };
           const r = await exportPdf(date, {
-            render: (d) => renderReportPdf(d, {
-              preload: join(__dirname, '../preload/index.js'),
-              devUrl: process.env['ELECTRON_RENDERER_URL'],
-              indexFile: join(__dirname, '../renderer/index.html')
-            }),
+            render: (d) => renderReportPdf(d, pdfRenderDeps()),
             write: (p, b) => writeFile(p, b)
           }, filePath);
           return r === 'ok' ? { ok: true, path: filePath } : { ok: false, reason: r };
         },
-        search: (q) => reportSearch.search(q)
+        search: (q) => reportSearch.search(q),
+        choosePdfFolder: async () => {
+          const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory', 'createDirectory'] });
+          if (r.canceled || !r.filePaths[0]) return { folder: settings.get().reportPdfFolder };
+          settings.set({ reportPdfFolder: r.filePaths[0] });
+          return { folder: r.filePaths[0] };
+        },
+        clearPdfFolder: () => { settings.set({ reportPdfFolder: '' }); return { folder: '' }; },
+        shareGet: () => ({ folder: settings.get().reportPdfFolder, lastError: pdfFolderError }),
+        email: async (date) => {
+          try {
+            const folder = settings.get().reportPdfFolder;
+            const saved = folder ? autoSavePath(folder, date) : null;
+            const savedExists = saved !== null && await stat(saved).then((s) => s.isFile(), () => false);
+            const pdf = savedExists && saved ? saved : join(app.getPath('temp'), pdfFileName(date));
+            if (!savedExists) {
+              const r = await exportPdf(date, { render: (d) => renderReportPdf(d, pdfRenderDeps()), write: (p, b) => writeFile(p, b) }, pdf);
+              if (r !== 'ok') return { ok: false, reason: r };
+            }
+            await shell.openExternal(mailtoUrl(date, reportStore.get(date)?.report ?? null));
+            shell.showItemInFolder(pdf);
+            return { ok: true };
+          } catch (e) {
+            return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+          }
+        }
       },
       plan: {
         today: () => reportStore.plan(localDate(Date.now())).map((p) => ({ id: p.id, text: p.item.text, enabled: p.enabled })),

@@ -5,7 +5,7 @@ import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
-import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult } from '../main/ipc';
+import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult, ShareGetView, EmailResult } from '../main/ipc';
 import type { SearchHit } from '../main/report/search';
 import type { ReportView, WriterView } from '../main/report/view';
 
@@ -52,7 +52,11 @@ const api = {
     days: (): Promise<string[]> => ipcRenderer.invoke(CH.reportsDays),
     tickPlan: (date: string, index: number, on: boolean): Promise<ReportView> => ipcRenderer.invoke(CH.reportsTickPlan, { date, index, on }),
     exportPdf: (date: string): Promise<ExportPdfResult> => ipcRenderer.invoke(CH.reportsExportPdf, date),
-    search: (q: string): Promise<SearchHit[]> => ipcRenderer.invoke(CH.reportsSearch, q)
+    search: (q: string): Promise<SearchHit[]> => ipcRenderer.invoke(CH.reportsSearch, q),
+    choosePdfFolder: (): Promise<{ folder: string }> => ipcRenderer.invoke(CH.reportsChoosePdfFolder),
+    clearPdfFolder: (): Promise<{ folder: string }> => ipcRenderer.invoke(CH.reportsClearPdfFolder),
+    shareGet: (): Promise<ShareGetView> => ipcRenderer.invoke(CH.reportsShareGet),
+    email: (date: string): Promise<EmailResult> => ipcRenderer.invoke(CH.reportsEmail, date)
   },
   writer: {
     get: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerGet),

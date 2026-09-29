@@ -49,6 +49,8 @@ export interface CoachView { kinds: Record<Kind, boolean>; snoozeUntil: number; 
 export interface CoachIpcDeps { held(): CoachView['held']; dismissHeld(id: number): void; test(): void; onChanged(): void; }
 
 export type ExportPdfResult = { ok: true; path: string } | { ok: false; reason: string } | { ok: false; cancelled: true };
+export interface ShareGetView { folder: string; lastError: string | null; }
+export type EmailResult = { ok: true } | { ok: false; reason: string };
 export interface ReportsDeps {
   view(date: string | null): ReportView;
   days(): string[];
@@ -57,6 +59,10 @@ export interface ReportsDeps {
   tickPlan(date: string, index: number, on: boolean): ReportView;
   exportPdf(date: string): Promise<ExportPdfResult>;
   search(q: string): SearchHit[];
+  choosePdfFolder(): Promise<{ folder: string }>;
+  clearPdfFolder(): { folder: string };
+  shareGet(): ShareGetView;
+  email(date: string): Promise<EmailResult>;
 }
 export interface PlanTodayItem { id: number; text: string; enabled: boolean; }
 export interface PlanDeps {
@@ -174,6 +180,10 @@ export function registerIpc(d: IpcDeps): void {
   });
   ipcMain.handle(CH.reportsExportPdf, (_e, raw) => d.reports.exportPdf(dateStr.parse(raw)));
   ipcMain.handle(CH.reportsSearch, (_e, raw) => d.reports.search(z.string().max(200).parse(raw)));
+  ipcMain.handle(CH.reportsChoosePdfFolder, () => d.reports.choosePdfFolder());
+  ipcMain.handle(CH.reportsClearPdfFolder, () => d.reports.clearPdfFolder());
+  ipcMain.handle(CH.reportsShareGet, () => d.reports.shareGet());
+  ipcMain.handle(CH.reportsEmail, (_e, raw) => d.reports.email(dateStr.parse(raw)));
   ipcMain.handle(CH.writerGet, () => d.writer.view());
   ipcMain.handle(CH.writerDownload, () => d.writer.download());
   ipcMain.handle(CH.writerCancelDownload, () => d.writer.cancelDownload());
