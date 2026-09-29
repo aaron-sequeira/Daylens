@@ -196,17 +196,27 @@ export function InsightsScreen() {
 
         <section className="detail">
           <h2>Your week</h2>
+          <div className="week-legend" aria-hidden="true">
+            <span><i className="sw-bar" />Screen time</span>
+            <span><i className="sw-line" />Health score (0–100)</span>
+          </div>
           <div className="week-chart">
+            {/* non-scaling-stroke keeps the line and dots even though the SVG stretches to the chart's width;
+                a dot is a zero-length round-capped line, which stays round under that stretch too. */}
             <svg className="health-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               {healthSegments.map((seg, i) => (
-                <polyline key={i} points={seg.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="var(--ink)" strokeWidth="1.5" />
+                <polyline key={i} points={seg.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="var(--ink)" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              ))}
+              {healthSegments.flat().map((p, i) => (
+                <polyline key={`d${i}`} points={`${p.x},${p.y} ${p.x},${p.y}`} stroke="var(--ink)" strokeWidth="8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
               ))}
             </svg>
             <div className="bars">
               {n.days.map((d, i) => {
                 const label = dayShortLabel(d.date, today);
                 return (
-                  <div key={d.date} className={`bar${d.date === today ? ' today' : ''}`} aria-label={`${label}: ${formatHm(d.screenSec)}`}>
+                  <div key={d.date} className={`bar${d.date === today ? ' today' : ''}`} aria-label={`${label}: ${formatHm(d.screenSec)}${d.healthScore === null ? '' : `, health score ${d.healthScore}`}`}>
                     <div className="stack" style={{ height: `${(d.screenSec / maxScreen) * 90}px`, animationDelay: `${0.3 + i * 0.08}s` }}>
                       {CATEGORIES.filter((c) => d.byCategory[c] > 0).map((c) => (
                         <div key={c} title={CATEGORY_LABEL[c]} style={{ height: `${(d.byCategory[c] / d.screenSec) * 100}%`, background: `var(--cat-${c})` }} />
