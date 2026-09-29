@@ -33,7 +33,10 @@ export const DEFAULT_SETTINGS = {
   aiProvider: 'anthropic',
   aiModel: 'claude-haiku-4-5',
   aiBaseUrl: '',
-  reportPdfFolder: ''
+  reportPdfFolder: '',
+  zoneName: '',
+  zoneOffset: 0,
+  travelOffUntil: 0
 };
 export type DaylensSettings = typeof DEFAULT_SETTINGS;
 
