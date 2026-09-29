@@ -2,7 +2,8 @@ import { displayAppName } from '../../shared/categories';
 
 export function formatHm(sec: number): string {
   const m = Math.floor(Math.max(0, sec) / 60);
-  return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+  if (m < 60) return `${m}m`;
+  return m % 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${Math.floor(m / 60)}h`;
 }
 
 export function formatClock(ms: number): string {

@@ -5,8 +5,10 @@ describe('format', () => {
   it('formatHm', () => {
     expect(formatHm(22320)).toBe('6h 12m');
     expect(formatHm(2880)).toBe('48m');
-    expect(formatHm(3600)).toBe('1h 0m');
+    expect(formatHm(3600)).toBe('1h');
+    expect(formatHm(7260)).toBe('2h 1m');
     expect(formatHm(20)).toBe('0m');
+    expect(formatHm(0)).toBe('0m');
     expect(formatHm(-5)).toBe('0m');
   });
   it('formatClock', () => {

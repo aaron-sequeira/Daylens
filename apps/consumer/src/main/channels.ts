@@ -47,5 +47,6 @@ export const CH = {
   writerSetMode: 'writer:setMode',
   writerSetTier: 'writer:setTier',
   writerSetCloud: 'writer:setCloud',
-  writerRetryLocal: 'writer:retryLocal'
+  writerRetryLocal: 'writer:retryLocal',
+  aboutGet: 'app:about'
 } as const;

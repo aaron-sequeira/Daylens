@@ -129,7 +129,7 @@ export function InsightsScreen() {
         );
       }
       case 'notEnough':
-        return <div className="report-card"><p>Not enough tracked days yet this week</p></div>;
+        return <div className="report-card"><p>{view.nextWeek === null ? 'Not enough tracked days yet this week' : 'Not enough tracked days that week'}</p></div>;
       case 'generate':
         return (
           <div className="report-card">

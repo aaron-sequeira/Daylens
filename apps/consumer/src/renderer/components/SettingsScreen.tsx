@@ -9,6 +9,7 @@ import { ModelSection } from './ModelSection';
 import { WriterSection } from './WriterSection';
 import { ReportsSettings } from './ReportsSettings';
 import { PopupsSection } from './PopupsSection';
+import { AboutSection } from './AboutSection';
 
 const GOAL_DEBOUNCE_MS = 300;
 
@@ -154,6 +155,8 @@ export function SettingsScreen({ settings, onChange, onRedo }: { settings: Dayle
           </select>
         </div>
       </div>
+
+      <AboutSection />
     </main>
   );
 }

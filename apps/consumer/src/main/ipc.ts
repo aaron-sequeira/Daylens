@@ -103,6 +103,8 @@ export interface WriterDeps {
   retryLocal(): WriterView;
 }
 
+export interface AboutView { version: string; credits: string[]; }
+
 export interface IpcDeps {
   repo: Repositories;
   settings: KvStore<DaylensSettings>;
@@ -119,6 +121,7 @@ export interface IpcDeps {
   insights: InsightsDeps;
   writer: WriterDeps;
   plan: PlanDeps;
+  about(): AboutView;
 }
 
 export function registerIpc(d: IpcDeps): void {
@@ -227,4 +230,6 @@ export function registerIpc(d: IpcDeps): void {
     const v = z.object({ id: z.number().int().min(1), on: z.boolean() }).strict().parse(raw);
     return d.plan.setEnabled(v.id, v.on);
   });
+
+  ipcMain.handle(CH.aboutGet, () => d.about());
 }

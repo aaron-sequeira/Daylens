@@ -913,6 +913,7 @@ if (!app.requestSingleInstanceLock()) {
           return writerView();
         }
       },
+      about: () => ({ version: app.getVersion(), credits: [WRITER_ATTRIBUTION] }),
       models: {
         view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
         redownload: async () => {

@@ -68,7 +68,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
   // after a newer one must not clobber the results of what's on screen now.
   const searchSeq = useRef(0);
   useEffect(() => {
-    if (print || !searchQ.trim()) { setSearchHits([]); setSearchOpen(false); setHighlighted(-1); return; }
+    if (print || !searchQ.trim()) { ++searchSeq.current; setSearchHits([]); setSearchOpen(false); setHighlighted(-1); return; }
     const t = setTimeout(() => {
       const mySeq = ++searchSeq.current;
       api.reports.search(searchQ).then((hits) => {
@@ -256,6 +256,9 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
                 onFocus={() => { if (searchHits.length > 0) setSearchOpen(true); }}
                 onKeyDown={onSearchKeyDown}
               />
+              <span className="sr-only" role="status" aria-live="polite">
+                {searchOpen && searchQ.trim() && searchHits.length === 0 ? 'No reports match' : ''}
+              </span>
               {searchOpen && (
                 <ul className="rep-hits" id="rep-search-listbox" role="listbox">
                   {searchHits.length > 0 ? searchHits.map((h, i) => (

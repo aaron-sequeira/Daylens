@@ -12,6 +12,12 @@ describe('weekLabel', () => {
   it('formats a week across a month boundary as "29 Sep – 5 Oct"', () => {
     expect(weekLabel('2026-09-29', '2026-11-01')).toBe('29 Sep – 5 Oct');
   });
+  it('adds years: both ends for a week spanning two years, once at the end for a week in another year', () => {
+    expect(weekLabel('2025-12-29', '2026-03-10')).toBe('29 Dec 2025 – 4 Jan 2026');
+    expect(weekLabel('2025-09-22', '2026-03-10')).toBe('22–28 Sep 2025');
+    expect(weekLabel('2025-09-29', '2026-03-10')).toBe('29 Sep – 5 Oct 2025');
+    expect(weekLabel('2026-06-01', '2026-09-30')).toBe('1–7 Jun'); // current year: unchanged
+  });
 });
 
 describe('deltaText', () => {

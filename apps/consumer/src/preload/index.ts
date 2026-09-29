@@ -5,7 +5,7 @@ import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
-import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult, ShareGetView, EmailResult, InsightsView } from '../main/ipc';
+import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult, ShareGetView, EmailResult, InsightsView, AboutView } from '../main/ipc';
 import type { SearchHit } from '../main/report/search';
 import type { ReportView, WriterView } from '../main/report/view';
 
@@ -86,7 +86,8 @@ const api = {
   },
   // Sent by the print route once its report DOM has painted, so the hidden export window
   // knows when to call webContents.printToPDF (see reportPdfElectron.ts).
-  printReady: (): void => ipcRenderer.send('report:printReady')
+  printReady: (): void => ipcRenderer.send('report:printReady'),
+  about: (): Promise<AboutView> => ipcRenderer.invoke(CH.aboutGet)
 };
 
 export type DaylensApi = typeof api;

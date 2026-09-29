@@ -30,9 +30,13 @@ export function weekLabel(weekStart: string, today: string): string {
   if (weekStart === addDays(current, -7)) return 'Last week';
   const start = parseYmd(weekStart);
   const end = parseYmd(addDays(weekStart, 6));
+  const thisYear = parseYmd(today).getFullYear();
+  const spansYears = start.getFullYear() !== end.getFullYear();
+  const endYear = spansYears || end.getFullYear() !== thisYear ? ` ${end.getFullYear()}` : '';
+  if (spansYears) return `${start.getDate()} ${MONTHS[start.getMonth()]} ${start.getFullYear()} – ${end.getDate()} ${MONTHS[end.getMonth()]}${endYear}`;
   return start.getMonth() === end.getMonth()
-    ? `${start.getDate()}–${end.getDate()} ${MONTHS[end.getMonth()]}`
-    : `${start.getDate()} ${MONTHS[start.getMonth()]} – ${end.getDate()} ${MONTHS[end.getMonth()]}`;
+    ? `${start.getDate()}–${end.getDate()} ${MONTHS[end.getMonth()]}${endYear}`
+    : `${start.getDate()} ${MONTHS[start.getMonth()]} – ${end.getDate()} ${MONTHS[end.getMonth()]}${endYear}`;
 }
 
 /** "↑ 12% vs last week" / "↓ 5% vs last week" / "same as last week" / "" when there's nothing to compare. */
