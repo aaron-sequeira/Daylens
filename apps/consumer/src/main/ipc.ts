@@ -15,8 +15,9 @@ import { kindsInput, limitsInput, snoozeInput, parseFewer, parseKinds, parseLimi
 import { nextEarlyMorning } from './day/time';
 import type { AppLimit, Kind } from './coach/types';
 import type { AiProvider } from '@worksight/core/ai';
-import type { ReportView, WriterView } from './report/view';
+import type { ReportView, WriterState, WriterView } from './report/view';
 import type { SearchHit } from './report/search';
+import type { InsightsNumbers, WeeklyRow } from './report/week';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -64,6 +65,17 @@ export interface ReportsDeps {
   shareGet(): ShareGetView;
   email(date: string): Promise<EmailResult>;
 }
+/** One week (Monday `weekStart`) on the Insights page: numbers built in code, plus the weekly summary row if any.
+ * `waiting` / `running` / `queued` are the report scheduler's state for this week's `W:` key. */
+export interface InsightsView {
+  numbers: InsightsNumbers; weekStart: string; prevWeek: string | null; nextWeek: string | null;
+  row: WeeklyRow | null; writer: WriterState; waiting: boolean; running: boolean; queued: boolean;
+}
+export interface InsightsDeps {
+  view(weekStart: string | null): InsightsView;
+  generate(weekStart: string): InsightsView;
+  cancel(weekStart: string): InsightsView;
+}
 export interface PlanTodayItem { id: number; text: string; enabled: boolean; }
 export interface PlanDeps {
   today(): PlanTodayItem[];
@@ -95,6 +107,7 @@ export interface IpcDeps {
   breaksFor(date: string): number[];
   coach: CoachIpcDeps;
   reports: ReportsDeps;
+  insights: InsightsDeps;
   writer: WriterDeps;
   plan: PlanDeps;
 }
@@ -184,6 +197,9 @@ export function registerIpc(d: IpcDeps): void {
   ipcMain.handle(CH.reportsClearPdfFolder, () => d.reports.clearPdfFolder());
   ipcMain.handle(CH.reportsShareGet, () => d.reports.shareGet());
   ipcMain.handle(CH.reportsEmail, (_e, raw) => d.reports.email(dateStr.parse(raw)));
+  ipcMain.handle(CH.insightsGet, (_e, raw) => d.insights.view(raw === null || raw === undefined ? null : dateStr.parse(raw)));
+  ipcMain.handle(CH.insightsGenerate, (_e, raw) => d.insights.generate(dateStr.parse(raw)));
+  ipcMain.handle(CH.insightsCancel, (_e, raw) => d.insights.cancel(dateStr.parse(raw)));
   ipcMain.handle(CH.writerGet, () => d.writer.view());
   ipcMain.handle(CH.writerDownload, () => d.writer.download());
   ipcMain.handle(CH.writerCancelDownload, () => d.writer.cancelDownload());

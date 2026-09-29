@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { friendlyReason, generateReport } from './generate';
+import { friendlyReason, generateReport, generateWeek } from './generate';
 import type { ReportStore } from './store';
+import { weekDates, type WeekInput, type WeekJson, type WeeklyStore } from './week';
 
 function store(status: 'ready' | 'failed' | null = null) {
   const log: string[] = [];
@@ -95,6 +96,73 @@ describe('generateReport', () => {
     expect(saved.story).toBe(''); // the only sentence claimed a 90-minute deep-work streak with deepWorkMin: 0
     expect(saved.wins).toEqual(['You stayed on task']);
     expect(saved.advice).toBe('Watch your screen time.');
+  });
+});
+
+describe('generateWeek', () => {
+  const weekInput = (): WeekInput => ({
+    weekStart: '2026-09-21',
+    days: weekDates('2026-09-21').map((date, i) => ({ date, screenMin: i === 0 ? 120 : 0, deepWorkMin: i === 0 ? 30 : 0, healthScore: null,
+      topApps: ['Code'], topSites: ['github.com'], headline: `Local headline ${i}` })),
+    totals: { screenMin: 120, deepWorkMin: 30, activeDays: 1, prevScreenMin: 300 }
+  });
+  function wstore(status: 'ready' | 'failed' | null = null) {
+    const log: string[] = [];
+    let saved: WeekJson | null = null;
+    const s = { get: () => (status ? { status } : null), setPending: (w: string) => log.push(`pending ${w}`),
+      setReady: (w: string, r: WeekJson, m: string) => { saved = r; log.push(`ready ${w} ${r.headline} ${m}`); },
+      setFailed: (w: string, e: string) => log.push(`failed ${w} ${e}`), noteError: (w: string, e: string) => log.push(`note ${w} ${e}`) } as unknown as WeeklyStore;
+    return { s, log, saved: () => saved };
+  }
+  const wbase = { build: () => ({ input: weekInput() }), now: () => 1, epoch: () => 0, cloud: () => false };
+  const answer = (value: unknown) => ({ write: async (job: any) => { const v = job.parse(value); return v ? { ok: true, value: v, model: 'Qwen3 4B' } : { ok: false, reason: 'invalid', local: 'invalid' }; } }) as never;
+
+  it('marks pending, then stores the grounded, second-person week', async () => {
+    const { s, log, saved } = wstore();
+    const writer = answer({ headline: 'My steady week', summary: 'I spent 120 minutes on screen. You had a 400-minute focus streak. Monday led the week.',
+      focusForNextWeek: 'Protect my mornings.' });
+    expect(await generateWeek('2026-09-21', { ...wbase, writer, store: s })).toBe('ok');
+    expect(log).toEqual(['pending 2026-09-21', 'ready 2026-09-21 Your steady week Qwen3 4B']);
+    expect(saved()).toEqual({ headline: 'Your steady week', summary: 'You spent 120 minutes on screen. Monday led the week.', focusForNextWeek: 'Protect your mornings.' });
+  });
+  it('falls back to "Your week" when grounding empties the headline', async () => {
+    const { s, saved } = wstore();
+    expect(await generateWeek('2026-09-21', { ...wbase, writer: answer({ headline: 'A 999-minute week.', summary: 's', focusForNextWeek: 'f' }), store: s })).toBe('ok');
+    expect(saved()?.headline).toBe('Your week');
+  });
+  it('keeps a previous ready week when regenerating fails, noting a friendly reason', async () => {
+    const { s, log } = wstore('ready');
+    const writer = { write: async () => ({ ok: false, reason: 'no answer in 180000 ms', local: 'timeout' }) } as never;
+    expect(await generateWeek('2026-09-21', { ...wbase, writer, store: s })).toBe('timeout');
+    expect(log).toEqual(['note 2026-09-21 The writer took too long.']);
+    const fresh = wstore();
+    expect(await generateWeek('2026-09-21', { ...wbase, writer, store: fresh.s })).toBe('timeout');
+    expect(fresh.log).toEqual(['pending 2026-09-21', 'failed 2026-09-21 The writer took too long.']);
+  });
+  it('fails cleanly when building the week throws', async () => {
+    const { s, log } = wstore();
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await generateWeek('2026-09-21', { ...wbase, build: () => { throw new Error('db'); }, writer: answer({}), store: s })).toBe('failed');
+    expect(log).toEqual(["failed 2026-09-21 Couldn't write this report."]);
+    err.mockRestore();
+  });
+  it('stores nothing when "Delete my activity" ran during the write', async () => {
+    for (const inner of [answer({ headline: 'H', summary: 's', focusForNextWeek: 'f' }), { write: async () => ({ ok: false, reason: 'exit 1', local: 'crash' }) } as never,
+      { write: async () => { throw new Error('x'); } } as never]) {
+      const { s, log } = wstore();
+      let epoch = 0;
+      const writer = { write: async (job: any) => { epoch++; return (inner as any).write(job); } } as never;
+      expect(await generateWeek('2026-09-21', { ...wbase, epoch: () => epoch, writer, store: s })).toBe('failed');
+      expect(log).toEqual(['pending 2026-09-21']);
+    }
+  });
+  it('sends the cloud no local headlines', async () => {
+    for (const cloud of [true, false]) {
+      let seen: WeekInput | null = null;
+      const writer = { write: async (job: any) => { seen = JSON.parse(job.user); expect(job.kind).toBe('week'); return { ok: true, value: job.parse({ headline: 'H', summary: '', focusForNextWeek: '' }), model: 'm' }; } } as never;
+      await generateWeek('2026-09-21', { ...wbase, cloud: () => cloud, writer, store: wstore().s });
+      expect(seen!.days.some((d) => 'headline' in d)).toBe(!cloud);
+    }
   });
 });
 

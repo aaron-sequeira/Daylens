@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createReportScheduler, MIN_AUTO_SCREEN_SEC, type ReportSchedulerDeps } from './scheduler';
+import { createReportScheduler, MIN_AUTO_SCREEN_SEC, WEEK_MIN_ACTIVE_DAYS, weekDueKey, type ReportSchedulerDeps } from './scheduler';
 
 const at = (d: number, h: number, m = 0) => new Date(2026, 8, d, h, m).getTime();
 function mk(o: Partial<ReportSchedulerDeps> = {}) {
@@ -8,10 +8,84 @@ function mk(o: Partial<ReportSchedulerDeps> = {}) {
   const d: ReportSchedulerDeps = {
     now: () => now, windDown: () => '23:00', row: (date) => (rows.has(date) ? { status: rows.get(date)! } : null), hasActivity: () => true,
     canWrite: () => true, gateOk: () => true, manualGateOk: () => true, otherJobRunning: () => false, lowBattery: async () => false,
+    weekDue: () => null,
     generate: async (date) => { ran.push(date); rows.set(date, 'ready'); return 'ok'; }, ...o
   };
   return { s: createReportScheduler(d), rows, ran, setNow: (t: number) => { now = t; } };
 }
+
+describe('weekDueKey', () => {
+  // 2026-09-28 is a Monday; last week starts 2026-09-21; the current week's Sunday is 2026-10-04.
+  const mkI = (o: Partial<Parameters<typeof weekDueKey>[0]> = {}) => ({
+    today: '2026-09-30', hasWeekly: () => false, activeDays: () => 0, sundayReady: () => false, ...o
+  });
+  it('needs 3 active days', () => { expect(WEEK_MIN_ACTIVE_DAYS).toBe(3); });
+  it("makes last week due when it has 3 active days and no row", () => {
+    expect(weekDueKey(mkI({ activeDays: (ws) => (ws === '2026-09-21' ? 3 : 0) }))).toBe('W:2026-09-21');
+  });
+  it('is null with only 2 active days last week', () => {
+    expect(weekDueKey(mkI({ activeDays: (ws) => (ws === '2026-09-21' ? 2 : 0) }))).toBeNull();
+  });
+  it('is null when last week already has a row (a failed week is retried only by hand)', () => {
+    expect(weekDueKey(mkI({ activeDays: () => 7, hasWeekly: (ws) => ws === '2026-09-21' }))).toBeNull();
+  });
+  it("makes the current week due on Sunday once the Sunday report is ready", () => {
+    const i = mkI({ today: '2026-10-04', hasWeekly: (ws) => ws === '2026-09-21', activeDays: (ws) => (ws === '2026-09-28' ? 4 : 0), sundayReady: (ws) => ws === '2026-09-28' });
+    expect(weekDueKey(i)).toBe('W:2026-09-28');
+  });
+  it("is null on Sunday without the Sunday report, and never before Sunday", () => {
+    expect(weekDueKey(mkI({ today: '2026-10-04', hasWeekly: (ws) => ws === '2026-09-21', activeDays: () => 4 }))).toBeNull();
+    expect(weekDueKey(mkI({ today: '2026-10-03', hasWeekly: (ws) => ws === '2026-09-21', activeDays: () => 4, sundayReady: () => true }))).toBeNull();
+  });
+  it('is null on Sunday when the current week has too few active days or a row', () => {
+    const base = { today: '2026-10-04', sundayReady: () => true };
+    expect(weekDueKey(mkI({ ...base, hasWeekly: (ws) => ws === '2026-09-21', activeDays: (ws) => (ws === '2026-09-28' ? 2 : 0) }))).toBeNull();
+    expect(weekDueKey(mkI({ ...base, hasWeekly: () => true, activeDays: () => 7 }))).toBeNull();
+  });
+});
+
+describe('report scheduler: weekly keys', () => {
+  it('runs a due week through generate once the daily jobs are done', async () => {
+    // The default generate stores a row under whatever key it ran, so the week stops being due once written.
+    const h = mk({ weekDue: () => (h.rows.has('W:2026-09-21') ? null : 'W:2026-09-21') });
+    const { s, ran } = h;
+    await s.tick(); await s.tick(); await s.tick(); await s.tick();
+    expect(ran).toEqual(['2026-09-25', '2026-09-26', 'W:2026-09-21']);
+  });
+  it('runs a manual week request, and cancel / queued accept week keys', async () => {
+    let manualOk = false;
+    const { s, ran } = mk({ manualGateOk: () => manualOk, hasActivity: () => false });
+    s.request('W:2026-09-28'); await s.tick();
+    expect(s.waiting()).toBe('W:2026-09-28');
+    expect(s.queued('W:2026-09-28')).toBe(true);
+    expect(s.requested('W:2026-09-28')).toBe(true);
+    manualOk = true; await s.tick();
+    expect(ran).toEqual(['W:2026-09-28']);
+    s.request('W:2026-09-21'); s.cancel('W:2026-09-21');
+    expect(s.queued('W:2026-09-21')).toBe(false);
+    await s.tick();
+    expect(ran).toEqual(['W:2026-09-28']);
+  });
+  it('holds an automatic week on the full gate, labelling and low battery', async () => {
+    let gate = false, busy = false, low = true;
+    const { s, ran } = mk({ hasActivity: () => false, weekDue: () => 'W:2026-09-21', gateOk: () => gate, otherJobRunning: () => busy, lowBattery: async () => low });
+    await s.tick(); expect(ran).toEqual([]); expect(s.waiting()).toBe('W:2026-09-21');
+    gate = true; busy = true; await s.tick(); expect(ran).toEqual([]);
+    busy = false; await s.tick(); expect(ran).toEqual([]); expect(s.waiting()).toBeNull();
+    low = false; await s.tick(); expect(ran).toEqual(['W:2026-09-21']);
+  });
+  it('never runs a week and a day at the same time', async () => {
+    let release!: () => void;
+    const { s, ran } = mk({ hasActivity: () => false, generate: (key) => new Promise((r) => { ran.push(key); release = () => r('ok'); }) });
+    s.request('W:2026-09-21');
+    const first = s.tick(); await Promise.resolve();
+    expect(s.running()).toBe('W:2026-09-21');
+    s.request('2026-09-24'); await s.tick();
+    expect(ran).toEqual(['W:2026-09-21']);
+    release(); await first; await Promise.resolve(); await s.tick();
+    expect(ran).toEqual(['W:2026-09-21', '2026-09-24']);
+  });
+});
 
 describe('report scheduler', () => {
   it('requires at least 30 minutes of screen time for an automatic report', () => {

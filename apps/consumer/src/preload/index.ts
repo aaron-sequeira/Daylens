@@ -5,7 +5,7 @@ import { CH } from '../main/channels';
 import type { DaylensSettings, SettingsPatch } from '../main/settings';
 import type { TodayView } from '../main/day/today';
 import type { Profile } from '../shared/profileOptions';
-import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult, ShareGetView, EmailResult } from '../main/ipc';
+import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult, ShareGetView, EmailResult, InsightsView } from '../main/ipc';
 import type { SearchHit } from '../main/report/search';
 import type { ReportView, WriterView } from '../main/report/view';
 
@@ -57,6 +57,12 @@ const api = {
     clearPdfFolder: (): Promise<{ folder: string }> => ipcRenderer.invoke(CH.reportsClearPdfFolder),
     shareGet: (): Promise<ShareGetView> => ipcRenderer.invoke(CH.reportsShareGet),
     email: (date: string): Promise<EmailResult> => ipcRenderer.invoke(CH.reportsEmail, date)
+  },
+  insights: {
+    /** `weekStart` null (or omitted) = the current week. */
+    get: (weekStart?: string | null): Promise<InsightsView> => ipcRenderer.invoke(CH.insightsGet, weekStart ?? null),
+    generate: (weekStart: string): Promise<InsightsView> => ipcRenderer.invoke(CH.insightsGenerate, weekStart),
+    cancel: (weekStart: string): Promise<InsightsView> => ipcRenderer.invoke(CH.insightsCancel, weekStart)
   },
   writer: {
     get: (): Promise<WriterView> => ipcRenderer.invoke(CH.writerGet),

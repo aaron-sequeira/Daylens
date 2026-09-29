@@ -47,10 +47,12 @@ import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
 import { autoSavePath, autoSavePdf, mailtoUrl } from './report/share';
 import { createPdfQueue } from './report/pdfQueue';
-import { createReportScheduler, MIN_AUTO_SCREEN_SEC, type ReportScheduler } from './report/scheduler';
-import { friendlyReason, generateReport } from './report/generate';
+import { createReportScheduler, MIN_AUTO_SCREEN_SEC, weekDueKey, type ReportScheduler } from './report/scheduler';
+import { friendlyReason, generateReport, generateWeek } from './report/generate';
+import { buildInsights, buildWeekInput, createWeeklyStore, weekDates, weekStart, WEEKLY_SQL, type InsightsDay, type InsightsNumbers, type WeekInput } from './report/week';
+import type { InsightsView } from './ipc';
 import { batteryPercent } from './report/battery';
-import { buildEpisodes } from './report/episodes';
+import { buildEpisodes, deepWorkSec } from './report/episodes';
 import { buildCandidates } from './report/candidates';
 import { buildDayDetail, type DayDetail } from './report/detail';
 import { finalCategory } from './brain/finalCategory';
@@ -115,6 +117,9 @@ if (!app.requestSingleInstanceLock()) {
     db.exec(REPORT_SQL);
     const reportStore = createReportStore(db);
     reportStore.clearPending(Date.now());
+    db.exec(WEEKLY_SQL);
+    const weeklyStore = createWeeklyStore(db);
+    weeklyStore.clearPending(Date.now());
     db.exec(REPORT_FTS_SQL);
     const reportSearch = createReportSearch(db);
     // DAYLENS_MODEL_DIR points at a dev folder holding the only exported copy of the model: read-only.
@@ -373,15 +378,23 @@ if (!app.requestSingleInstanceLock()) {
     });
     // A finished day's screen time and detail only change while its reads still wait for labels: cache them once the
     // day is settled (keyed with the exclusions, which shape the detail; cleared by Delete my activity) so the 7-day
-    // memory and past-day views don't rebuild day views every time.
-    const pastDays = new Map<string, { screenSec: number; detail: DayDetail }>();
-    const pastDay = (d: string): { screenSec: number; detail: DayDetail } => {
+    // memory and past-day views don't rebuild day views every time. Also holds what a week needs from the day view
+    // (health score, per-category seconds) and the deep-work seconds (labelled episodes, no screen text).
+    type PastDay = { screenSec: number; detail: DayDetail; deepWorkSec: number; healthScore: number | null; byCategory: Record<string, number> };
+    const pastDays = new Map<string, PastDay>();
+    const pastDay = (d: string): PastDay => {
       const key = `${d}\u0000${settings.get().exclusions}`;
       const hit = pastDays.get(key);
       if (hit) return hit;
       const { end } = dayBounds(d);
       const now = Math.min(Date.now(), end);
-      const v = { screenSec: loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l)).screenSec, detail: detailFor(d, now) };
+      const view = loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l));
+      const v: PastDay = {
+        screenSec: view.screenSec, detail: detailFor(d, now), deepWorkSec: deepWorkSec(buildEpisodes(labelStore.readsForDay(d), false)),
+        // A day with no screen time has no meaningful health score: leave it out of the week's average.
+        healthScore: view.screenSec > 0 ? view.health.score : null,
+        byCategory: Object.fromEntries(view.cards.map((c) => [c.category, c.seconds]))
+      };
       if (d < localDate(Date.now()) && settledDay(end, labelStore.unlabelledSummary())) pastDays.set(key, v);
       return v;
     };
@@ -421,6 +434,34 @@ if (!app.requestSingleInstanceLock()) {
       const detail = date < localDate(Date.now()) ? pastDay(date).detail : detailFor(date, Math.min(Date.now(), dayBounds(date).end));
       return detail.apps.slice(0, 5).map((a) => a.app);
     };
+    // --- Weekly insights: the week's numbers in code, and the writer input for the weekly summary ---
+    const EMPTY_DETAIL: DayDetail = { apps: [], sites: [], videos: [], games: [], learning: [] };
+    const zeroDay = (date: string): InsightsDay => ({ date, screenSec: 0, byCategory: {}, healthScore: null, deepWorkSec: 0 });
+    // Days after today are empty; today itself is live (pastDay only caches finished days).
+    const insightsDay = (d: string, today: string): { day: InsightsDay; detail: DayDetail } => {
+      if (d > today) return { day: zeroDay(d), detail: EMPTY_DETAIL };
+      const p = pastDay(d);
+      return { day: { date: d, screenSec: p.screenSec, byCategory: p.byCategory, healthScore: p.healthScore, deepWorkSec: p.deepWorkSec }, detail: p.detail };
+    };
+    const weekData = (ws: string): { numbers: InsightsNumbers; input: WeekInput } => {
+      const today = localDate(Date.now());
+      const dates = weekDates(ws);
+      const days = dates.map((d) => insightsDay(d, today));
+      const prev = weekDates(shiftDate(ws, -7)).map((d) => insightsDay(d, today).day);
+      const nudges = coachStore.since(dayBounds(ws).start).filter((n) => dates.includes(n.date));
+      const numbers = buildInsights({
+        weekStart: ws, days: days.map((x) => x.day), prevDays: prev.some((d) => d.screenSec > 0) ? prev : null, // no week to compare with
+        apps: days.map((x) => x.detail.apps), nudges
+      });
+      // Window titles / app and site names only (never screen text); headlines only from ready daily reports
+      // (generateWeek strips them for the cloud).
+      const input = buildWeekInput(numbers, days.map(({ day, detail }) => {
+        const row = reportStore.get(day.date);
+        return { topApps: detail.apps.slice(0, 3).map((a) => a.app), topSites: detail.sites.slice(0, 3).map((s) => s.site),
+          headline: row?.status === 'ready' ? row.report?.headline : undefined };
+      }));
+      return { numbers, input };
+    };
     // Once at startup, index every ready report so search works immediately (e.g. after an upgrade). Per-date
     // try/catch: one bad row must not stop the rest from being indexed; the log names only the date, never
     // the error (which could otherwise echo report text into the log).
@@ -452,19 +493,29 @@ if (!app.requestSingleInstanceLock()) {
     // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.
     let suspendedDuringWrite = false;
     const pastActivity = new Map<string, boolean>(); // date → ≥30 min screen time, for finished days only (cleared by Delete my activity)
+    // A day with real screen time, not just a stray focus session (see MIN_AUTO_SCREEN_SEC). Today is always live.
+    const activeDay = (d: string): boolean => {
+      const past = d < localDate(Date.now());
+      if (past && pastActivity.has(d)) return pastActivity.get(d) as boolean; // a finished day's screen time can't change
+      const { end } = dayBounds(d);
+      const now = Math.min(Date.now(), end);
+      const ok = loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l)).screenSec >= MIN_AUTO_SCREEN_SEC;
+      if (past) pastActivity.set(d, ok);
+      return ok;
+    };
     reportScheduler = createReportScheduler({
       now: () => Date.now(),
       windDown: (d) => planOverrides(reportStore.plan(d), d).windDownTime ?? settings.get().windDownTime,
       row: (d) => reportStore.get(d),
-      // An automatic report needs real screen time for the day, not just a stray focus session (see MIN_AUTO_SCREEN_SEC).
-      hasActivity: (d) => {
-        const past = d < localDate(Date.now());
-        if (past && pastActivity.has(d)) return pastActivity.get(d) as boolean; // a finished day's screen time can't change
-        const { end } = dayBounds(d);
-        const now = Math.min(Date.now(), end);
-        const ok = loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l)).screenSec >= MIN_AUTO_SCREEN_SEC;
-        if (past) pastActivity.set(d, ok);
-        return ok;
+      hasActivity: activeDay,
+      // Checked after the daily reports. Active days use the same ≥ 30 min rule (cached for finished days, live today).
+      weekDue: () => {
+        const today = localDate(Date.now());
+        return weekDueKey({
+          today, hasWeekly: (ws) => weeklyStore.get(ws) !== null,
+          activeDays: (ws) => weekDates(ws).filter((d) => d <= today && activeDay(d)).length,
+          sundayReady: (ws) => reportStore.get(weekDates(ws)[6])?.status === 'ready'
+        });
       },
       canWrite: () => (settings.get().writerMode === 'cloud' ? secrets.has(settings.get().aiProvider) : writerDl.status().state === 'ready' && unavailable() === null),
       gateOk: () => settings.get().writerMode === 'cloud' || batchAllowed({
@@ -475,21 +526,29 @@ if (!app.requestSingleInstanceLock()) {
       manualGateOk: () => settings.get().writerMode === 'cloud' || freemem() >= writerNeedBytes(writerTier()),
       otherJobRunning: () => scheduler.status().state === 'running',
       lowBattery: async () => powerMonitor.isOnBatteryPower() && ((await batteryPercent()) ?? 100) < 20,
-      generate: async (date) => {
+      // `key` is a date (daily report) or `W:<weekStart>` (weekly summary): one writer job at a time either way.
+      generate: async (key) => {
+        const week = key.startsWith('W:') ? key.slice(2) : null;
+        const date = key;
         suspendedDuringWrite = false;
-        const outcome = await generateReport(date, { build: buildReportFor, writer, store: reportStore, now: () => Date.now(), epoch: () => reportEpoch });
+        const outcome = week
+          ? await generateWeek(week, { build: (ws) => ({ input: weekData(ws).input }), writer, store: weeklyStore, now: () => Date.now(),
+            epoch: () => reportEpoch, cloud: () => settings.get().writerMode === 'cloud' })
+          : await generateReport(date, { build: buildReportFor, writer, store: reportStore, now: () => Date.now(), epoch: () => reportEpoch });
         const slept = suspendedDuringWrite;
         suspendedDuringWrite = false;
         if (slept && (outcome === 'timeout' || outcome === 'crash')) {
-          // Not counted (no crash, no timeout). Drop the failed row so the automatic rule writes the day again later;
+          // Not counted (no crash, no timeout). Drop the failed row so the automatic rule writes it again later;
           // a kept good report (failed regenerate) stays.
-          if (reportStore.get(date)?.status !== 'ready') reportStore.delete(date);
+          if (week) { if (weeklyStore.get(week)?.status !== 'ready') weeklyStore.delete(week); }
+          else if (reportStore.get(date)?.status !== 'ready') reportStore.delete(date);
           return 'failed';
         }
         if (outcome === 'crash') pushCrash();
         if (outcome === 'load') writerHealth.loadFailed = true;
         writerHealth.consecutiveTimeouts = outcome === 'timeout' ? writerHealth.consecutiveTimeouts + 1 : outcome === 'ok' ? 0 : writerHealth.consecutiveTimeouts;
-        if (outcome === 'ok') {
+        // Search indexing and the PDF auto-save are for daily reports only.
+        if (outcome === 'ok' && !week) {
           try {
             const fresh = reportStore.get(date);
             if (fresh?.status === 'ready' && fresh.report) reportSearch.upsert(date, reportBody(fresh.report, topAppsFor(date)));
@@ -532,6 +591,32 @@ if (!app.requestSingleInstanceLock()) {
         waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused(),
         needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(d), cancellable: reportScheduler.requested(d),
         memoryShort: s.writerMode === 'local' && freemem() < writerNeedBytes(writerTier()), detail
+      };
+    };
+    // `req` may be any date in the week (null = this week); a future week shows the current one.
+    const insightsView = (req: string | null): InsightsView => {
+      refreshFreeDisk();
+      const current = weekStart(localDate(Date.now()));
+      const asked = req ? weekStart(req) : current;
+      const ws = asked > current ? current : asked;
+      let numbers: InsightsNumbers;
+      try { numbers = weekData(ws).numbers; } catch (e) {
+        console.error('[insights] view build failed:', e);
+        numbers = buildInsights({ weekStart: ws, days: weekDates(ws).map(zeroDay), prevDays: null, apps: [], nudges: [] });
+      }
+      const days = repo.getAvailableDays(); // newest first
+      const oldest = days.length ? days[days.length - 1] : null;
+      const row = weeklyStore.get(ws);
+      const key = `W:${ws}`;
+      const s = settings.get();
+      return {
+        numbers, weekStart: ws,
+        prevWeek: oldest !== null && weekStart(oldest) < ws ? shiftDate(ws, -7) : null,
+        nextWeek: ws < current ? shiftDate(ws, 7) : null,
+        // Never show a raw `load: <path>` error (same rule as reportView).
+        row: row?.error?.startsWith('load:') ? { ...row, error: friendlyReason(row.error) } : row,
+        writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
+        waiting: reportScheduler.waiting() === key, running: reportScheduler.running() === key, queued: reportScheduler.queued(key)
       };
     };
     // Also refreshes free disk for download / retryLocal, which both answer with writerView().
@@ -699,6 +784,23 @@ if (!app.requestSingleInstanceLock()) {
             console.error('[report] email open failed:', e instanceof Error ? e.name : typeof e);
             return { ok: false, reason: "Couldn't open your mail app." };
           }
+        }
+      },
+      insights: {
+        view: (ws) => insightsView(ws),
+        generate: (req) => {
+          const ws = weekStart(req);
+          const key = `W:${ws}`;
+          // A future week and a week already being written are both no-ops: just report the current view.
+          if (ws > weekStart(localDate(Date.now())) || reportScheduler.running() === key) return insightsView(ws);
+          reportScheduler.request(key);
+          void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e));
+          return insightsView(ws);
+        },
+        cancel: (req) => {
+          reportScheduler.cancel(`W:${weekStart(req)}`);
+          void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e)); // the next queued job, if any
+          return insightsView(req);
         }
       },
       plan: {
