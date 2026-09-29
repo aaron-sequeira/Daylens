@@ -11,7 +11,12 @@ import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
 
 const sizeGb = (bytes: number): string => `${(bytes / 1e9).toFixed(1)} GB`;
-const deltaClass = (text: string): string => (text.startsWith('↑') ? 'up' : text.startsWith('↓') ? 'down' : 'flat');
+// .up is styled red and .down green (screen time: more is worse). Deep work passes higherIsBetter to swap the colours.
+const deltaClass = (text: string, higherIsBetter = false): string => {
+  const up = text.startsWith('↑');
+  if (!up && !text.startsWith('↓')) return 'flat';
+  return up !== higherIsBetter ? 'up' : 'down';
+};
 
 export function InsightsScreen() {
   const today = localDate(Date.now());
@@ -147,7 +152,7 @@ export function InsightsScreen() {
 
   // Health-score polyline, split into segments so a null (untracked) day breaks the line instead of joining across it.
   const healthPoints: ({ x: number; y: number } | null)[] = n.days.map((d, i) => (
-    d.healthScore === null ? null : { x: (i / 6) * 100, y: 100 - (d.healthScore / maxHealth) * 100 }
+    d.healthScore === null ? null : { x: ((i + 0.5) / 7) * 100, y: 100 - (d.healthScore / maxHealth) * 100 }
   ));
   const healthSegments: { x: number; y: number }[][] = [];
   let current: { x: number; y: number }[] = [];
@@ -180,7 +185,7 @@ export function InsightsScreen() {
           </div>
           <div className="stat" style={{ animationDelay: '.16s' }}>
             <small>Deep work</small><b>{formatHm(n.totals.deepWorkSec)}</b>
-            {deepDelta && <em className={deltaClass(deepDelta)}>{deepDelta}</em>}
+            {deepDelta && <em className={deltaClass(deepDelta, true)}>{deepDelta}</em>}
           </div>
           <div className="stat" style={{ animationDelay: '.22s' }}><small>Average health score</small><b>{n.totals.avgHealth ?? '—'}</b></div>
           <div className="stat" style={{ animationDelay: '.28s' }}><small>Active days</small><b>{n.totals.activeDays} / 7</b></div>
