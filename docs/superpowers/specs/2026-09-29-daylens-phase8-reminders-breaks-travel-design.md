@@ -68,9 +68,11 @@ Messages: water "A few big sips. Your focus will thank you."; lunch "Step away f
 "Put the kettle on, stretch your legs, look out of a window."; dinner "Time to eat. Screens can wait."
 
 ### 3.3 Scheduling rules (`schedule.ts`)
-- **Clock time:** due when the current **local** time is within [time, time + 15 min), today's local weekday ∈ days,
-  and `last_fired_date ≠ today`. If the user is idle/locked at that moment (no activity in the last 5 min or screen
-  locked), mark `last_fired_date = today` without showing (skipped: they're away). Once per local day.
+- **Clock time:** due when the current **local** time is within [time, time + 60 min), today's local weekday ∈ days,
+  and `last_fired_date ≠ today`. The 60-min window lets a call/fullscreen hold *delay* the pop-up (held reminders are
+  not recorded) instead of losing it. If there was no active input from 5 min before to 1 min after the time (away,
+  locked, PC asleep), mark `last_fired_date = today` without showing (skipped). Once per local day. Saving a time that
+  has already passed today starts it next time (no instant pop-up).
 - **Interval:** screen time (active, non-idle focus time) since `max(last_done_at, last_fired_at, last idle gap ≥ 10 min end)`
   ≥ `interval_min`. Snoozed/dismissed → `last_fired_at` set, so it re-arms after another interval.
 - At most one reminder candidate per tick (earliest-due first; clock-time before interval on ties).
