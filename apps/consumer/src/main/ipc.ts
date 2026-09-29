@@ -18,6 +18,7 @@ import type { AiProvider } from '@worksight/core/ai';
 import type { ReportView, WriterState, WriterView } from './report/view';
 import type { SearchHit } from './report/search';
 import type { InsightsNumbers, WeeklyRow } from './report/week';
+import type { TravelView } from './time/travel';
 
 const dateArg = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -104,6 +105,7 @@ export interface WriterDeps {
 }
 
 export interface AboutView { version: string; credits: string[]; }
+export interface TravelDeps { view(): TravelView | null; off(): void; }
 
 export interface IpcDeps {
   repo: Repositories;
@@ -122,6 +124,7 @@ export interface IpcDeps {
   writer: WriterDeps;
   plan: PlanDeps;
   about(): AboutView;
+  travel: TravelDeps;
 }
 
 export function registerIpc(d: IpcDeps): void {
@@ -232,4 +235,7 @@ export function registerIpc(d: IpcDeps): void {
   });
 
   ipcMain.handle(CH.aboutGet, () => d.about());
+
+  ipcMain.handle(CH.travelGet, () => d.travel.view());
+  ipcMain.handle(CH.travelOff, () => { d.travel.off(); return null; });
 }

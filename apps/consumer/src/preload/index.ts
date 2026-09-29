@@ -9,6 +9,7 @@ import type { PrivacyView, ModelsView, CoachView, PlanTodayItem, ExportPdfResult
 import type { Kind } from '../main/coach/types';
 import type { SearchHit } from '../main/report/search';
 import type { ReportView, WriterView } from '../main/report/view';
+import type { TravelView } from '../main/time/travel';
 
 const api = {
   today: (date: string): Promise<TodayView> => ipcRenderer.invoke(CH.todayGet, { date }),
@@ -88,7 +89,11 @@ const api = {
   // Sent by the print route once its report DOM has painted, so the hidden export window
   // knows when to call webContents.printToPDF (see reportPdfElectron.ts).
   printReady: (): void => ipcRenderer.send('report:printReady'),
-  about: (): Promise<AboutView> => ipcRenderer.invoke(CH.aboutGet)
+  about: (): Promise<AboutView> => ipcRenderer.invoke(CH.aboutGet),
+  travel: {
+    get: (): Promise<TravelView | null> => ipcRenderer.invoke(CH.travelGet),
+    off: (): Promise<null> => ipcRenderer.invoke(CH.travelOff)
+  }
 };
 
 export type DaylensApi = typeof api;

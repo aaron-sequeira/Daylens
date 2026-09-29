@@ -28,7 +28,10 @@ import { holdReason, type Rect } from './coach/gate';
 import { createHoldCache } from './coach/holdCache';
 import { REMINDERS_SQL, createReminderStore } from './reminders/store';
 import { planReminders } from './reminders/schedule';
-import { reminderTitle } from '../shared/reminders';
+import { reminderTitle, type Reminder } from '../shared/reminders';
+import { applyZone, createZoneWatcher, currentOffsetMin, readIanaZone, readWindowsZone } from './time/zone';
+import { createTzStore, TZ_SQL } from './time/tzStore';
+import { homeOffset, travelReminders, travelState, TRAVEL_WATER_MIN, type TravelView } from './time/travel';
 import { queryNotificationState } from './coach/notifState';
 import { parseFewer, parseKinds, parseLimits } from './coach/settings';
 import { repeatedSearches, searchTitlesFrom, switchesBetween } from './coach/activity';
@@ -131,6 +134,30 @@ if (!app.requestSingleInstanceLock()) {
     db.exec(REMINDERS_SQL);
     const reminderStore = createReminderStore(db);
     reminderStore.seed(readProfile(settings.get()).days);
+    db.exec(TZ_SQL);
+    const tzStore = createTzStore(db);
+    const zoneWatcher = createZoneWatcher({
+      read: () => readWindowsZone(), offset: currentOffsetMin, now: () => Date.now(),
+      // process.env.TZ is inherited by later child processes (the brain/writer utility processes, the OCR
+      // helper), which is intended: they should all use the same local time as the main process.
+      apply: async () => { const z = await readIanaZone(); if (z) applyZone(z); return z !== null; },
+      stored: () => ({ name: settings.get().zoneName, offset: settings.get().zoneOffset }),
+      save: (z) => settings.set({ zoneName: z.name, zoneOffset: z.offset })
+    });
+    const checkZone = (): void => {
+      zoneWatcher.check().then((c) => {
+        if (!c) return;
+        tzStore.record(c);
+        win?.webContents.send(CH.eventsUpdate); // views re-read times in the new local zone
+      }).catch((e) => console.error('[zone] check failed:', e));
+    };
+    checkZone();
+    setInterval(checkZone, 5 * 60_000);
+    const travelView = (): TravelView | null => {
+      const now = Date.now();
+      return travelState(tzStore.latest(), homeOffset(tzStore.since(now - 14 * 86_400_000), currentOffsetMin(), now), now, settings.get().travelOffUntil);
+    };
+    const travelReminderById = (id: number): Reminder | null => { const v = travelView(); return v ? travelReminders(v).find((r) => r.id === id) ?? null : null; };
     // Created early: buildSnapshot (below) needs it for plan overrides.
     db.exec(REPORT_SQL);
     const reportStore = createReportStore(db);
@@ -254,7 +281,7 @@ if (!app.requestSingleInstanceLock()) {
         if (action === 'primary' && meta?.action === 'break_eye') overlay.start(PRESETS.eye);
         if (action === 'primary' && meta?.action === 'break_stretch') overlay.start(PRESETS.stretch);
         if (meta?.reminderId !== undefined) {
-          const rem = reminderStore.get(meta.reminderId); // Task 6 extends this with a travel-reminder lookup
+          const rem = reminderStore.get(meta.reminderId) ?? travelReminderById(meta.reminderId);
           if (action === 'secondary' || (action === 'primary' && meta.action === 'reminder_done')) reminderStore.markDone(meta.reminderId, Date.now());
           if (action === 'primary' && meta.action === 'break_reminder' && rem) {
             overlay.start({ label: `reminder:${rem.id}`, animation: rem.animation, seconds: rem.breakSec, title: reminderTitle(rem),
@@ -273,8 +300,12 @@ if (!app.requestSingleInstanceLock()) {
       const searchTitles = searchTitlesFrom(Array.from({ length: 7 }, (_, i) => repo.getFocusSessions(shiftDate(date, -i))).flat(), parseExclusions(s.exclusions));
       const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
       const o = planOverrides(reportStore.plan(date), date);
-      // Task 6 adds travel reminders and the water-interval override here.
-      const planned = planReminders({ reminders: reminderStore.list(), states: reminderStore.states(), now, samples });
+      const travel = travelView();
+      const planned = planReminders({
+        reminders: [...reminderStore.list(), ...(travel ? travelReminders(travel) : [])],
+        states: reminderStore.states(), now, samples,
+        waterIntervalMin: travel ? TRAVEL_WATER_MIN : undefined
+      });
       for (const sk of planned.skipped) reminderStore.markFired(sk.id, sk.date); // away at its time: skip today
       return {
         now, date, settings: { ...s, breakIntervalMin: o.breakIntervalMin ?? s.breakIntervalMin, windDownTime: o.windDownTime ?? s.windDownTime },
@@ -955,6 +986,13 @@ if (!app.requestSingleInstanceLock()) {
         }
       },
       about: () => ({ version: app.getVersion(), credits: [WRITER_ATTRIBUTION] }),
+      travel: {
+        view: travelView,
+        off: () => {
+          const v = travelView();
+          if (v) { settings.set({ travelOffUntil: v.endsAt }); win?.webContents.send(CH.eventsUpdate); }
+        }
+      },
       models: {
         view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
         redownload: async () => {
@@ -1107,7 +1145,9 @@ if (!app.requestSingleInstanceLock()) {
     powerMonitor.on('resume', () => {
       const cur = settings.get();
       if (cur.consentGranted && !cur.trackingPaused) tracker.start();
+      checkZone();
     });
+    powerMonitor.on('unlock-screen', checkZone);
   });
 }
 
