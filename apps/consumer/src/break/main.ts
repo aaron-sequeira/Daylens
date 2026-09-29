@@ -7,7 +7,7 @@ declare global { interface Window { brk: BreakApi } }
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 const ring = $('ring') as unknown as SVGCircleElement;
 const skip = $('skip') as HTMLButtonElement, more = $('more') as HTMLButtonElement;
-let total = 0, left = 0, elapsed = 0, breathe = false, timer: ReturnType<typeof setInterval> | undefined, ended = false;
+let total = 0, left = 0, elapsed = 0, breathe = false, isLong = false, timer: ReturnType<typeof setInterval> | undefined, ended = false;
 const fmt = (s: number): string => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} left`;
 
 const end = (completed: boolean): void => {
@@ -32,6 +32,7 @@ function tick(): void {
 
 window.brk.onStart(({ animation, seconds, title, text, long, doneLabel }) => {
   total = left = seconds;
+  isLong = long;
   breathe = animation === 'breathe' || animation === 'eyes';
   const scene = $('scene');
   scene.innerHTML = SCENES[animation]; // static markup from shared/scenes.ts, never user input
@@ -46,4 +47,5 @@ window.brk.onStart(({ animation, seconds, title, text, long, doneLabel }) => {
 });
 window.brk.onExtend(() => { left += 60; total += 60; });
 more.onclick = () => window.brk.extend();
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape') end(false); });
+// Escape follows the same rule as "I'm back": a long break counts once half of it has passed.
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') end(isLong && elapsed >= total / 2); });

@@ -1,6 +1,6 @@
 /* Break-scene animations (shared by the break screen and the reminder editor gallery). Hand-drawn: ink strokes, app
    pastels. --sc-dur (set by the break screen) paces the water fill to the break's length. */
-.dl-scene-svg { width: 100%; height: 100%; overflow: visible; }
+.dl-scene-svg { width: 100%; height: 100%; overflow: hidden; } /* e.g. the walk scene's scrolling ground stays inside */
 .dl-scene-svg * { transform-box: view-box; }
 .sc-ink { fill: none; stroke: #171717; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 .sc-fill { animation: sc-rise var(--sc-dur, 12s) ease-in-out infinite; }

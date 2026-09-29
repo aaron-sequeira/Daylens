@@ -4,7 +4,7 @@ const svg = (body: string): string => `<svg class="dl-scene-svg" viewBox="0 0 12
 const STEAM = (xs: number[], y: number) => xs.map((x, i) => `<path class="sc-ink sc-steam sc-s${i + 1}" d="M${x},${y} q-5,-6 0,-12 t0,-12"/>`).join('');
 const BOTTLE = 'M51,24 h18 q0,5 7,9 q9,6 9,17 v48 q0,9 -9,9 h-32 q-9,0 -9,-9 v-48 q0,-11 9,-17 q7,-4 7,-9 z';
 const EYE = 'M14,70 q36,-34 72,0 q-36,34 -72,0 z';
-const PALM = 'M20,92 q0,-10 12,-10 h26 q10,0 10,8 q0,10 -12,12 h-24 q-12,0 -12,-10 z';
+const PALM = 'M22,96 q-6,-10 0,-26 l4,-10 q3,-5 7,-2 l-2,12 l4,-20 q2,-5 6,-3 q3,2 2,6 l-3,17 l3,-21 q2,-5 6,-4 q4,2 3,6 l-3,19 l4,-15 q2,-4 6,-3 q3,2 2,6 l-4,18 q8,-8 13,-5 q4,3 0,8 l-12,16 q-6,8 -16,8 h-10 q-8,0 -14,-7 z'; // open palm, thumb out
 const PHONE = 'M40,40 q-6,4 -4,14 q6,26 30,32 q10,2 14,-4 l-10,-10 q-4,2 -8,0 q-10,-6 -14,-16 q-1,-4 1,-8 z';
 
 export const SCENES: Record<Animation, string> = {
