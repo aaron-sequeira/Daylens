@@ -25,19 +25,34 @@ export interface AutoSaveDeps {
   exists(dir: string): Promise<boolean>;
   /** Renames the `.tmp` file over the final path, so a crash or a race with a concurrent read never leaves a truncated PDF. */
   rename(from: string, to: string): Promise<void>;
+  /** False once "Delete my activity" ran after this save was scheduled: the rendered PDF shows wiped data. */
+  stillValid?(): boolean;
+  remove?(p: string): Promise<void>;
 }
 
-export async function autoSavePdf(date: string, folder: string, deps: AutoSaveDeps): Promise<'ok' | 'off' | string> {
+export async function autoSavePdf(date: string, folder: string, deps: AutoSaveDeps): Promise<'ok' | 'off' | 'skipped' | string> {
   if (!folder) return 'off';
   try {
     if (!(await deps.exists(folder))) return "The auto-save folder can't be found.";
     const final = autoSavePath(folder, date);
     const tmp = `${final}.tmp`;
     await deps.write(tmp, await deps.render(date));
+    if (deps.stillValid && !deps.stillValid()) { await deps.remove?.(tmp).catch(() => {}); return 'skipped'; }
     await deps.rename(tmp, final);
     return 'ok';
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
     return /EACCES|EPERM|permission/i.test(m) ? "Daylens doesn't have permission to save in that folder." : "The PDF couldn't be saved to the auto-save folder.";
   }
+}
+
+/** Whether the auto-save folder still exists, without ever blocking: an unreachable network share (which can take
+ * the SMB timeout to fail) or any non-"not found" error reads as 'unknown', which shows no warning. */
+export async function checkFolder(dir: string, stat: (d: string) => Promise<{ isDirectory(): boolean }>, timeoutMs = 1500): Promise<'ok' | 'missing' | 'unknown'> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<'unknown'>((res) => { timer = setTimeout(() => res('unknown'), timeoutMs); });
+  const check = stat(dir).then(
+    (s): 'ok' | 'missing' => (s.isDirectory() ? 'ok' : 'missing'),
+    (e: NodeJS.ErrnoException): 'missing' | 'unknown' => (e?.code === 'ENOENT' || e?.code === 'ENOTDIR' ? 'missing' : 'unknown'));
+  try { return await Promise.race([check, timeout]); } finally { clearTimeout(timer); }
 }

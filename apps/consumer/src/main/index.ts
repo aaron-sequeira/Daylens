@@ -1,8 +1,8 @@
 import { app, BrowserWindow, Menu, Tray, powerMonitor, dialog, shell, utilityProcess, globalShortcut, screen, safeStorage } from 'electron';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
-import { existsSync, statSync, writeFileSync } from 'node:fs';
-import { rename, stat, statfs, writeFile } from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
+import { rename, stat, statfs, unlink, writeFile } from 'node:fs/promises';
 import { freemem, totalmem } from 'node:os';
 import { createKvStore, createRepositories, createTracker, openDatabase, systemClock } from '@worksight/core';
 import { ActiveWinForegroundSource, UiohookInputSource } from '@worksight/core/adapters';
@@ -47,7 +47,7 @@ import { groundText } from './report/schema';
 import { createReportSearch, reportBody, REPORT_FTS_SQL } from './report/search';
 import { exportPdf, pdfFileName } from './windows/reportPdf';
 import { renderReportPdf } from './windows/reportPdfElectron';
-import { autoSavePath, autoSavePdf, mailtoUrl } from './report/share';
+import { autoSavePath, autoSavePdf, checkFolder, mailtoUrl } from './report/share';
 import { createPdfQueue } from './report/pdfQueue';
 import { createReportScheduler, MIN_AUTO_SCREEN_SEC, weekDueKey, type ReportScheduler } from './report/scheduler';
 import { friendlyReason, generateReport, generateWeek } from './report/generate';
@@ -417,9 +417,9 @@ if (!app.requestSingleInstanceLock()) {
       }
     };
     // Window titles + read labels only (never screen text), the final category as Today uses it.
-    const detailFor = (date: string, now: number): DayDetail => buildDayDetail({
+    const detailFor = (date: string, now: number, reads = labelStore.readsForDay(date)): DayDetail => buildDayDetail({
       sessions: repo.getFocusSessions(date), now, exclusions: parseExclusions(settings.get().exclusions),
-      reads: labelStore.readsForDay(date).map((r) => ({ at: r.at, appName: r.appName, activity: r.activity,
+      reads: reads.map((r) => ({ at: r.at, appName: r.appName, activity: r.activity,
         category: r.category ? finalCategory(r.category, r.conf ?? 0, r.appName) : null }))
     });
     // A finished day's screen time and detail only change while its reads still wait for labels: cache them once the
@@ -435,8 +435,9 @@ if (!app.requestSingleInstanceLock()) {
       const { end } = dayBounds(d);
       const now = Math.min(Date.now(), end);
       const view = loadTodayView(repo, settings.get(), d, now, (l) => labelStore.labelsForDay(l), (l) => coachStore.completedBreaksForDay(l));
+      const reads = labelStore.readsForDay(d);
       const v: PastDay = {
-        screenSec: view.screenSec, detail: detailFor(d, now), deepWorkSec: deepWorkSec(buildEpisodes(labelStore.readsForDay(d), false)),
+        screenSec: view.screenSec, detail: detailFor(d, now, reads), deepWorkSec: deepWorkSec(buildEpisodes(reads, false)),
         // A day with no screen time has no meaningful health score: leave it out of the week's average.
         healthScore: view.screenSec > 0 ? view.health.score : null,
         byCategory: Object.fromEntries(view.cards.map((c) => [c.category, c.seconds]))
@@ -532,8 +533,9 @@ if (!app.requestSingleInstanceLock()) {
         render: (d) => renderReportPdf(d, pdfRenderDeps()),
         write: writeFile,
         exists: (d) => stat(d).then((s) => s.isDirectory(), () => false),
-        rename: (from, to) => rename(from, to)
-      }).then((r) => { pdfFolderError = r === 'ok' || r === 'off' ? null : r; });
+        rename: (from, to) => rename(from, to),
+        stillValid: () => epoch === undefined || epoch === reportEpoch, remove: (p) => unlink(p)
+      }).then((r) => { pdfFolderError = r === 'ok' || r === 'off' || r === 'skipped' ? null : r; });
     });
     const scheduleAutoSave = (date: string): void => { pdfEpochAtSchedule.set(date, reportEpoch); pdfQueue.schedule(date); };
     // Set when the PC sleeps mid-write: that write's timeout / crash is the sleep's fault, not the writer's.
@@ -807,16 +809,10 @@ if (!app.requestSingleInstanceLock()) {
           return { folder: r.filePaths[0] };
         },
         clearPdfFolder: () => { settings.set({ reportPdfFolder: '' }); pdfFolderError = null; return { folder: '' }; },
-        shareGet: () => {
+        shareGet: async () => {
           // A save-time failure (pdfFolderError) always wins: it's more specific than a plain "gone" check.
-          // Otherwise, catch a folder deleted/unmounted behind Settings' back even before the next auto-save
-          // attempt would notice. Friendly copy only: never the raw fs error.
           const folder = settings.get().reportPdfFolder;
-          if (!pdfFolderError && folder) {
-            try {
-              if (!existsSync(folder) || !statSync(folder).isDirectory()) return { folder, lastError: "The auto-save folder can't be found." };
-            } catch { /* a transient stat failure isn't worth surfacing; a real problem recurs on the next check */ }
-          }
+          if (!pdfFolderError && folder && (await checkFolder(folder, stat)) === 'missing') return { folder, lastError: "The auto-save folder can't be found." };
           return { folder, lastError: pdfFolderError };
         },
         email: async (date) => {
@@ -1007,7 +1003,7 @@ if (!app.requestSingleInstanceLock()) {
             pastDays.clear();
             deleteActivity(db);
             pill.dismissAll(); // any on-screen nudges reference rows that just got wiped
-            checkpoint(db);
+            try { checkpoint(db); } catch (e) { console.error('[privacy] checkpoint after delete failed:', e); } // the delete itself succeeded
           } finally {
             if (wasRunning) tracker.start();
             syncOcr();

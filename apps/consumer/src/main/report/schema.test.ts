@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groundNumbers, normalizeVoice, parsePlanItem, parseReport, REPORT_JSON_SCHEMA, type ReportJson } from './schema';
+import { groundNumbers, groundText, normalizeVoice, parsePlanItem, parseReport, REPORT_JSON_SCHEMA, type ReportJson } from './schema';
 
 const ids = new Set(['stuck:e1', 'nudge:7']);
 const good = { headline: 'A focused morning', story: 'You coded.', wins: ['a'], habits: ['b'],
@@ -135,5 +135,11 @@ describe('groundNumbers', () => {
     expect(kept.wins).toEqual(['a quick 40m break']);
     const dropped = groundNumbers(bare({ wins: ['a quick 40m break'] }), [10]);
     expect(dropped.wins).toEqual([]);
+  });
+  it('does not read "3M views" or "100 m²" as minutes, but still checks "40m"', () => {
+    expect(groundText('The video had 3M views.', [30])).toBe('The video had 3M views.');
+    expect(groundText('A 100 m² room.', [30])).toBe('A 100 m² room.');
+    expect(groundText('You spent 40m here.', [30])).toBe('');
+    expect(groundText('You spent 30m here.', [30])).toBe('You spent 30m here.');
   });
 });

@@ -62,7 +62,7 @@ export interface ReportsDeps {
   search(q: string): SearchHit[];
   choosePdfFolder(): Promise<{ folder: string }>;
   clearPdfFolder(): { folder: string };
-  shareGet(): ShareGetView;
+  shareGet(): Promise<ShareGetView>;
   email(date: string): Promise<EmailResult>;
 }
 /** One week (Monday `weekStart`) on the Insights page: numbers built in code, plus the weekly summary row if any.

@@ -80,8 +80,12 @@ export function normalizeVoice(report: ReportJson): ReportJson {
   };
 }
 
-// Matches a duration mention the writer might invent: "60 minutes", "45 min", "3 hours", "60-minute", "2h", "40m".
-const DURATION_RE = /\b(\d+(?:\.\d+)?)\s*-?\s*(minutes|minute|mins|min|hours|hour|hrs|hr|h|m)\b/gi;
+// Matches a duration mention the writer might invent: "60 minutes", "45 min", "3 hours", "60-minute", "2h".
+// Named units, any case: "60 minutes", "45 min", "3 hours", "60-minute", "2h".
+const DURATION_RE = /\b(\d+(?:\.\d+)?)\s*-?\s*(minutes|minute|mins|min|hours|hour|hrs|hr|h)\b/gi;
+// The bare minute unit is lowercase only ("40m"), so "3M views" isn't a duration, and not followed by ²/³ ("100 m²").
+// ponytail: a standalone "100 m" (metres) still reads as minutes — rare in screen-time prose.
+const BARE_MIN_RE = /\b(\d+(?:\.\d+)?)\s*m(?![a-zA-Z²³])/g;
 // The week prompt asks for "minutes, or Xh Ym" (report/week.ts), so the writer often states a combined duration
 // like "5h 40m": matched (and consumed, below) as a single h*60+m value before the single-unit pass runs, so
 // "5h" is never checked on its own (300) while the "40m" part goes ungrounded, or vice versa.
@@ -104,6 +108,10 @@ function hasUngroundedDuration(text: string, isGrounded: (mins: number) => boole
   let m: RegExpExecArray | null;
   while ((m = DURATION_RE.exec(remaining))) {
     if (!isGrounded(toMinutes(parseFloat(m[1]), m[2]))) return true;
+  }
+  BARE_MIN_RE.lastIndex = 0;
+  while ((m = BARE_MIN_RE.exec(remaining))) {
+    if (!isGrounded(parseFloat(m[1]))) return true;
   }
   return false;
 }

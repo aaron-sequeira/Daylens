@@ -16,6 +16,7 @@ public static class DaylensFg {
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool IsHungAppWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
   [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr v);
@@ -75,6 +76,8 @@ $PW_RENDERFULLCONTENT = 2
 function Capture-Foreground {
   $h = [DaylensFg]::GetForegroundWindow()
   if ($h -eq [IntPtr]::Zero -or [DaylensFg]::IsIconic($h)) { return $null }
+  # A hung (not responding) window would block PrintWindow until our timeout and flip OCR status to failed: skip it.
+  if ([DaylensFg]::IsHungAppWindow($h)) { return $null }
   [uint32]$procId = 0
   [void][DaylensFg]::GetWindowThreadProcessId($h, [ref]$procId)
   $sbPre = New-Object System.Text.StringBuilder 512

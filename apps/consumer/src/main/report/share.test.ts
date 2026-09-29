@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { autoSavePath, autoSavePdf, mailtoUrl } from './share';
+import { autoSavePath, autoSavePdf, checkFolder, mailtoUrl } from './share';
 import type { ReportJson } from './schema';
 
 const rep: ReportJson = { headline: 'A focused morning', story: 'One. Two! Three? Four.', wins: [], habits: [], doBetter: [], plan: [], advice: 'a' };
@@ -40,5 +40,31 @@ describe('share', () => {
     expect(await autoSavePdf('2026-09-26', 'C:\\Gone', { ...deps, exists: async () => false })).toMatch(/folder/i);
     expect(await autoSavePdf('2026-09-26', 'C:\\R', { ...deps, write: async () => { throw new Error('EACCES: permission denied'); } })).toMatch(/permission/i);
     expect(await autoSavePdf('2026-09-26', 'C:\\R', { ...deps, rename: async () => { throw new Error('boom'); } })).toMatch(/couldn't be saved/i);
+  });
+  it('skips (and removes the temp file) when the report was deleted while rendering', async () => {
+    const calls: string[] = [];
+    const r = await autoSavePdf('2026-09-28', 'C:\\out', {
+      render: async () => Buffer.from('pdf'), write: async (p) => { calls.push(`write ${p}`); },
+      exists: async () => true, rename: async () => { calls.push('rename'); },
+      stillValid: () => false, remove: async (p) => { calls.push(`remove ${p}`); }
+    });
+    expect(r).toBe('skipped');
+    expect(calls).not.toContain('rename');
+    expect(calls.some((c) => c.startsWith('remove') && c.endsWith('.tmp'))).toBe(true);
+  });
+});
+
+describe('checkFolder', () => {
+  const dir = { isDirectory: () => true }, file = { isDirectory: () => false };
+  const err = (code: string) => Object.assign(new Error(code), { code });
+  it('ok for a directory, missing for ENOENT/ENOTDIR or a file', async () => {
+    expect(await checkFolder('x', async () => dir)).toBe('ok');
+    expect(await checkFolder('x', async () => file)).toBe('missing');
+    expect(await checkFolder('x', async () => { throw err('ENOENT'); })).toBe('missing');
+    expect(await checkFolder('x', async () => { throw err('ENOTDIR'); })).toBe('missing');
+  });
+  it('unknown (no warning) for other errors or an unreachable share that never answers', async () => {
+    expect(await checkFolder('x', async () => { throw err('EACCES'); })).toBe('unknown');
+    expect(await checkFolder('\\\\gone\\share', () => new Promise(() => {}), 20)).toBe('unknown');
   });
 });

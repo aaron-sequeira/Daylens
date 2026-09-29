@@ -2,28 +2,16 @@ import { useEffect, useState } from 'react';
 import { localDate } from '@worksight/core/date';
 import type { DaylensSettings } from '../../main/settings';
 import type { PrivacyView } from '../../main/ipc';
-import { DEFAULT_EXCLUSIONS, MAX_EXCLUSIONS, MAX_PATTERN, addExclusion } from '../../shared/exclusions';
+import { MAX_PATTERN, addExclusion } from '../../shared/exclusions';
 import { api } from '../lib/api';
 import { formatClock } from '../lib/format';
+import { restoreDefaults } from '../lib/privacy';
 
 const STATUS_TEXT: Record<PrivacyView['ocrStatus'], string> = {
   off: 'Off', starting: 'Starting…', ready: 'Working', restarting: 'Restarting after an error…',
   'no-language': 'Windows has no text-recognition language installed. Install one, then turn screen reading off and on.',
   failed: 'Stopped after repeated errors. Turn it off and on to retry.'
 };
-
-/** Union of the current list and the defaults (case-insensitive), capped at MAX_EXCLUSIONS. Keeps whatever the user added instead of wiping it out. */
-function restoreDefaults(current: string[]): string[] {
-  const seen = new Set(current.map((p) => p.toLowerCase()));
-  const merged = [...current];
-  for (const d of DEFAULT_EXCLUSIONS) {
-    if (merged.length >= MAX_EXCLUSIONS) break;
-    if (seen.has(d.toLowerCase())) continue;
-    seen.add(d.toLowerCase());
-    merged.push(d);
-  }
-  return merged.slice(0, MAX_EXCLUSIONS);
-}
 
 function formatPeekTime(ms: number): string {
   const clock = formatClock(ms);
@@ -106,7 +94,11 @@ export function PrivacySection({ settings, onChange }: { settings: DaylensSettin
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) add(); }} />
             <button className="btn s" onClick={add}>Add</button>
-            <button className="btn s" onClick={() => { void saveExclusions(restoreDefaults(view.exclusions)); }}>Restore defaults</button>
+            <button className="btn s" onClick={() => {
+              const r = restoreDefaults(view.exclusions);
+              if (r.full) setNote('Your list is full — remove some patterns to restore the defaults.');
+              if (r.list.length !== view.exclusions.length) void saveExclusions(r.list);
+            }}>Restore defaults</button>
           </div>
         </div>
       </div>
