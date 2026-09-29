@@ -15,42 +15,51 @@ describe('createPdfQueue', () => {
     expect(run).toHaveBeenCalledWith('2026-09-26');
   });
 
-  it('never runs two jobs at once: a schedule() made while one is in flight waits for it to finish', async () => {
+  it('with A running, B and C scheduled both run afterwards, in order (no date is dropped)', async () => {
     const order: string[] = [];
-    const first = deferred();
-    const run = vi.fn((d: string) => { order.push(`start:${d}`); return d === 'a' ? first.promise : Promise.resolve(); });
+    const gateA = deferred();
+    const gateB = deferred();
+    const run = vi.fn((d: string) => {
+      order.push(d);
+      if (d === 'a') return gateA.promise;
+      if (d === 'b') return gateB.promise;
+      return Promise.resolve();
+    });
     const q = createPdfQueue(run);
-    q.schedule('a');
-    q.schedule('b'); // 'a' hasn't resolved yet: must not start 'b' now
-    expect(run).toHaveBeenCalledTimes(1);
-    first.resolve();
+    q.schedule('a'); // starts immediately
+    q.schedule('b'); // queued behind 'a'
+    q.schedule('c'); // queued behind 'b'
+    expect(order).toEqual(['a']); // 'b' and 'c' must not start while 'a' is still running
+    gateA.resolve();
     await tick(); await tick();
-    expect(run).toHaveBeenCalledTimes(2);
-    expect(order).toEqual(['start:a', 'start:b']);
+    expect(order).toEqual(['a', 'b']);
+    gateB.resolve();
+    await tick(); await tick();
+    expect(order).toEqual(['a', 'b', 'c']);
   });
 
-  it('coalesces a burst of schedule() calls into a single queued run of the latest date', async () => {
+  it('with A running, scheduling A twice more queues it only once: it runs once more, not twice', async () => {
     const order: string[] = [];
     const first = deferred();
-    const run = vi.fn((d: string) => { order.push(`start:${d}`); return d === 'x' ? first.promise : Promise.resolve(); });
+    const run = vi.fn((d: string) => { order.push(d); return order.length === 1 ? first.promise : Promise.resolve(); });
     const q = createPdfQueue(run);
-    q.schedule('x'); // runs immediately
-    q.schedule('y'); // queued
-    q.schedule('y'); // same date again: still just one queued slot
-    q.schedule('z'); // replaces the queued 'y' with 'z' rather than adding a second queued job
+    q.schedule('a'); // running (call 1)
+    q.schedule('a'); // queues one more run of 'a'
+    q.schedule('a'); // 'a' is already queued: must not add a second one
     first.resolve();
     await tick(); await tick();
-    expect(order).toEqual(['start:x', 'start:z']); // 'y' never ran on its own
+    expect(order).toEqual(['a', 'a']); // exactly one extra run, not two
     expect(run).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps running later dates after an earlier run rejects', async () => {
+  it('keeps running the rest of the queue after an earlier run rejects', async () => {
     const order: string[] = [];
     const run = vi.fn((d: string) => { order.push(d); return d === 'a' ? Promise.reject(new Error('boom')) : Promise.resolve(); });
     const q = createPdfQueue(run);
     q.schedule('a');
     q.schedule('b');
+    q.schedule('c');
     await tick(); await tick(); await tick();
-    expect(order).toEqual(['a', 'b']);
+    expect(order).toEqual(['a', 'b', 'c']);
   });
 });

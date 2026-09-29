@@ -439,9 +439,10 @@ if (!app.requestSingleInstanceLock()) {
       devUrl: process.env['ELECTRON_RENDERER_URL'],
       indexFile: join(__dirname, '../renderer/index.html')
     });
-    // Serialises auto-saves so at most one hidden render window is ever open for them; a burst of
-    // schedule() calls (e.g. a report regenerated right after it first went ready) coalesces to the
-    // latest date rather than opening one window per call. The folder is read fresh on each run.
+    // Serialises auto-saves so at most one hidden render window is ever open for them: every distinct
+    // date scheduled still gets saved (e.g. yesterday's and today's reports both going ready while a
+    // render is in flight), one at a time, in order; only a repeat schedule() for a date already
+    // queued is coalesced. The folder is read fresh on each run.
     const pdfQueue = createPdfQueue((date) => autoSavePdf(date, settings.get().reportPdfFolder, {
       render: (d) => renderReportPdf(d, pdfRenderDeps()),
       write: writeFile,
