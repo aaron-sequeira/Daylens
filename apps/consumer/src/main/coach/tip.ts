@@ -57,7 +57,7 @@ export function tipInput(c: Candidate, snap: Snapshot, exclusions: string[]): Ti
   const run: typeof reads = [];
   for (let i = anchorIdx; i >= 0; i--) {
     const r = sorted[i];
-    if (r.appName !== appRaw || snap.now - r.at > EPISODE_WINDOW_MS) break;
+    if (appKey(r.appName) !== appKey(appRaw) || snap.now - r.at > EPISODE_WINDOW_MS) break;
     run.unshift(r);
   }
 
@@ -91,10 +91,10 @@ export function parseTip(raw: unknown): TipJson | null {
 // Plain digit runs, the same extraction report/input.ts uses to ground candidate-derived numbers.
 const numbersIn = (text: string): number[] => [...text.matchAll(/\d+(?:\.\d+)?/g)].map((m) => parseFloat(m[0]));
 
-/** Real numbers the writer may safely repeat back when rewriting a tip: the episode minutes plus any number
- * already present in the template (so a template like "a 5-min walk" doesn't flag its own "5" as invented). */
+/** Real numbers the writer may safely repeat back when rewriting a tip: the episode minutes plus any number in the
+ * template body (so "a 5-min walk" doesn't flag its own "5"). Not the title: it holds counts and the user's search text. */
 export function tipAllowedMinutes(t: TipInput): number[] {
-  return [t.episode.minutes, ...numbersIn(t.template.title), ...numbersIn(t.template.body)];
+  return [t.episode.minutes, ...numbersIn(t.template.body)];
 }
 
 export interface TipRewriteGate {

@@ -165,6 +165,19 @@ describe('coach engine', () => {
       expect(rows.map((r) => r.status)).toEqual(['held', 'held']);
     });
 
+    it('re-checks the hold when rewrite fell back to the template slowly (>= 2 s)', async () => {
+      let t = T(12), calls = 0;
+      const { d, shown, rows } = deps({
+        now: () => t,
+        holdReason: async () => { calls++; return calls === 1 ? null : 'call'; },
+        rules: [() => tip()],
+        rewrite: async (cand) => { t += 2500; return cand; } // timed out -> original, but 2.5 s later
+      });
+      expect(await createCoach(d).tick()).toBe('held');
+      expect(shown).toHaveLength(0);
+      expect(rows[0].status).toBe('held');
+    });
+
     it('skips the post-rewrite hold check when rewrite returned the original (no second PowerShell spawn)', async () => {
       let asked = 0;
       const { d, shown } = deps({ holdReason: async () => { asked++; return null; }, rules: [() => tip()], rewrite: async (cand) => cand });

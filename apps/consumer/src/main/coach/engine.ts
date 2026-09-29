@@ -5,6 +5,8 @@ import { inFocus } from './plan';
 import { RULES } from './rules';
 import { REWRITE_RULES } from './tip';
 
+const SLOW_FALLBACK_MS = 2000;
+
 export interface CoachDeps {
   now(): number; snapshot(now: number): Snapshot; history(now: number): NudgeRow[];
   kinds(): Record<Kind, boolean>; snoozeUntil(): number; fewer(): Partial<Record<Kind, number>>;
@@ -51,13 +53,12 @@ export function createCoach(d: CoachDeps) {
         }
         if (d.rewrite && REWRITE_RULES.has(c.ruleId)) {
           const original = c;
+          const started = d.now();
           const rewritten = await d.rewrite(original, snap).catch(() => original);
-          // Fallbacks return the original object (the template). Only a real rewrite gets the re-check below.
-          // ponytail: a slow fallback (timeout/refused) shows the template without re-checking; add if it matters.
-          if (rewritten !== original) {
-            c = { ...rewritten, ruleId: original.ruleId, key: original.key, kind: original.kind, primary: original.primary };
-            // A rewrite can take up to 20s: the hold/snooze picture may have changed while waiting, so re-check
-            // both before showing rather than trusting the decision made before the wait.
+          if (rewritten !== original) c = { ...rewritten, ruleId: original.ruleId, key: original.key, kind: original.kind, primary: original.primary };
+          // A real rewrite, or a fallback that took a while (timeout / refused after a wait), may have outlived the
+          // hold/snooze picture: re-check both before showing. An instant fallback needs no second PowerShell spawn.
+          if (rewritten !== original || d.now() - started >= SLOW_FALLBACK_MS) {
             const holdAfter = await d.holdReason();
             holdOnce = Promise.resolve(holdAfter); // later candidates this tick see the fresh answer
             if (holdAfter || now < d.snoozeUntil()) {

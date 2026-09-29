@@ -60,7 +60,7 @@ import { buildDayDetail, type DayDetail } from './report/detail';
 import { finalCategory } from './brain/finalCategory';
 import { buildReportInput, buildStats, buildWeek, forCloud, type ReportStats, type WriterWeek } from './report/input';
 import type { ReportCandidate } from './report/candidates';
-import { writerState, navDates, needGb, freeGb, settledDay, type ReportView, type WriterView } from './report/view';
+import { writerState, navDates, needGb, freeGb, settledDay, type ReportView, type WriterView, type WriterState } from './report/view';
 
 app.setName('Daylens');
 app.setAppUserModelId('ai.worksight.daylens'); // matches the installer's shortcut, so the taskbar groups them
@@ -609,6 +609,10 @@ if (!app.requestSingleInstanceLock()) {
       onChange: () => win?.webContents.send(CH.eventsUpdate)
     });
     setInterval(() => { void reportScheduler.tick().catch((e) => console.error('[report] tick failed:', e)); }, 60_000);
+    const currentWriterState = (): WriterState => {
+      const s = settings.get();
+      return writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() });
+    };
     const reportView = (date: string | null): ReportView => {
       refreshFreeDisk();
       const rows = reportStore.dates();
@@ -635,7 +639,7 @@ if (!app.requestSingleInstanceLock()) {
         // Rows stored before friendly reasons existed may hold a raw `load: <path>` error: never show that.
         status: row?.status ?? 'none', report: row?.report ?? null, error: row?.error?.startsWith('load:') ? friendlyReason(row.error) : row?.error ?? null, model: row?.model ?? null,
         stats, timeline, candidates, ticked: reportStore.tickedTexts(d),
-        writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
+        writer: currentWriterState(),
         waiting: reportScheduler.waiting() === d, running: reportScheduler.running() === d, autoPaused: reportScheduler.autoPaused(),
         needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(d), cancellable: reportScheduler.requested(d),
         memoryShort: s.writerMode === 'local' && freemem() < writerNeedBytes(writerTier()), detail
@@ -663,7 +667,7 @@ if (!app.requestSingleInstanceLock()) {
         nextWeek: ws < current ? shiftDate(ws, 7) : null,
         // Never show a raw `load: <path>` error (same rule as reportView).
         row: row?.error?.startsWith('load:') ? { ...row, error: friendlyReason(row.error, 'week') } : row,
-        writer: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
+        writer: currentWriterState(),
         waiting: reportScheduler.waiting() === key, running: reportScheduler.running() === key, autoPaused: reportScheduler.autoPaused(),
         needGb: needGb(writerTier()), freeGb: freeGb(freemem()), queued: reportScheduler.queued(key), cancellable: reportScheduler.requested(key),
         memoryShort: s.writerMode === 'local' && freemem() < writerNeedBytes(writerTier())
@@ -674,7 +678,7 @@ if (!app.requestSingleInstanceLock()) {
       refreshFreeDisk();
       const s = settings.get();
       return {
-        state: writerState({ mode: s.writerMode, hasKey: secrets.has(s.aiProvider), cloudModel: s.aiModel, tier: writerTier(), model: writerDl.status(), unavailable: unavailable() }),
+        state: currentWriterState(),
         mode: s.writerMode, tier: s.writerModelTier as '' | WriterTier, autoTier: tierFor(totalmem()),
         provider: s.aiProvider, model: s.aiModel, baseUrl: s.aiBaseUrl, hasKey: secrets.has(s.aiProvider), attribution: WRITER_ATTRIBUTION
       };
@@ -847,6 +851,9 @@ if (!app.requestSingleInstanceLock()) {
           const ws = weekStart(req);
           const key = `W:${ws}`;
           const today = localDate(Date.now());
+          const days = repo.getAvailableDays(); // newest first
+          const oldest = days.length ? days[days.length - 1] : null;
+          if (oldest === null || shiftDate(ws, 6) < oldest) return insightsView(ws); // nothing tracked that week
           // A future week, the current week before its own Sunday, and a week already being written are all no-ops:
           // just report the current view (the renderer hides the button in the first two cases; this backs it up).
           if (ws > weekStart(today) || !canGenerateWeek(ws, today) || reportScheduler.running() === key) return insightsView(ws);

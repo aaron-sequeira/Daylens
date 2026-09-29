@@ -13,7 +13,7 @@ export type PlanItem = z.infer<typeof planItem>;
 export interface ReportJson { headline: string; story: string; wins: string[]; habits: string[];
   doBetter: { candidateId: string; what: string; better: string }[]; plan: PlanItem[]; advice: string; }
 
-const cut = (n: number) => (v: unknown): string => (typeof v === 'string' ? v.trim().slice(0, n) : '');
+export const cut = (n: number) => (v: unknown): string => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const strings = (v: unknown, max: number, len: number): string[] => list(v).slice(0, 20).map(cut(len)).filter(Boolean).slice(0, max);
 
@@ -148,7 +148,7 @@ export function groundNumbers(report: ReportJson, allowed: number[]): ReportJson
 
 // Grammar for the local writer (node-llama-cpp createGrammarForJsonSchema), also spelled out in the system prompt.
 // maxLength keeps generation from running away; parseReport still enforces every limit.
-const str = (maxLength: number) => ({ type: 'string', maxLength }) as const;
+export const str = (maxLength: number) => ({ type: 'string', maxLength }) as const;
 export const REPORT_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: {

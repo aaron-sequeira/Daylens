@@ -54,9 +54,7 @@ export function dayShortLabel(date: string, today: string): string {
 }
 
 /** Generate is only offered for a past week (always finished), or the current week from its Sunday onward. */
-export function weekReady(weekStart: string, today: string): boolean {
-  return today >= addDays(weekStart, 6);
-}
+export { canGenerateWeek as weekReady } from '../../shared/week';
 
 export type SummaryCardKind = 'summary' | 'writing' | 'waiting' | 'failed' | 'download' | 'cloud_offer' | 'notEnough' | 'generate';
 

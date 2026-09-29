@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { shiftDate } from '../day/time';
+import { cut, str } from './schema';
 
-const cut = (n: number) => (v: unknown): string => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 const toMin = (sec: number): number => Math.round(sec / 60);
 
 /** Monday of the week containing `date` (local). `getDay()` is 0 for Sunday, so the Monday offset is `(getDay() + 6) % 7`. */
@@ -16,12 +16,7 @@ export function weekDates(start: string): string[] {
   return Array.from({ length: 7 }, (_, i) => shiftDate(start, i));
 }
 
-/** Generate may run for a week only once it's finished: any past week (its Sunday has already passed), or the
- * current week from its own Sunday onward. Mirrors weekReady in the renderer's lib/insights.ts (kept as a
- * separate, identical function there: the renderer must not import this main-only module). */
-export function canGenerateWeek(ws: string, today: string): boolean {
-  return today >= shiftDate(ws, 6);
-}
+export { canGenerateWeek } from '../../shared/week';
 
 export interface InsightsDay { date: string; screenSec: number; byCategory: Record<string, number>; healthScore: number | null; deepWorkSec: number; }
 export interface InsightsNumbers {
@@ -47,16 +42,21 @@ export function buildInsights(i: { weekStart: string; days: InsightsDay[]; prevD
   const prev = i.prevDays ? sumDays(i.prevDays) : null;
   const focusDays = i.days.filter((d) => d.deepWorkSec > 0);
   const bestFocusDay = focusDays.length ? focusDays.reduce((a, d) => (d.deepWorkSec > a.deepWorkSec ? d : a)).date : null;
-  const appTotals = new Map<string, number>();
-  for (const day of i.apps) for (const a of day) appTotals.set(a.app, (appTotals.get(a.app) ?? 0) + a.min);
-  const topApps = [...appTotals.entries()].map(([app, min]) => ({ app, min })).sort((a, b) => b.min - a.min).slice(0, 8);
+  const appTotals = new Map<string, { min: number; spell: Map<string, number> }>();
+  for (const day of i.apps) for (const a of day) {
+    const k = a.app.toLowerCase(), e = appTotals.get(k) ?? { min: 0, spell: new Map<string, number>() };
+    e.min += a.min; e.spell.set(a.app, (e.spell.get(a.app) ?? 0) + a.min);
+    appTotals.set(k, e);
+  }
+  const topApps = [...appTotals.values()]
+    .map((e) => ({ app: [...e.spell.entries()].sort((a, b) => b[1] - a[1])[0][0], min: e.min }))
+    .sort((a, b) => b.min - a.min).slice(0, 8);
   const nudges = { acted: i.nudges.filter((n) => n.status === 'acted').length, dismissed: i.nudges.filter((n) => n.status === 'dismissed').length };
   return { weekStart: i.weekStart, days: i.days, totals: { screenSec, deepWorkSec, avgHealth, activeDays }, prev, bestFocusDay, topApps, nudges };
 }
 
 export interface WeekJson { headline: string; summary: string; focusForNextWeek: string; }
 
-const str = (maxLength: number) => ({ type: 'string', maxLength }) as const;
 export const WEEK_JSON_SCHEMA: Record<string, unknown> = {
   type: 'object',
   properties: { headline: str(80), summary: str(600), focusForNextWeek: str(200) },

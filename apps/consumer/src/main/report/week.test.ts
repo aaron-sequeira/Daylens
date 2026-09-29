@@ -29,6 +29,11 @@ describe('week helpers', () => {
     expect(n.nudges).toEqual({ acted: 2, dismissed: 1 });
     expect(buildInsights({ weekStart: '2026-09-28', days: days.map((d) => ({ ...d, deepWorkSec: 0 })), prevDays: null, apps: [], nudges: [] }).bestFocusDay).toBeNull();
   });
+  it('merges app names that differ only by case, keeping the spelling with the most minutes', () => {
+    const n = buildInsights({ weekStart: '2026-09-21', days: [day('2026-09-21', 0, 0, null)], prevDays: null, nudges: [],
+      apps: [[{ app: 'Code', min: 50 }], [{ app: 'code', min: 20 }, { app: 'Chrome', min: 30 }]] });
+    expect(n.topApps).toEqual([{ app: 'Code', min: 70 }, { app: 'Chrome', min: 30 }]);
+  });
   it('parses the week JSON with cuts and rejects a missing headline', () => {
     expect(parseWeek({ headline: 'h'.repeat(120), summary: 's'.repeat(900), focusForNextWeek: 'f'.repeat(300) })).toEqual({ headline: 'h'.repeat(80), summary: 's'.repeat(600), focusForNextWeek: 'f'.repeat(200) });
     expect(parseWeek({ headline: '', summary: 's', focusForNextWeek: 'f' })).toBeNull();

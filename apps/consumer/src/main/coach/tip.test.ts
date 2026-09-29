@@ -93,6 +93,16 @@ describe('tipInput', () => {
     expect(input.episode.minutes).toBe(1); // only the last 2 Code reads count: the run breaks at Chrome
     expect(input.episode.avgStuck).toBeCloseTo(1.75);
   });
+
+  it('counts the episode run across raw spellings of the same app', () => {
+    const now = T(12, 0);
+    const reads = [
+      read(now - 8 * 60_000, 'Code.exe'), read(now - 6 * 60_000, 'Code.exe'),
+      read(now - 4 * 60_000, 'code'), read(now - 2 * 60_000, 'code')
+    ];
+    const input = tipInput(cand(), snap({ readsToday: reads, now }), []);
+    expect(input.episode.minutes).toBe(2); // 4 reads * 30s — one app, two raw spellings
+  });
 });
 
 describe('tipRewriteAllowed', () => {
@@ -122,7 +132,13 @@ describe('tipAllowedMinutes', () => {
       episode: { minutes: 12, category: 'work', activity: null, avgStuck: 1.8 },
       template: { title: 'Stuck for 3 times', body: 'Try a 5-min walk.' }
     };
-    expect(tipAllowedMinutes(input)).toEqual(expect.arrayContaining([12, 3, 5]));
+    expect(tipAllowedMinutes(input)).toEqual([12, 5]); // title numbers (counts, search text) are not durations
+  });
+  it('never allows digits from the user\'s search query in the title', () => {
+    const input: TipInput = { ruleId: 'repeat_search', app: 'Chrome', title: null,
+      episode: { minutes: 4, category: null, activity: null, avgStuck: 0 },
+      template: { title: 'Searched "iphone 15" 3× this week', body: "Save the answer as a note or bookmark so you don't have to look it up again." } };
+    expect(tipAllowedMinutes(input)).toEqual([4]);
   });
 });
 
