@@ -39,6 +39,7 @@ excluding `*.dylib`). Electron Forge/Squirrel was considered and rejected (new t
 - userData stays `%APPDATA%\Daylens` (index.ts already calls `app.setName('Daylens')`), so a dev instance and the installed
   app share history. Models live under userData, so one folder holds everything.
 - `electronVersion` pinned to the installed Electron (pnpm hoists `electron` to the root; same reason as the agent).
+- `app.setAppUserModelId('ai.worksight.daylens')` at startup so the running app groups with its installed shortcut on the taskbar.
 
 ### 2.3 Install / start / uninstall
 - `nsis: { oneClick: true, perMachine: false, runAfterFinish: true, createDesktopShortcut: true, createStartMenuShortcut: true, shortcutName: Daylens }`.
@@ -46,7 +47,7 @@ excluding `*.dylib`). Electron Forge/Squirrel was considered and rejected (new t
 - Start with Windows: unchanged — index.ts already calls `app.setLoginItemSettings({ openAtLogin, args: ['--hidden'] })`
   when packaged. Verify only.
 - Single instance: unchanged (`requestSingleInstanceLock` exists). Verify a second launch focuses the first window.
-- Uninstall: `nsis.include: build/installer.nsh` with a `customUnInstall` macro:
+- Uninstall: `nsis.include: resources/installer.nsh` (not `build/`, which is gitignored) with a `customUnInstall` macro:
   - if `${isUpdated}` (uninstall run by an upgrade) → do nothing;
   - else `MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Also delete your Daylens history, reports and downloaded AI models?"`
     → on Yes, `RMDir /r "$APPDATA\Daylens"`; on No (default) keep everything.
@@ -121,8 +122,9 @@ from a generated `src/renderer/components/logoPaths.ts` so the in-app logo and t
 ## 4. Polish
 
 Visible:
-1. **Week label year** — `weekLabel` adds the year when the week's Sunday is not in the current year
-   ("29 Dec 2025 – 4 Jan 2026" style; "This week"/"Last week" unchanged).
+1. **Week label year** — `weekLabel` adds years when needed: a week spanning two years shows both
+   ("29 Dec 2025 – 4 Jan 2026"); a week wholly in another year shows it once at the end ("22–28 Sep 2025");
+   weeks in the current year and "This week"/"Last week" are unchanged.
 2. **Past-week copy** — `notEnough` card reads "Not enough tracked days that week" for past weeks; "…yet this week" for the current one.
 3. **Search clear** — clearing the box bumps `searchSeq`, so an in-flight reply for the old query can't reopen the dropdown.
 4. **"No reports match" announced** — rendered as a polite live region (`role="status"`), still not an option.
@@ -174,6 +176,7 @@ Title bar + rail with the new logo (draw-in at start / middle / end via pinned W
 Settings → About, Insights with a Dec/Jan week, reduced-motion end state.
 
 ### 5.3 Human checklist (installed build)
+0. Close the dev Daylens first: the dev and installed apps share `%APPDATA%\Daylens` and the single-instance lock.
 1. Installer runs: SmartScreen → More info → Run anyway; Daylens opens by itself with the draw-in; desktop + Start menu shortcuts exist.
 2. Tray icon looks right on the user's taskbar (and at their display scaling).
 3. From the installed copy: tracking works, a report generates, a Laya labelling batch runs; existing history is present.
