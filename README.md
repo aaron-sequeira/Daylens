@@ -16,6 +16,10 @@ A private, on-device companion for Windows that shows where your screen time goe
 ![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
 ![Local-first](https://img.shields.io/badge/Data-stays%20on%20your%20PC-2d6b54)
 
+<a href="docs/media/daylens-showreel.mp4"><img src="docs/media/daylens-showreel-teaser.gif" alt="Daylens showreel — click to watch the full video" width="900" /></a>
+
+**[▶ Watch the 60-second showreel (with sound)](docs/media/daylens-showreel.mp4)**
+
 <img src="docs/images/daylens-today.png" alt="Daylens — the Today screen" width="900" />
 
 </div>
