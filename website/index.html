@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daylens — a little sun that lives on your PC</title>
+<meta name="description" content="Daylens shows where your screen time goes, writes your daily report and reminds you to take breaks, drink water and eat lunch. Free for Windows 10 and 11. Everything stays on your PC.">
+<link rel="canonical" href="https://aaron-sequeira.github.io/Daylens/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Daylens — a little sun that lives on your PC">
+<meta property="og:description" content="Screen time, daily reports and gentle break reminders for Windows. Free, private, on-device.">
+<meta property="og:url" content="https://aaron-sequeira.github.io/Daylens/">
+<meta property="og:image" content="https://aaron-sequeira.github.io/Daylens/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#FBF8F4">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/dm-sans.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+<script>document.documentElement.classList.add('js')</script>
+<script src="main.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">skip to content</a>
+
+<a class="strip" id="whats-new" href="https://github.com/aaron-sequeira/Daylens/releases/tag/v1.0.1">
+  <span class="pill">( ˘ ᵕ ˘ ) new · v1.0.1 is out</span>
+  <span class="strip-text">real app icons, a startup switch and a few fixes — see what's new →</span>
+</a>
+
+<nav class="nav wrap" aria-label="Main">
+  <a class="brand" href="#top"><img src="assets/logo.svg" alt="" width="36" height="36">daylens</a>
+  <div class="nav-links">
+    <a href="#features">what it does</a>
+    <a href="#privacy">privacy</a>
+    <a href="#faq">faq</a>
+    <a class="btn-pill" data-download href="https://github.com/aaron-sequeira/Daylens/releases/latest/download/Daylens-Setup.exe">download</a>
+  </div>
+</nav>
+
+<main id="main">
+<header id="top" class="hero wrap">
+  <svg class="sunrise" viewBox="0 0 220 120" width="220" height="120" fill="none" stroke-linecap="round" aria-hidden="true">
+    <path class="sun" pathLength="1" d="M58 96a52 52 0 0 1 104 0" stroke="#F6B35E" stroke-width="8"/>
+    <path class="rays" pathLength="1" d="M110 30V10M70 42 58 26M150 42l12-16M42 72 24 64M178 72l18-8" stroke="#F6B35E" stroke-width="7"/>
+    <path class="horizon" pathLength="1" d="M14 100c16-4 30-8 46-4s30 8 50 4 30-8 50-4 30 6 46 2" stroke="#171717" stroke-width="7"/>
+  </svg>
+  <h1>a little sun that lives on your pc</h1>
+  <p class="lede">daylens quietly notices where your screen time goes, writes you a daily report, and reminds you to drink water, eat lunch and look away from the screen. all on your pc.</p>
+  <div class="ctas">
+    <a class="btn btn-dark" data-download href="https://github.com/aaron-sequeira/Daylens/releases/latest/download/Daylens-Setup.exe">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7.1H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7.5v7.1L3 18.5zM11.5 12.5H21V21l-9.5-1.3z"/></svg>
+      download for windows</a>
+    <a class="btn btn-light" href="#reel">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
+      watch the 60s reel</a>
+  </div>
+  <p class="fine">free · windows 10 &amp; 11 · no account</p>
+
+  <div class="stage reveal">
+    <div class="win float win-reminder" style="--bar: #BFEBD3">
+      <div class="win-bar"><span>reminder</span><span class="win-ctl" aria-hidden="true">— ✕</span></div>
+      <div class="note"><b>water o'clock</b><p>an hour of screen time. had a glass?</p><span class="chip">i had some</span></div>
+    </div>
+    <div class="win float win-break" style="--bar: #F9DDB9">
+      <div class="win-bar"><span>break.exe</span><span class="win-ctl" aria-hidden="true">— ✕</span></div>
+      <img src="assets/daylens-break.png" alt="A Daylens break screen with a hand-drawn glass filling with water" width="720" height="600" loading="lazy">
+    </div>
+    <p class="sticker">100%<br>on your pc</p>
+    <div class="win win-main" style="--bar: #D8D2FC">
+      <div class="win-bar"><span>daylens — today</span><span class="win-ctl" aria-hidden="true">— ▢ ✕</span></div>
+      <img src="assets/daylens-today.png" alt="The Daylens Today screen: a screen health ring, time per category and a timeline of the day" width="1280" height="820">
+    </div>
+  </div>
+</header>
+
+<section id="features" class="wrap">
+  <p class="kicker">{ what it does }</p>
+  <h2>it pays attention so you don't have to</h2>
+  <div class="cards reveal">
+    <article class="win" style="--bar: #CFE6FB">
+      <div class="win-bar"><span>where-it-went.txt</span><span class="win-ctl" aria-hidden="true">— ✕</span></div>
+      <div class="card-body"><h3>knows where the day went</h3><p>apps and windows, grouped into work, learning, chat and fun. a timeline, a daily goal and a 0–100 screen health score.</p></div>
+    </article>
+    <article class="win" style="--bar: #D8D2FC">
+      <div class="win-bar"><span>report.pdf</span><span class="win-ctl" aria-hidden="true">— ✕</span></div>
+      <div class="card-body"><h3>writes your report</h3><p>a plain-language daily report and weekly insights, written by a small ai model on your own pc. search them, save pdfs, draft an email.</p></div>
+    </article>
+    <article class="win" style="--bar: #BFEBD3">
+      <div class="win-bar"><span>breathe.exe</span><span class="win-ctl" aria-hidden="true">— ✕</span></div>
+      <div class="card-body"><h3>nudges you to breathe</h3><p>eye breaks, stretches, water, lunch and tea — with hand-drawn break screens. it waits while you're on a call.</p></div>
+    </article>
+  </div>
+  <div class="shots reveal">
+    <div class="win" style="--bar: #F4C6C8">
+      <div class="win-bar"><span>daylens — insights</span><span class="win-ctl" aria-hidden="true">— ▢ ✕</span></div>
+      <img src="assets/daylens-insights.png" alt="Weekly insights: stacked bars of screen time per day with a health score line" width="910" height="720" loading="lazy">
+    </div>
+    <div class="win" style="--bar: #F9DDB9">
+      <div class="win-bar"><span>daylens — reminders</span><span class="win-ctl" aria-hidden="true">— ▢ ✕</span></div>
+      <img src="assets/daylens-reminders.png" alt="Reminder settings with water, lunch, tea and dinner plus custom reminders" width="910" height="720" loading="lazy">
+    </div>
+  </div>
+</section>
+
+<section id="reel" class="wrap">
+  <div class="reel reveal">
+    <div>
+      <p class="kicker">&gt; play showreel.mp4</p>
+      <h2>the whole thing in sixty seconds</h2>
+      <p>your day, the on-device ai, reports, breaks, reminders and travel mode — with the sound on.</p>
+      <a class="btn btn-sun" data-play-reel href="assets/daylens-showreel.mp4">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
+        watch with sound</a>
+    </div>
+    <div class="reel-media"><img src="assets/daylens-showreel-teaser.gif" alt="Highlights from the Daylens showreel" width="720" height="405" loading="lazy"></div>
+  </div>
+</section>
+
+<section id="privacy" class="wrap">
+  <div class="privacy reveal">
+    <div>
+      <p class="kicker">{ privacy }</p>
+      <h2>no account. no cloud. yours.</h2>
+      <p class="lede lede-left">everything is stored and understood on your pc. screen reading is opt-in, text only — never screenshots — and skips password managers, banking and private windows.</p>
+    </div>
+    <ul class="facts">
+      <li><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><span><b>on-device ai.</b> the labeller and the report writer run locally.</span></li>
+      <li><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12s3.5-6.5 9-6.5S21 12 21 12s-3.5 6.5-9 6.5S3 12 3 12z"/><path d="M4 20 20 4"/></svg><span><b>never screenshots.</b> only the text of the window in front, when you allow it.</span></li>
+      <li><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4.5h6V7M6 7l1 13h10l1-13"/></svg><span><b>delete it all, any time.</b> export or wipe your history in one click.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="faq" class="wrap faq">
+  <h2>questions, answered</h2>
+  <div class="reveal">
+    <details><summary>is it really free?</summary><p>yes. no account, no subscription, no ads.</p></details>
+    <details><summary>does anything leave my pc?</summary><p>no. the optional cloud writer only turns on if you add your own api key, and it never receives screen text.</p></details>
+    <details><summary>what do i need?</summary><p>windows 10 (1903 or later) or windows 11, 64-bit. 8 gb of ram or more for writing reports on your pc.</p></details>
+    <details><summary>windows says it protected my pc?</summary><p>the installer isn't code-signed yet. choose more info, then run anyway.</p></details>
+    <details><summary>mac?</summary><p>not yet — daylens is windows-only for now.</p></details>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="foot wrap">
+    <h2>see your day clearly.</h2>
+    <a class="btn btn-dark" data-download href="https://github.com/aaron-sequeira/Daylens/releases/latest/download/Daylens-Setup.exe">download for windows</a>
+  </div>
+  <p class="legal">
+    <span>daylens 1.0.1 · made with ( ^ ω ^ ) for windows</span>
+    <a href="https://github.com/aaron-sequeira/Daylens">github</a>
+    <a href="#privacy">privacy</a>
+  </p>
+</footer>
+</body>
+</html>
