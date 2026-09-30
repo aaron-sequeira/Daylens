@@ -4,7 +4,8 @@ import type { PlanKind } from '../../main/report/schema';
 import type { SearchHit } from '../../main/report/search';
 import { displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
-import { appColor, appInitials, formatHm } from '../lib/format';
+import { formatHm } from '../lib/format';
+import { AppBadge } from './AppBadge';
 import { activePercent, detailPanels, EMAIL_IDLE, emailFinished, emailStart, goalPercent, nextIndex, pickDate, reportCardKind, reportDateLabel, snippetParts, useCountUp, waitingText, words } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
 import { CloudSetup } from './CloudSetup';
@@ -439,7 +440,7 @@ export function ReportsScreen({ print = false, date: fixedDate }: { print?: bool
               <h3>Top apps <span>today</span></h3>
               {stats.topApps.map((a) => (
                 <div className="app" key={a.appName}>
-                  <b className="lg" style={{ background: appColor(a.appName) }}>{appInitials(a.appName)}</b>
+                  <AppBadge className="lg" name={a.appName} />
                   <div>{displayAppName(a.appName)}<div className="tr"><div style={{ width: `${topMax > 0 ? Math.round((a.seconds / topMax) * 100) : 0}%` }} /></div></div>
                   <em>{formatHm(a.seconds)}</em>
                 </div>

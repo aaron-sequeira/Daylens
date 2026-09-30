@@ -4,7 +4,8 @@ import type { InsightsView } from '../../main/ipc';
 import type { WriterView } from '../../main/report/view';
 import { CATEGORIES, CATEGORY_LABEL, displayAppName } from '../../shared/categories';
 import { api } from '../lib/api';
-import { appColor, appInitials, formatHm } from '../lib/format';
+import { formatHm } from '../lib/format';
+import { AppBadge } from './AppBadge';
 import { dayShortLabel, deltaText, summaryCardKind, weekLabel, weekReady } from '../lib/insights';
 import { waitingText } from '../lib/report';
 import { writerStatusText } from '../lib/writer';
@@ -217,7 +218,7 @@ export function InsightsScreen() {
                 const label = dayShortLabel(d.date, today);
                 return (
                   <div key={d.date} className={`bar${d.date === today ? ' today' : ''}`} aria-label={`${label}: ${formatHm(d.screenSec)}${d.healthScore === null ? '' : `, health score ${d.healthScore}`}`}>
-                    <div className="stack" style={{ height: `${(d.screenSec / maxScreen) * 90}px`, animationDelay: `${0.3 + i * 0.08}s` }}>
+                    <div className="stack" style={{ height: `${d.screenSec > 0 ? Math.max(6, (d.screenSec / maxScreen) * 90) : 0}px`, animationDelay: `${0.3 + i * 0.08}s` }}>
                       {CATEGORIES.filter((c) => d.byCategory[c] > 0).map((c) => (
                         <div key={c} title={CATEGORY_LABEL[c]} style={{ height: `${(d.byCategory[c] / d.screenSec) * 100}%`, background: `var(--cat-${c})` }} />
                       ))}
@@ -242,7 +243,7 @@ export function InsightsScreen() {
             <h3>Top apps <span>this week</span></h3>
             {n.topApps.map((a) => (
               <div className="app" key={a.app}>
-                <b className="lg" style={{ background: appColor(a.app) }}>{appInitials(a.app)}</b>
+                <AppBadge className="lg" name={a.app} />
                 <div>{displayAppName(a.app)}<div className="tr"><div style={{ width: `${topAppsMax > 0 ? Math.round((a.min / topAppsMax) * 100) : 0}%` }} /></div></div>
                 <em>{formatHm(a.min * 60)}</em>
               </div>

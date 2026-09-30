@@ -10,6 +10,7 @@ import { localDate } from '@worksight/core/date';
 import { complete, type AiProvider } from '@worksight/core/ai';
 import { CH } from './channels';
 import { registerIpc } from './ipc';
+import { createAppIcons } from './appIcons';
 import { DEFAULT_SETTINGS } from './settings';
 import { createOcrClient } from './ocr/client';
 import { SCREEN_SCHEMA, createScreenStore, checkpoint, deleteActivity, exportAll } from './screen/store';
@@ -1009,6 +1010,10 @@ if (!app.requestSingleInstanceLock()) {
         }
       },
       reminders: { store: reminderStore, workdays: () => readProfile(settings.get()).days },
+      appIcon: createAppIcons({
+        pathFor: (name) => (db.prepare('SELECT app_path AS p FROM focus_sessions WHERE app_name = ? AND app_path IS NOT NULL ORDER BY id DESC LIMIT 1').get(name) as { p: string } | undefined)?.p ?? null,
+        iconFor: async (path) => { const img = await app.getFileIcon(path, { size: 'large' }); return img.isEmpty() ? null : img.toDataURL(); }
+      }),
       models: {
         view: () => ({ model: downloader.status(), labelling: scheduler.status() }),
         redownload: async () => {

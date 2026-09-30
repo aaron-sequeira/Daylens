@@ -46,7 +46,7 @@ export function HealthPanel({ view }: { view: TodayView }) {
             const label = isToday ? 'Today' : new Date(`${d.date}T12:00:00`).toLocaleDateString([], { weekday: 'short' });
             return (
               <div key={d.date} className={`bar${isToday ? ' today' : ''}`} title={`${label}: ${formatHm(d.seconds)}`}>
-                <div className="stack" style={{ height: `${(d.seconds / max) * 90}px`, animationDelay: `${0.3 + i * 0.08}s` }}>
+                <div className="stack" style={{ height: `${d.seconds > 0 ? Math.max(6, (d.seconds / max) * 90) : 0}px`, animationDelay: `${0.3 + i * 0.08}s` }}>
                   {CATEGORIES.filter((c) => d.byCategory[c] > 0).map((c) => (
                     <div key={c} style={{ height: `${(d.byCategory[c] / d.seconds) * 100}%`, background: `var(--cat-${c})` }} />
                   ))}

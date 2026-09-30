@@ -23,7 +23,7 @@ export function ReminderEditor({ value, error, onChange, onSave, onCancel }: {
           <div className="rem-time">
             <input type="time" aria-label="Time" value={s.time} onChange={(e) => set({ schedule: { ...s, time: e.target.value } })} />
             <div className="rem-days">{DAYS.map(([d, l]) => (
-              <button key={d} type="button" className={`chip${s.days.includes(d) ? ' on' : ''}`} aria-label={DAY_NAMES[d]} aria-pressed={s.days.includes(d)}
+              <button key={d} type="button" className={`day-chip${s.days.includes(d) ? ' on' : ''}`} aria-label={DAY_NAMES[d]} aria-pressed={s.days.includes(d)}
                 onClick={() => set({ schedule: { ...s, days: s.days.includes(d) ? s.days.filter((x) => x !== d) : [...s.days, d] } })}>{l}</button>
             ))}</div>
           </div>

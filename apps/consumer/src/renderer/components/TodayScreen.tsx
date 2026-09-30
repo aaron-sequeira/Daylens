@@ -4,7 +4,8 @@ import type { DaylensSettings } from '../../main/settings';
 import type { TodayView } from '../../main/day/today';
 import { CATEGORY_LABEL, displayAppName, type Category } from '../../shared/categories';
 import { api } from '../lib/api';
-import { appColor, appInitials, formatClock, formatHm, greeting, joinApps } from '../lib/format';
+import { formatClock, formatHm, greeting, joinApps } from '../lib/format';
+import { AppBadge } from './AppBadge';
 import { Icon } from './Icon';
 import { Timeline } from './Timeline';
 import { HealthPanel } from './HealthPanel';
@@ -71,7 +72,7 @@ export function TodayScreen({ settings, onChange }: { settings: DaylensSettings;
                 <h3>{joinApps(c.apps.map((a) => displayAppName(a.appName)))}</h3>
                 <div className="cfoot">
                   <span>{Math.round((c.seconds / Math.max(1, view.screenSec)) * 100)}% of today</span>
-                  <span className="apps">{c.apps.map((a) => <b key={a.appName} style={{ background: appColor(a.appName) }}>{appInitials(a.appName)}</b>)}</span>
+                  <span className="apps">{c.apps.map((a) => <AppBadge key={a.appName} name={a.appName} />)}</span>
                 </div>
               </div>
             ))}

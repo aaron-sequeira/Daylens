@@ -14,6 +14,7 @@ import type { ReminderInput } from '../shared/reminders';
 
 const api = {
   today: (date: string): Promise<TodayView> => ipcRenderer.invoke(CH.todayGet, { date }),
+  appIcon: (appName: string): Promise<string | null> => ipcRenderer.invoke(CH.appIcon, appName),
   settings: {
     get: (): Promise<DaylensSettings> => ipcRenderer.invoke(CH.settingsGet),
     set: (patch: SettingsPatch): Promise<DaylensSettings> => ipcRenderer.invoke(CH.settingsSet, patch)

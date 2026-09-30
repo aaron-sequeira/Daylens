@@ -55,5 +55,6 @@ export const CH = {
   remindersSave: 'reminders:save',
   remindersDelete: 'reminders:delete',
   remindersReset: 'reminders:reset',
-  remindersSetEnabled: 'reminders:setEnabled'
+  remindersSetEnabled: 'reminders:setEnabled',
+  appIcon: 'app:icon'
 } as const;

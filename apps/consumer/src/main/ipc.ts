@@ -136,6 +136,7 @@ export interface IpcDeps {
   about(): AboutView;
   travel: TravelDeps;
   reminders: RemindersDeps;
+  appIcon(appName: string): Promise<string | null>;
 }
 
 export function registerIpc(d: IpcDeps): void {
@@ -260,5 +261,6 @@ export function registerIpc(d: IpcDeps): void {
   });
   ipcMain.handle(CH.remindersDelete, (_e, raw) => { d.reminders.store.remove(z.number().int().parse(raw)); return remindersView(); });
   ipcMain.handle(CH.remindersReset, (_e, raw) => { d.reminders.store.reset(z.enum(['water', 'lunch', 'tea', 'dinner']).parse(raw), d.reminders.workdays(), d.now()); return remindersView(); });
+  ipcMain.handle(CH.appIcon, (_e, raw) => d.appIcon(z.string().min(1).max(260).parse(raw)));
   ipcMain.handle(CH.remindersSetEnabled, (_e, raw) => { const v = z.object({ id: z.number().int(), on: z.boolean() }).strict().parse(raw); d.reminders.store.setEnabled(v.id, v.on, d.now()); return remindersView(); });
 }
