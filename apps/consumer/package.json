@@ -13,8 +13,8 @@
     "test:eval": "vitest run src/main/brain/laya.eval.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
     "logo": "electron scripts/logo/render.cjs",
-    "dist": "node ../../scripts/rebuild-native.cjs && electron-vite build && electron-builder --config.npmRebuild=false && node scripts/check-build.mjs",
-    "check-build": "node scripts/check-build.mjs"
+    "dist": "node ../../scripts/rebuild-native.cjs && electron-vite build && electron-builder --config.npmRebuild=false && node scripts/check-build.mjs && node scripts/stable-installer.mjs",
+    "check-build": "node scripts/check-build.mjs && node scripts/stable-installer.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3",

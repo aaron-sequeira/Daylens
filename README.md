@@ -10,6 +10,8 @@ A private, on-device companion for Windows that shows where your screen time goe
 
 [![Download](https://img.shields.io/badge/Download-v1.0.1-171717?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/aaron-sequeira/WorkSight/releases/latest)
 
+**[daylens website →](https://aaron-sequeira.github.io/Daylens/)**
+
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)
 ![Electron 33](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
