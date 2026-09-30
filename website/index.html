@@ -16,7 +16,7 @@
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
 <link rel="preload" href="assets/fonts/dm-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
-<script>document.documentElement.classList.add('js')</script>
+<script>document.documentElement.classList.add('js'); setTimeout(function () { if (!window.daylensMotion) document.documentElement.classList.remove('js'); }, 2500);</script>
 <script src="main.js" defer></script>
 </head>
 <body>
@@ -112,7 +112,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg>
         watch with sound</a>
     </div>
-    <div class="reel-media"><img src="assets/daylens-showreel-teaser.gif" alt="Highlights from the Daylens showreel" width="720" height="405" loading="lazy"></div>
+    <div class="reel-media"><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/showreel-poster.png"><img src="assets/daylens-showreel-teaser.gif" alt="Highlights from the Daylens showreel" width="720" height="405" loading="lazy"></picture></div>
   </div>
 </section>
 
@@ -135,8 +135,8 @@
   <h2>questions, answered</h2>
   <div class="reveal">
     <details><summary>is it really free?</summary><p>yes. no account, no subscription, no ads.</p></details>
-    <details><summary>does anything leave my pc?</summary><p>no. the optional cloud writer only turns on if you add your own api key, and it never receives screen text.</p></details>
-    <details><summary>what do i need?</summary><p>windows 10 (1903 or later) or windows 11, 64-bit. 8 gb of ram or more for writing reports on your pc.</p></details>
+    <details><summary>does anything leave my pc?</summary><p>not unless you turn on the optional cloud writer with your own api key — and even then it never receives screen text. your history, labels and reports stay on your pc.</p></details>
+    <details><summary>what do i need?</summary><p>windows 10 (1903 or later) or windows 11, 64-bit, and an internet connection once to download the on-device ai models. 8 gb of ram or more for writing reports on your pc.</p></details>
     <details><summary>windows says it protected my pc?</summary><p>the installer isn't code-signed yet. choose more info, then run anyway.</p></details>
     <details><summary>mac?</summary><p>not yet — daylens is windows-only for now.</p></details>
   </div>

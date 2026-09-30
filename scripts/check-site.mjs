@@ -15,7 +15,7 @@ const html = read('index.html');
 const css = read('styles.css');
 
 const refs = [
-  ...[...html.matchAll(/\s(?:src|href)="([^"]+)"/g)].map((m) => m[1]),
+  ...[...html.matchAll(/\s(?:src|href|srcset)="([^"]+)"/g)].map((m) => m[1]),
   ...[...css.matchAll(/url\(([^)]+)\)/g)].map((m) => m[1].replace(/['"]/g, ''))
 ];
 for (const r of refs) {
@@ -39,6 +39,13 @@ if (/(^|[^s]\s)\.reveal\s*\{[^}]*opacity:\s*0/.test(css)) fail.push('.reveal is 
 if (!/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[^@]*animation:\s*none\s*!important[^@]*transition:\s*none\s*!important/.test(css)) {
   fail.push('missing prefers-reduced-motion rule that turns off animation and transition');
 }
+if (!/<picture>\s*<source media="\(prefers-reduced-motion: reduce\)" srcset="[^"]+">\s*<img src="assets\/daylens-showreel-teaser\.gif"/.test(html)) {
+  fail.push('the teaser GIF needs a still <source> for prefers-reduced-motion');
+}
+if (!/\.reel a:focus-visible\s*\{[^}]*outline-color:\s*var\(--sun\)/.test(css)) fail.push('focus ring on the dark reel panel needs the sun outline (violet is under 3:1 there)');
+if (!html.includes('not unless you turn on the optional cloud writer')) fail.push('privacy FAQ must mention the optional cloud writer, not a flat "no"');
+if (!html.includes('an internet connection once')) fail.push('requirements FAQ must mention the one-time model download');
+if (!html.includes('daylensMotion')) fail.push('head script needs the fallback that un-hides content when main.js never runs');
 for (const f of ['assets/daylens-showreel.mp4', 'assets/daylens-showreel-teaser.gif']) {
   if (existsSync(join(root, f)) && statSync(join(root, f)).size > 95 * 1024 * 1024) fail.push(`${f} is over GitHub's 100 MB file limit`);
 }
