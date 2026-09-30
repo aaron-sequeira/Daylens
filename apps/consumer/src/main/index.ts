@@ -81,6 +81,8 @@ const DISMISS_ALL_KEY = 'Control+Alt+D';
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1280, height: 860, minWidth: 1100, minHeight: 720, show: false, backgroundColor: '#FBF8F4',
+    // The Sunrise logo on the taskbar and Alt+Tab (the dev app would otherwise show Electron's icon).
+    icon: app.isPackaged ? join(process.resourcesPath, 'icon.ico') : join(__dirname, '../../resources/icon.ico'),
     titleBarStyle: 'hidden', titleBarOverlay: { color: '#FBF8F4', symbolColor: '#171717', height: 40 },
     // Electron paints a show:false window even before it's shown by default (paintWhenInitiallyHidden defaults
     // true), which makes document.visibilityState report 'visible' on its very first load. With --hidden that

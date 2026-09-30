@@ -38,6 +38,8 @@ extraResources:
     to: tray.png
   - from: resources/tray@2x.png
     to: tray@2x.png
+  - from: resources/icon.ico
+    to: icon.ico
 win:
   target: nsis
   icon: resources/icon.ico

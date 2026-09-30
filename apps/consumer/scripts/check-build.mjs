@@ -10,6 +10,7 @@ export const REQUIRED = [
   { label: 'OCR helper', probe: 'resources/ocr-helper.ps1' },
   { label: 'tray icon', probe: 'resources/tray.png' },
   { label: 'tray icon @2x', probe: 'resources/tray@2x.png' },
+  { label: 'window/taskbar icon', probe: 'resources/icon.ico' },
   { label: 'main bundle', probe: 'resources/app/out/main/index.js' },
   { label: 'Laya worker', probe: 'resources/app/out/main/brain.js' },
   { label: 'writer worker', probe: 'resources/app/out/main/writer.js' },

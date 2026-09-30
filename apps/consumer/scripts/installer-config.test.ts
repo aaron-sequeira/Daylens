@@ -25,7 +25,7 @@ describe('electron-builder.yml', () => {
       'active-win/lib/binding/*darwin*']) expect(yml).toContain(`!**/node_modules/${p}`);
   });
   it('ships the OCR helper and both tray icons as extra resources', () => {
-    for (const f of ['ocr-helper.ps1', 'tray.png', 'tray@2x.png']) expect(yml).toContain(`from: resources/${f}`);
+    for (const f of ['ocr-helper.ps1', 'tray.png', 'tray@2x.png', 'icon.ico']) expect(yml).toContain(`from: resources/${f}`);
   });
 });
 
