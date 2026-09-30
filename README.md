@@ -8,7 +8,7 @@
 
 A private, on-device companion for Windows that shows where your screen time goes, writes you a daily and weekly report, and nudges you toward healthier habits — breaks, water, meals and more.
 
-[![Download](https://img.shields.io/badge/Download-v1.0.0-171717?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/aaron-sequeira/WorkSight/releases/latest)
+[![Download](https://img.shields.io/badge/Download-v1.0.1-171717?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/aaron-sequeira/WorkSight/releases/latest)
 
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows&logoColor=white)
 ![Electron 33](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)
@@ -69,7 +69,7 @@ A private, on-device companion for Windows that shows where your screen time goe
 
 ## Install
 
-1. Download **`Daylens-Setup-1.0.0.exe`** from the [latest release](https://github.com/aaron-sequeira/WorkSight/releases/latest).
+1. Download **`Daylens-Setup-1.0.1.exe`** from the [latest release](https://github.com/aaron-sequeira/WorkSight/releases/latest).
 2. Run it. The installer is not code-signed yet, so Windows may show *“Windows protected your PC”* — choose **More info → Run anyway**.
 3. Daylens installs just for you (no admin rights needed), opens itself, and starts with Windows from then on.
 
