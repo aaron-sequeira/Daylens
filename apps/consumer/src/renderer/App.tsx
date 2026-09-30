@@ -53,7 +53,7 @@ export default function App() {
     return (
       <>
         <TitleBar tracking={settings.consentGranted ? !settings.trackingPaused : null} />
-        <Onboarding mode={mode} initial={initial} initialScreen={settings.screenReading}
+        <Onboarding mode={mode} initial={initial} initialScreen={settings.screenReading} initialStartup={settings.openAtLogin}
           onDone={(s) => { setSettings(s); setRoute(mode === 'redo' ? 'settings' : 'today'); setOnboarding(null); }}
           onCancel={mode === 'redo' ? () => setOnboarding(null) : undefined} />
       </>

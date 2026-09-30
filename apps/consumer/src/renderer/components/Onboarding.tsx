@@ -11,12 +11,13 @@ const toggle = <T,>(list: T[], v: T): T[] => (list.includes(v) ? list.filter((x)
 const cleanName = (s: string): string => s.replace(/\s+/g, ' ').trim(); // a pasted tab/newline would fail validation
 const hasText = (list: string[], v: string): boolean => list.some((x) => x.toLowerCase() === v.toLowerCase());
 
-export function Onboarding({ mode, initial, initialScreen, onDone, onCancel }: {
-  mode: 'first' | 'redo'; initial: Profile; initialScreen: boolean; onDone: (s: DaylensSettings) => void; onCancel?: () => void;
+export function Onboarding({ mode, initial, initialScreen, initialStartup, onDone, onCancel }: {
+  mode: 'first' | 'redo'; initial: Profile; initialScreen: boolean; initialStartup: boolean; onDone: (s: DaylensSettings) => void; onCancel?: () => void;
 }) {
   const [step, setStep] = useState(0);
   const [a, setA] = useState<Profile>(initial);
   const [screen, setScreen] = useState(initialScreen);
+  const [startup, setStartup] = useState(initialStartup);
   const [other, setOther] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -84,7 +85,7 @@ export function Onboarding({ mode, initial, initialScreen, onDone, onCancel }: {
       if (cancelled.current) return;
       if (mode === 'first') s = await api.consent.grant(); // consent only when onboarding is finished
       if (cancelled.current) return;
-      s = await api.settings.set({ screenReading: screen, screenReadingAsked: true });
+      s = await api.settings.set({ screenReading: screen, screenReadingAsked: true, openAtLogin: startup });
       if (cancelled.current) return;
       setCelebrate(true);
       doneTimer.current = setTimeout(() => onDone(s), 1600);
@@ -228,6 +229,10 @@ export function Onboarding({ mode, initial, initialScreen, onDone, onCancel }: {
             {summaryFor(a).map((r) => (
               <div key={r.icon} className="ob-sum"><i style={{ background: r.color }}>{r.icon}</i><span>{r.text}{r.strong && <> <b>{r.strong}</b></>}</span></div>
             ))}
+          </div>
+          <div className="ob-screen ob-startup">
+            <span>Start Daylens when Windows starts<small>Opens quietly in the tray, so your day is tracked from the first minute.</small></span>
+            <button className={`sw${startup ? ' on' : ''}`} aria-label="Start Daylens when Windows starts" aria-pressed={startup} onClick={() => setStartup((v) => !v)} />
           </div>
           {error && <p className="ob-error" role="alert">{error}</p>}
           {nav(mode === 'redo' ? 'Save my answers ✨' : 'Start my day ✨', () => { void finish(); })}
