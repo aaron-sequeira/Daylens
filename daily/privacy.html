@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily — Privacy Policy</title>
+<style>
+  :root { --bg:#FBF8F4; --ink:#171717; --muted:#5E5953; --line:#E7DFD8; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:40px 20px 64px; }
+  h1 { font-size:32px; margin:0 0 4px; } h2 { font-size:20px; margin:32px 0 8px; }
+  p, li { color:var(--muted); } strong { color:var(--ink); }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:15px; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  a { color:var(--ink); }
+</style>
+</head>
+<body>
+<main>
+<h1>Daily — Privacy Policy</h1>
+<p>Last updated: 8 October 2026 · App: Daily (<code>com.aaronalex.daily</code>) · Developer: Aaron Alex Sequeira</p>
+
+<p><strong>Short version:</strong> Daily keeps what it records on your phone. It only sends data off the phone for the
+features you choose: an optional Google sign-in, and Daily Plus, which writes a story of your day from app names and
+minutes. We never see your messages, notifications, photos or what's on your screen. We don't sell data, show ads or use
+analytics or tracking SDKs.</p>
+
+<h2>What Daily records on your phone</h2>
+<p>With your permission (Android "Usage access"), Daily reads which apps you used, for how long, how often you picked up
+your phone and when your screen was on. It also stores your goals, reminders, moods you log, water breaks and the reports
+it writes. All of this is stored only on your device, kept for the period you choose in Settings (90 days by default) and
+removed with Settings → Delete everything or by uninstalling the app. App backups to the cloud are turned off.</p>
+<p>Daily does not read notification content, messages, contacts, location, photos, microphone or screen content.</p>
+
+<h2>What leaves your phone, and why</h2>
+<table>
+<tr><th>Data</th><th>When</th><th>Sent to</th><th>Why</th></tr>
+<tr><td>A random account ID</td><td>Always (created on first launch)</td><td>Supabase (our backend, hosted in the EU)</td><td>Identifies your subscription and AI usage limits. Not linked to your name unless you sign in.</td></tr>
+<tr><td>Google name, email and profile photo</td><td>Only if you choose "Continue with Google"</td><td>Google (to sign you in) and Supabase</td><td>So Daily Plus follows you to a new phone. Shown to you in Settings.</td></tr>
+<tr><td>App names, app categories, minutes, times of day, pickups, your goal, logged moods and water breaks for one day or week</td><td>Only with Daily Plus, when your daily or weekly story is written</td><td>Supabase → OpenRouter → an AI model provider (currently OpenAI or Google)</td><td>To write your story. Requests are sent with provider data collection turned off; the text is not stored on our servers after it is returned to you.</td></tr>
+<tr><td>Purchase and subscription status</td><td>When you buy, restore or open Daily Plus</td><td>Google Play and RevenueCat</td><td>To process payments and check whether Plus is active. Payment details are handled by Google Play; we never see your card.</td></tr>
+</table>
+<p>Our backend keeps only your account ID, a cache of whether Plus is active, and counts of how many AI stories you
+used (deleted after 40 days). All traffic is encrypted in transit (HTTPS).</p>
+
+<h2>Service providers</h2>
+<ul>
+<li><a href="https://supabase.com/privacy">Supabase</a> — account and backend hosting</li>
+<li><a href="https://openrouter.ai/privacy">OpenRouter</a> and the model provider it routes to — writing Daily Plus stories</li>
+<li><a href="https://www.revenuecat.com/privacy/">RevenueCat</a> — subscription management</li>
+<li><a href="https://policies.google.com/privacy">Google</a> — Google Play billing and Google sign-in</li>
+</ul>
+<p>We share data only with these providers, only for the purposes above. We do not sell or rent personal data, and we
+do not share it for advertising.</p>
+
+<h2>Your choices</h2>
+<ul>
+<li>Use Daily without signing in and without Daily Plus: then nothing about your day leaves your phone.</li>
+<li>Turn off Usage access in Android settings at any time; Daily stops recording.</li>
+<li>Export everything Daily stored (Settings → Export my data) or delete it (Settings → Delete everything).</li>
+<li>Sign out in Settings → Account.</li>
+<li>To delete your account and all server-side data (account ID, Google sign-in details, Plus cache and usage counts),
+email <a href="mailto:aaronalexsequeira@gmail.com?subject=Delete%20my%20Daily%20account">aaronalexsequeira@gmail.com</a>
+from the email you signed in with, or include the account ID. We delete it within 30 days. Cancel any subscription in
+Google Play first; Google and RevenueCat keep purchase records as required by law.</li>
+</ul>
+
+<h2>Children</h2>
+<p>Daily is not directed at children under 13 and we do not knowingly collect their data.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, we will update this page and the date above, and tell you in the app for significant changes.</p>
+
+<h2>Contact</h2>
+<p>Aaron Alex Sequeira · <a href="mailto:aaronalexsequeira@gmail.com">aaronalexsequeira@gmail.com</a></p>
+</main>
+</body>
+</html>
